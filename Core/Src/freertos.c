@@ -21,6 +21,7 @@
 #include "FreeRTOS.h"
 #include "task.h"
 #include "main.h"
+#include "debug_usart.h"
 #include "cmsis_os.h"
 
 /* Private includes ----------------------------------------------------------*/
@@ -115,9 +116,14 @@ void StartDefaultTask(void *argument)
 {
   /* USER CODE BEGIN StartDefaultTask */
   /* Infinite loop */
+  /* 调用 OPS 全局定位移动示例（参考开源底盘，建议每5ms调用）：
+     chassis_move(目标X, 目标Y, 目标航向角);
+     SetMotorVoltageAndDirection(SpeedTarget[0], SpeedTarget[1], SpeedTarget[2], SpeedTarget[3]);
+  */
   for(;;)
   {
-    osDelay(1);
+    DebugUsart_Send();
+    osDelay(20);
   }
   /* USER CODE END StartDefaultTask */
 }

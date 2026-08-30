@@ -1,0 +1,434 @@
+/**
+ ******************************************************************************
+ * @file    mecanum_control.c
+ * @brief   麦克纳姆轮底盘移动控制（硬件层）
+ *
+ * 
+ *
+ *          Chassis_task 每 5ms：
+ *            chassis_move(X_target, Y_target, Z_target);
+ *            SetMotorVoltageAndDirection(SpeedTarget[0..3]);
+ *
+ *          电机：ZDT_X42S Emm 速度模式，UART4，地址 1~4
+ *          反馈：OPS 全局定位 OPS_GetPosition()
+ *          控制：P 比例控制 + 数值限幅 + 速度斜坡 + 到位判断
+ ******************************************************************************
+ */
+#include "mecanum_control.h"
+#include "zdt_x42s.h"
+#include "ops.h"
+
+#include <math.h>
+#include <stdlib.h>
+
+/* --------------------------- 速度默认参数 -------------------------- */
+#define MECANUM_XYV_MAX_DEFAULT   1600.0f     // 单位：mm/s (X/Y轴)
+#define MECANUM_ZV_MAX_DEFAULT    750.0f      // 单位：mm/s (Z轴)
+#define MECANUM_XYV_MIN_DEFAULT   5.0f        // 单位：mm/s (X/Y轴)
+#define MECANUM_ZV_MIN_DEFAULT    5.0f        // 单位：mm/s (Z轴) 
+
+/* --------------------------- 参考工程参数 -------------------------- */
+
+
+/* 底盘定位 move Kp */
+float mKpx = 2.3f;
+float mKpy = 2.3f;
+float mKpz = 9.0f;
+
+/* 视觉微调 Kp（保留接口） */
+float vKpx = 1.2f;
+float vKpy = 1.2f;
+float vKpz = 2.4f;
+float cvKpz = 0.08f;
+
+/* 限幅值 */
+float XYVmax = 0.0f;
+float ZVmax  = 0.0f;
+float XYVmin = 0.0f;
+float ZVmin  = 0.0f;
+
+/* 四轮目标速度，供输出任务使用 */
+int SpeedTarget[4] = {0, 0, 0, 0};
+
+/* OPS 当前全局坐标 */
+float pos_x = 0.0f;
+float pos_y = 0.0f;
+float zangle = 0.0f;
+
+/* 上一层轮速，用于斜坡限制 */
+int last_Speed[4] = {0, 0, 0, 0};
+
+/* 到位状态 */
+uint8_t in_pos     = 0;
+uint8_t near_pos   = 0;
+uint8_t delay_pos  = 0;
+
+/* 当前误差，便于调试 */
+float devx = 0.0f;
+float devy = 0.0f;
+float devz = 0.0f;
+
+/* --------------------------- 电机命令 ------------------------------ */
+
+/**
+ * @brief  四轮目标速度清零
+ */
+void SpeedTarget_stop(void)
+{
+  SpeedTarget[0] = 0;
+  SpeedTarget[1] = 0;
+  SpeedTarget[2] = 0;
+  SpeedTarget[3] = 0;
+}
+
+/**
+ * @brief  向四个 ZDT_X42S 电机下发速度命令
+ * @param  MotorSpeed1~4 四轮目标速度，正负表示方向
+ */
+void SetMotorVoltageAndDirection(int MotorSpeed1, int MotorSpeed2,
+                                 int MotorSpeed3, int MotorSpeed4)
+{
+  int motor_speed[4];
+  uint8_t motor_addr[4] = {1U, 2U, 3U, 4U};
+  uint8_t i;
+
+  motor_speed[0] = MotorSpeed1;
+  motor_speed[1] = MotorSpeed2;
+  motor_speed[2] = MotorSpeed3;
+  motor_speed[3] = MotorSpeed4;
+
+  for (i = 0U; i < 4U; ++i)
+  {
+    uint8_t dir = ZDT_X42S_DIR_CW;
+    uint16_t rpm = 0U;
+
+    if (motor_speed[i] < 0)
+    {
+      dir = ZDT_X42S_DIR_CCW;
+      rpm = (uint16_t)(-motor_speed[i]);
+    }
+    else
+    {
+      rpm = (uint16_t)motor_speed[i];
+    }
+
+    /* Emm 速度模式：地址 + 0xF6 + 方向 + 速度 + 加速度0 + 同步 + 0x6B */
+    ZDT_X42S_SpeedAcc(motor_addr[i], dir, rpm, 0U);
+
+    /* 每条命令间隔 1ms，避免粘包 */
+    HAL_Delay(1U);
+  }
+}
+
+/* --------------------------- 数值限幅 ------------------------------ */
+
+/**
+ * @brief  数值限幅：死区 + 最小速度 + 最大速度
+ * @param  value    输入输出值
+ * @param  max      最大值
+ * @param  min      最小补偿速度
+ * @param  dead_zone 死区
+ */
+void numerical_limit(float *value, float max, float min, float dead_zone)
+{
+  if (value == NULL)
+  {
+    return;
+  }
+
+  if (*value > dead_zone)
+  {
+    *value += min;
+  }
+  else if (*value < -dead_zone)
+  {
+    *value -= min;
+  }
+
+  if (*value > max)
+  {
+    *value = max;
+  }
+  else if (*value < -max)
+  {
+    *value = -max;
+  }
+}
+
+/* ------------------------- OPS 位置闭环 ---------------------------- */
+
+/**
+ * @brief  底盘 OPS 全局定位移动（P 控制，参考开源底盘）
+ * @param  x 目标全局 X，单位 mm
+ * @param  y 目标全局 Y，单位 mm
+ * @param  z 目标航向角，单位 deg
+ * @note   调用本函数后还需周期调用 SetMotorVoltageAndDirection() 下发
+ */
+void chassis_move(int x, int y, int z)
+{
+  int speed[4] = {0, 0, 0, 0};
+  float vx1 = 0.0f;
+  float vy1 = 0.0f;
+  float vx2 = 0.0f;
+  float vy2 = 0.0f;
+  float vz  = 0.0f;
+  uint8_t i;
+
+
+  /* 刷新 OPS 当前坐标 */
+  (void)OPS_GetPosition(&pos_x, &pos_y, &zangle);
+
+  /* 当前坐标 - 目标坐标 */
+  devx = pos_x - (float)x;
+  devy = pos_y - (float)y;
+
+  /* 最短航向误差 */
+  if ((z * zangle < 0.0f) && (fabs((float)z) + fabs(zangle) > 180.0f))
+  {
+    devz = -(360.0f - fabs((float)z) - fabs(zangle));
+  }
+  else
+  {
+    devz = (float)z - zangle;
+  }
+
+  /* 按当前航向角把全局误差旋转到车体坐标系 */
+  vy1 = cosf(zangle * 3.1415926f / 180.0f) * mKpy * devy;
+  vx2 = sinf(zangle * 3.1415926f / 180.0f) * mKpy * devy;
+  numerical_limit(&vy1, XYVmax, XYVmin, 5.0f);
+  numerical_limit(&vx2, XYVmax, XYVmin, 5.0f);
+
+  vy2 = sinf(zangle * 3.1415926f / 180.0f) * mKpx * devx;
+  vx1 = cosf(zangle * 3.1415926f / 180.0f) * mKpx * devx;
+  numerical_limit(&vy2, XYVmax, XYVmin, 5.0f);
+  numerical_limit(&vx1, XYVmax, XYVmin, 5.0f);
+
+  vz = mKpz * devz;
+  numerical_limit(&vz, ZVmax, 0.0f, 5.0f);
+
+  /* 参考工程麦轮公式 */
+  speed[0] = (int)-(vy1 - vy2 + vx1 + vx2 + vz);
+  speed[1] = (int) (vy1 - vy2 - vx1 - vx2 - vz);
+  speed[2] = (int)-(vy1 - vy2 - vx1 - vx2 + vz);
+  speed[3] = (int) (vy1 - vy2 + vx1 + vx2 - vz);
+
+  /* 速度斜坡限制 */
+  for (i = 0U; i < 4U; ++i)
+  {
+    if ((speed[i] > 0) && (speed[i] > last_Speed[i]))
+    {
+      speed[i] = last_Speed[i] + 20;
+    }
+    else if ((speed[i] < 0) && (speed[i] < last_Speed[i]))
+    {
+      speed[i] = last_Speed[i] - 20;
+    }
+
+    SpeedTarget[i] = (int)(speed[i] * 0.238f);
+    last_Speed[i]  = speed[i];
+  }
+
+  /* 到位判断 */
+  if ((devx < 100.0f) && (devx > -100.0f) &&
+      (devy < 100.0f) && (devy > -100.0f) &&
+      (devz < 30.0f) && (devz > -30.0f))
+  {
+    near_pos = 1U;
+  }
+
+  if ((devx < 60.0f) && (devx > -60.0f) &&
+      (devy < 60.0f) && (devy > -60.0f) &&
+      (devz < 15.0f) && (devz > -15.0f))
+  {
+    if (delay_pos < 255U)
+    {
+      ++delay_pos;
+    }
+  }
+  else
+  {
+    delay_pos = 0U;
+  }
+
+  if (delay_pos > 10U)
+  {
+    in_pos = 1U;
+  }
+  else
+  {
+    in_pos = 0U;
+  }
+}
+
+/**
+ * @brief  底盘原地转动
+ * @param  z 目标航向角，单位 deg
+ */
+void chassis_turn(int z)
+{
+  chassis_move((int)pos_x, (int)pos_y, z);
+}
+
+/* --------------------------- 封装接口 ------------------------------ */
+
+/**
+ * @brief  初始化底盘控制器
+ */
+void MecanumControl_Init(void)
+{
+  SpeedTarget_stop();
+
+  /* 速度限幅默认值，可通过 USART1 调试命令在线修改 */
+  XYVmax = MECANUM_XYV_MAX_DEFAULT;
+  ZVmax  = MECANUM_ZV_MAX_DEFAULT;
+  XYVmin = MECANUM_XYV_MIN_DEFAULT;
+  ZVmin  = MECANUM_ZV_MIN_DEFAULT;
+
+
+  pos_x     = 0.0f;
+  pos_y     = 0.0f;
+  zangle    = 0.0f;
+  last_Speed[0] = 0;
+  last_Speed[1] = 0;
+  last_Speed[2] = 0;
+  last_Speed[3] = 0;
+
+  in_pos    = 0U;
+  near_pos  = 0U;
+  delay_pos = 0U;
+
+  devx = 0.0f;
+  devy = 0.0f;
+  devz = 0.0f;
+}
+
+/**
+ * @brief  使能四个电机
+ */
+void MecanumControl_Enable(void)
+{
+  ZDT_X42S_Enable(1U);
+  ZDT_X42S_Enable(2U);
+  ZDT_X42S_Enable(3U);
+  ZDT_X42S_Enable(4U);
+
+  HAL_Delay(100U);
+}
+
+/**
+ * @brief  停止底盘并清零目标
+ */
+void MecanumControl_Stop(void)
+{
+  SpeedTarget_stop();
+  SetMotorVoltageAndDirection(0, 0, 0, 0);
+
+  last_Speed[0] = 0;
+  last_Speed[1] = 0;
+  last_Speed[2] = 0;
+  last_Speed[3] = 0;
+
+  in_pos    = 0U;
+  near_pos  = 0U;
+  delay_pos = 0U;
+}
+
+/**
+ * @brief  车体坐标系直接速度移动
+ * @param  vxRpm 前后速度，RPM
+ * @param  vyRpm 左右速度，RPM
+ * @param  vzRpm 旋转速度，RPM
+ */
+void MecanumControl_MoveVelocity(float vxRpm, float vyRpm, float vzRpm)
+{
+  /* O 型麦轮正解 */
+  int32_t wheel[4];
+
+  wheel[0] = (int32_t)-(vxRpm + vyRpm + vzRpm);
+  wheel[1] = (int32_t) (vxRpm - vyRpm - vzRpm);
+  wheel[2] = (int32_t)-(vxRpm - vyRpm + vzRpm);
+  wheel[3] = (int32_t) (vxRpm + vyRpm - vzRpm);
+
+  SetMotorVoltageAndDirection((int)wheel[0], (int)wheel[1],
+                              (int)wheel[2], (int)wheel[3]);
+}
+
+/**
+ * @brief  基于 OPS 全局定位执行一次 GOTO 控制
+ * @return 1 到位，0 未到位
+ */
+uint8_t MecanumControl_GotoOPS(float targetX, float targetY, float targetYaw, float maxRpm)
+{
+  /* maxRpm>0 时按 RPM 换算最大控制量；传 0 则使用全局限幅（可由调试命令修改） */
+  if (maxRpm > 0.0f)
+  {
+    XYVmax = maxRpm / 0.238f;
+    ZVmax  = XYVmax * (750.0f / 1600.0f);
+  }
+
+  /* 无有效 OPS 数据时禁止移动 */
+  if (OPS_GetData()->valid_count == 0U)
+  {
+    MecanumControl_Stop();
+    return 0U;
+  }
+
+  chassis_move((int)targetX, (int)targetY, (int)targetYaw);
+  SetMotorVoltageAndDirection(SpeedTarget[0], SpeedTarget[1],
+                              SpeedTarget[2], SpeedTarget[3]);
+
+  return (in_pos != 0U) ? 1U : 0U;
+}
+
+/**
+ * @brief  GotoOPS 兼容别名
+ */
+uint8_t MecanumControl_MoveTo(float targetX, float targetY, float targetYaw, float maxRpm)
+{
+  return MecanumControl_GotoOPS(targetX, targetY, targetYaw, maxRpm);
+}
+
+/**
+ * @brief  读取 OPS 当前位姿
+ */
+void MecanumControl_GetPose(float *x, float *y, float *yaw)
+{
+  (void)OPS_GetPosition(x, y, yaw);
+}
+
+/**
+ * @brief  设置 X/Y 轴 P 控制比例系数
+ */
+void MecanumControl_SetPid(float kp, float ki, float kd)
+{
+  (void)ki;
+  (void)kd;
+  mKpx = kp;
+  mKpy = kp;
+}
+
+/**
+ * @brief  设置 Z 轴 P 控制比例系数
+ */
+void MecanumControl_SetYawPid(float kp, float ki, float kd)
+{
+  (void)ki;
+  (void)kd;
+  mKpz = kp;
+}
+
+/**
+ * @brief  查询是否进入较大目标窗口
+ */
+uint8_t MecanumControl_IsNearTarget(void)
+{
+  return near_pos;
+}
+
+/**
+ * @brief  查询是否进入最终目标窗口并保持足够次数
+ */
+uint8_t MecanumControl_IsInTarget(void)
+{
+  return in_pos;
+}

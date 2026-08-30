@@ -596,6 +596,26 @@
         <Group>
           <GroupName>Hardware</GroupName>
           <Files>
+          <File>
+            <FileName>ops.c</FileName>
+            <FileType>1</FileType>
+            <FilePath>../Hardware/ops.c</FilePath>
+          </File>
+          <File>
+            <FileName>debug_usart.c</FileName>
+            <FileType>1</FileType>
+            <FilePath>../Hardware/debug_usart.c</FilePath>
+          </File>
+          <File>
+            <FileName>zdt_x42s.c</FileName>
+            <FileType>1</FileType>
+            <FilePath>../Hardware/zdt_x42s.c</FilePath>
+          </File>
+          <File>
+            <FileName>mecanum_control.c</FileName>
+            <FileType>1</FileType>
+            <FilePath>../Hardware/mecanum_control.c</FilePath>
+          </File>
           </Files>
         </Group>
       </Groups>

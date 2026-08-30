@@ -58,6 +58,9 @@
 extern DMA_HandleTypeDef hdma_usart1_rx;
 extern DMA_HandleTypeDef hdma_usart1_tx;
 extern UART_HandleTypeDef huart1;
+extern DMA_HandleTypeDef hdma_usart2_rx;
+extern UART_HandleTypeDef huart2;
+extern UART_HandleTypeDef huart4;
 extern TIM_HandleTypeDef htim7;
 
 /* USER CODE BEGIN EV */
@@ -217,6 +220,32 @@ void DMA2_Stream7_IRQHandler(void)
 
   /* USER CODE END DMA2_Stream7_IRQn 1 */
 }
+
+/**
+  * @brief USART2 全局中断处理函数
+  */
+void USART2_IRQHandler(void)
+{
+  HAL_UART_IRQHandler(&huart2);
+}
+
+/**
+  * @brief DMA1 数据流5 全局中断处理函数
+  */
+void DMA1_Stream5_IRQHandler(void)
+{
+  HAL_DMA_IRQHandler(&hdma_usart2_rx);
+}
+
+
+/**
+  * @brief UART4 全局中断处理函数
+  */
+void UART4_IRQHandler(void)
+{
+  HAL_UART_IRQHandler(&huart4);
+}
+
 
 /* USER CODE BEGIN 1 */
 

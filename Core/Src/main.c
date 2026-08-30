@@ -27,6 +27,10 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "debug_usart.h"
+#include "zdt_x42s.h"
+#include "mecanum_control.h"
+#include "ops.h"
 
 /* USER CODE END Includes */
 
@@ -99,7 +103,13 @@ int main(void)
   MX_TIM6_Init();
   MX_USART2_UART_Init();
   MX_USART3_UART_Init();
+  MX_UART4_Init();
   /* USER CODE BEGIN 2 */
+  /* OPS 定位模块初始化（USART2 空闲中断 + DMA 接收） */
+  OPS_Init();
+  MecanumControl_Init();
+  MecanumControl_Enable();
+  DebugUsart_Init();
 
   /* USER CODE END 2 */
 
