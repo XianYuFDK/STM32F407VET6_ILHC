@@ -27,6 +27,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "hcan.h"
 #include "debug_usart.h"
 #include "zdt_x42s.h"
 #include "mecanum_control.h"
@@ -105,6 +106,12 @@ int main(void)
   MX_USART3_UART_Init();
   MX_UART4_Init();
   /* USER CODE BEGIN 2 */
+  /* 启动 CAN1；失败时进入统一错误处理，避免静默运行 */
+  if (CAN_Start(&hcan1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
   /* OPS 定位模块初始化（USART2 空闲中断 + DMA 接收） */
   OPS_Init();
   MecanumControl_Init();

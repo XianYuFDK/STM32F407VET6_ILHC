@@ -35,6 +35,7 @@ extern "C" {
 #define OPS_STATUS_OK               1U
 #define OPS_STATUS_HEADER_ERR       2U
 #define OPS_STATUS_CRC_ERR          3U
+#define OPS_STATUS_DATA_ERR         4U
 
 /* ---------------------------- 帧结构体 ---------------------------- */
 #if defined(__CC_ARM) || defined(__ARMCC_VERSION)
@@ -58,6 +59,7 @@ typedef struct
   volatile uint32_t valid_count; /* 成功解析帧数     */
   volatile uint32_t error_count; /* 帧头/CRC 失败数  */
   volatile uint8_t  status;      /* 最近一次解析状态 */
+  volatile uint32_t last_update_tick; /* 最近有效帧时间，单位 ms */
 
   /* 坐标清零相关参数 */
   float             origin_x;     /* 零点对应的绝对 X 坐标  */
@@ -76,6 +78,7 @@ uint8_t OPS_GetPosition(float *x, float *y, float *z);        /* 读取清零后
 uint8_t OPS_GetAbsolutePosition(float *x, float *y, float *z); /* 读取 OPS 原始绝对坐标        */
 uint8_t OPS_IsNew(void);                                  /* 是否有新数据                         */
 void    OPS_ClearNew(void);                               /* 清除新数据标志                       */
+uint8_t OPS_IsOnline(uint32_t timeout_ms);                 /* 定位数据是否在超时时间内更新         */
 
 void OPS_ZeroCoordinates(void);                            /* 以当前 OPS 坐标作为零点               */
 void OPS_ClearZero(void);                                   /* 取消清零，恢复原始绝对坐标            */

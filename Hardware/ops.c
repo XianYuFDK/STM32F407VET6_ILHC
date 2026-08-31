@@ -22,6 +22,7 @@
  */
 #include "ops.h"
 #include "usart.h"
+#include <math.h>
 #include <string.h>
 
 /* ---------------------------- 私有变量 ---------------------------- */
@@ -92,7 +93,16 @@ static uint8_t OPS_VerifyCRC8(const uint8_t *buf, uint16_t len)
  */
 static HAL_StatusTypeDef OPS_RestartReceive(void)
 {
-  return HAL_UARTEx_ReceiveToIdle_DMA(&huart2, s_rx_buf, OPS_FRAME_LEN);
+  HAL_StatusTypeDef status;
+
+  status = HAL_UARTEx_ReceiveToIdle_DMA(&huart2, s_rx_buf, OPS_FRAME_LEN);
+  if ((status == HAL_OK) && (huart2.hdmarx != NULL))
+  {
+    /* 定长 14 字节帧不需要 7 字节半传输回调 */
+    __HAL_DMA_DISABLE_IT(huart2.hdmarx, DMA_IT_HT);
+  }
+
+  return status;
 }
 
 /**
@@ -106,6 +116,7 @@ static HAL_StatusTypeDef OPS_RestartReceive(void)
 static uint8_t OPS_CopyPosition(float *x, float *y, float *z, uint8_t absolute)
 {
   uint8_t is_new;
+  uint32_t primask;
 
   if ((x == NULL) || (y == NULL) || (z == NULL))
   {
@@ -113,6 +124,7 @@ static uint8_t OPS_CopyPosition(float *x, float *y, float *z, uint8_t absolute)
   }
 
   /* 关中断拷贝，保证与接收中断无竞争 */
+  primask = __get_PRIMASK();
   __disable_irq();
 
   if (absolute != 0U)
@@ -137,7 +149,10 @@ static uint8_t OPS_CopyPosition(float *x, float *y, float *z, uint8_t absolute)
 
   is_new     = s_new_flag;
   s_new_flag = 0U;
-  __enable_irq();
+  if (primask == 0U)
+  {
+    __enable_irq();
+  }
 
   return is_new;
 }
@@ -181,7 +196,8 @@ void OPS_Init(void)
   /* 等待 OPS 模块启动 */
   HAL_Delay(500U);
   (void)OPS_SendCommand(OPS_CMD_MODE_INIT);
-  HAL_Delay(20U);
+  /* 0x22 会触发 OPS 控制器复位，等待其重新启动 */
+  HAL_Delay(500U);
   (void)OPS_SendCommand(OPS_CMD_MODE_START);
 
   /* 启动空闲中断 + DMA 接收 */
@@ -239,22 +255,45 @@ void OPS_ClearNew(void)
 }
 
 /**
+ * @brief  判断 OPS 定位数据是否在线
+ * @param  timeout_ms 允许的最大更新时间间隔
+ * @retval 1 在线，0 尚无数据或数据已超时
+ */
+uint8_t OPS_IsOnline(uint32_t timeout_ms)
+{
+  uint32_t last_tick = s_ops.last_update_tick;
+
+  if (s_ops.valid_count == 0U)
+  {
+    return 0U;
+  }
+
+  return ((uint32_t)(HAL_GetTick() - last_tick) <= timeout_ms) ? 1U : 0U;
+}
+
+/**
  * @brief  以当前 OPS 位置作为坐标零点
  * @note   必须收到过有效 OPS 帧后调用；清零后：
  *          X = 零点X - OPS绝对X，Y = 零点Y - OPS绝对Y，Z 保持绝对航向角
  */
 void OPS_ZeroCoordinates(void)
 {
+  uint32_t primask;
+
   if (s_ops.valid_count == 0U)
   {
     return; /* 尚未收到有效数据，不执行清零 */
   }
 
+  primask = __get_PRIMASK();
   __disable_irq();
   s_ops.origin_x     = s_ops.frame.x;
   s_ops.origin_y     = s_ops.frame.y;
   s_ops.zero_enabled = 1U;
-  __enable_irq();
+  if (primask == 0U)
+  {
+    __enable_irq();
+  }
 }
 
 /**
@@ -272,11 +311,16 @@ void OPS_ClearZero(void)
  */
 void OPS_SetOrigin(float x, float y)
 {
+  uint32_t primask = __get_PRIMASK();
+
   __disable_irq();
   s_ops.origin_x     = x;
   s_ops.origin_y     = y;
   s_ops.zero_enabled = 1U;
-  __enable_irq();
+  if (primask == 0U)
+  {
+    __enable_irq();
+  }
 }
 
 /**
@@ -297,6 +341,8 @@ uint8_t OPS_IsZeroEnabled(void)
  */
 void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
 {
+  OPS_Frame_t frame;
+
   /* 仅处理 USART2 */
   if (huart->Instance != USART2)
   {
@@ -308,10 +354,24 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
   {
     if (OPS_VerifyCRC8(s_rx_buf, OPS_FRAME_LEN) != 0U)
     {
-      memcpy(&s_ops.frame, s_rx_buf, sizeof(OPS_Frame_t));
-      s_ops.valid_count++;
-      s_ops.status = OPS_STATUS_OK;
-      s_new_flag   = 1U;
+      memcpy(&frame, s_rx_buf, sizeof(OPS_Frame_t));
+
+      /* 拒绝 NaN、无穷值和明显越界值，避免异常数据进入运动解算 */
+      if ((frame.x == frame.x) && (frame.y == frame.y) && (frame.z == frame.z) &&
+          (fabsf(frame.x) < 1000.0f) && (fabsf(frame.y) < 1000.0f) &&
+          (fabsf(frame.z) < 1000000.0f))
+      {
+        memcpy(&s_ops.frame, &frame, sizeof(OPS_Frame_t));
+        s_ops.valid_count++;
+        s_ops.last_update_tick = HAL_GetTick();
+        s_ops.status = OPS_STATUS_OK;
+        s_new_flag   = 1U;
+      }
+      else
+      {
+        s_ops.error_count++;
+        s_ops.status = OPS_STATUS_DATA_ERR;
+      }
     }
     else
     {

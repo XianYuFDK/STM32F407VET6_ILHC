@@ -8,6 +8,10 @@
 - 头文件在工程中已加入包含路径：`../Hardware`（Keil 与 EIDE 均已配置）。
 - 新增源文件后，请在 EIDE 工程（`.eide/eide.yml`）的 `virtualFolder` 中把对应的 `.c` 文件加入，或在 Keil 工程中把文件加入 `Hardware` 分组。
 
+## 调试指令手册
+
+- [调试指令手册.md](调试指令手册.md)
+
 ## OPS 定位驱动
 
 - ops.c / ops.h：OPS 全局定位模块接收与解析驱动
@@ -29,6 +33,7 @@
   - OPS 全局定位 GOTO：MecanumControl_GotoOPS(x, y, yaw, maxRpm)
   - 参考开源底盘：chassis_move(x, y, z) + SetMotorVoltageAndDirection(SpeedTarget[0..3])
   - 通过 OPS_GetPosition() 读取定位反馈，P 比例控制 + 斜坡限制 + 到位判断
+  - OPS 原始 m/rad 在底盘层统一转换为 mm/deg，定位数据超过 200ms 未更新自动停车
 - 调用顺序：MX_UART4_Init -> OPS_Init -> MecanumControl_Init -> MecanumControl_Enable
 
 ## USART1 调试模块
@@ -38,4 +43,38 @@
   - TX：DMA 发送 VOFA+ JustFloat 数据帧
   - RX：DMA 空闲中断接收 ASCII 命令
   - 命令示例：KPX=3.0、KPY=3.0、KPZ=10.0、XVMAX=1600、ZVMAX=750、STOP、ZERO
-  - 参数表在 debug_usart.c 中集中管理，新增参数只需添加一行
+  - DM 电机命令：DMID=1、DMEN、DMOFF、DMSTOP、DMZERO
+  - DM 控制命令：DMMODE=1/2、DMPOS=3.14、DMVEL=2、DMKP=2、DMKD=1、DMTOR=0.5
+  - VOFA+ 通道：0~11 为底盘，12~23 为 DM（ID/位置/速度/力矩/状态/温度/目标值）
+  - 标准 JustFloat：24×float32 + 4 字节帧尾；上位机每 200ms 自动发送 PING 心跳
+  - 参数表在 debug_usart.c 中集中管理，新增参数只需添加一项
+## CAN 协议模块
+
+- hcan.c / hcan.h：移植自 tower/hcan.c
+  - CAN1：滤波全接收 + FIFO0 接收中断
+  - 标准帧：CAN_SendData(hcan, ID, data, len)
+  - 扩展帧：CAN_SendEXData(hcan, ID, data, len)
+  - 长数据分包：Can_SendCmd(ID, data, len)，每包最多 8 字节
+  - 接收：HCan_GetRxFrame(&frame) 读取最近一帧
+  - CAN 波特率：1 Mbps（Prescaler=6, BS1=3TQ, BS2=3TQ）
+## DM-J4310-2EC V1.1 驱动层（仅驱动，无应用层）
+
+当前只保留 DM 电机驱动层，塔吊应用层已删除。
+
+- dm_j4310.c / dm_j4310.h：达妙 DM-J4310-2EC V1.1 关节电机 CAN 驱动
+  - 移植自 GitHub：https://github.com/dmBots/motor-control-routine
+  - 参考源码：stm32例程/DMMotor_freertos.rar/User/bsp_can.c
+  - 支持 MIT 模式、位置速度模式、使能/失能、零点保存、反馈解析
+  - 支持控制模式寄存器 10 切换：MIT=1、位置速度=2
+  - CAN1 1Mbps，标准帧；位置速度模式命令 ID = 电机 ID + 0x100
+  - P_MAX/V_MAX/T_MAX 宏在 dm_j4310.h 中，需与电机调试工具一致
+
+### 对外接口
+
+- DmJ4310_MITControl(canId, pos, vel, kp, kd, torque)
+- DmJ4310_PosVelControl(canId, pos, vel)
+- DmJ4310_SetControlMode(canId, mode)
+- DmJ4310_Enable(canId)
+- DmJ4310_Disable(canId)
+- DmJ4310_SetZero(canId)
+- DmJ4310_DecodeFeedback(data, len, &feedback)

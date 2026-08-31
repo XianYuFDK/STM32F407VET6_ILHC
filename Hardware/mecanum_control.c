@@ -5,7 +5,7 @@
  *
  * 
  *
- *          Chassis_task 每 5ms：
+ *          当前工程控制任务每 20ms：
  *            chassis_move(X_target, Y_target, Z_target);
  *            SetMotorVoltageAndDirection(SpeedTarget[0..3]);
  *
@@ -26,6 +26,8 @@
 #define MECANUM_ZV_MAX_DEFAULT    750.0f      // 单位：mm/s (Z轴)
 #define MECANUM_XYV_MIN_DEFAULT   5.0f        // 单位：mm/s (X/Y轴)
 #define MECANUM_ZV_MIN_DEFAULT    5.0f        // 单位：mm/s (Z轴) 
+#define MECANUM_OPS_TIMEOUT_MS    200U        // OPS 数据超过该时间未更新则停车
+#define MECANUM_RAD_TO_DEG        57.2957795f
 
 /* --------------------------- 参考工程参数 -------------------------- */
 
@@ -69,6 +71,33 @@ float devy = 0.0f;
 float devz = 0.0f;
 
 /* --------------------------- 电机命令 ------------------------------ */
+
+/**
+ * @brief  从 OPS 刷新位姿，并统一转换为 mm / deg
+ * @note   OPS9 原始输出为 m / rad，航向角可能连续累计
+ */
+static void MecanumControl_UpdatePose(void)
+{
+  float raw_x;
+  float raw_y;
+  float raw_yaw;
+  int32_t whole_turns;
+
+  (void)OPS_GetPosition(&raw_x, &raw_y, &raw_yaw);
+  pos_x = raw_x * 1000.0f;
+  pos_y = raw_y * 1000.0f;
+  zangle = raw_yaw * MECANUM_RAD_TO_DEG;
+  whole_turns = (int32_t)(zangle / 360.0f);
+  zangle -= (float)whole_turns * 360.0f;
+  if (zangle > 180.0f)
+  {
+    zangle -= 360.0f;
+  }
+  else if (zangle < -180.0f)
+  {
+    zangle += 360.0f;
+  }
+}
 
 /**
  * @brief  四轮目标速度清零
@@ -176,20 +205,21 @@ void chassis_move(int x, int y, int z)
 
 
   /* 刷新 OPS 当前坐标 */
-  (void)OPS_GetPosition(&pos_x, &pos_y, &zangle);
+  MecanumControl_UpdatePose();
 
   /* 当前坐标 - 目标坐标 */
   devx = pos_x - (float)x;
   devy = pos_y - (float)y;
 
-  /* 最短航向误差 */
-  if ((z * zangle < 0.0f) && (fabs((float)z) + fabs(zangle) > 180.0f))
+  /* 最短航向误差，统一到 [-180, 180] */
+  devz = (float)z - zangle;
+  while (devz > 180.0f)
   {
-    devz = -(360.0f - fabs((float)z) - fabs(zangle));
+    devz -= 360.0f;
   }
-  else
+  while (devz < -180.0f)
   {
-    devz = (float)z - zangle;
+    devz += 360.0f;
   }
 
   /* 按当前航向角把全局误差旋转到车体坐标系 */
@@ -234,6 +264,10 @@ void chassis_move(int x, int y, int z)
       (devz < 30.0f) && (devz > -30.0f))
   {
     near_pos = 1U;
+  }
+  else
+  {
+    near_pos = 0U;
   }
 
   if ((devx < 60.0f) && (devx > -60.0f) &&
@@ -367,7 +401,7 @@ uint8_t MecanumControl_GotoOPS(float targetX, float targetY, float targetYaw, fl
   }
 
   /* 无有效 OPS 数据时禁止移动 */
-  if (OPS_GetData()->valid_count == 0U)
+  if (OPS_IsOnline(MECANUM_OPS_TIMEOUT_MS) == 0U)
   {
     MecanumControl_Stop();
     return 0U;
@@ -393,7 +427,11 @@ uint8_t MecanumControl_MoveTo(float targetX, float targetY, float targetYaw, flo
  */
 void MecanumControl_GetPose(float *x, float *y, float *yaw)
 {
-  (void)OPS_GetPosition(x, y, yaw);
+  MecanumControl_UpdatePose();
+
+  if (x != NULL)   { *x = pos_x; }
+  if (y != NULL)   { *y = pos_y; }
+  if (yaw != NULL) { *yaw = zangle; }
 }
 
 /**

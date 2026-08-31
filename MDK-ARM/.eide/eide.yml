@@ -11,6 +11,8 @@ virtualFolder:
     - name: Hardware
       files:
         - path: ../Hardware/ops.c
+        - path: ../Hardware/hcan.c
+        - path: ../Hardware/dm_j4310.c
         - path: ../Hardware/debug_usart.c
         - path: ../Hardware/zdt_x42s.c
         - path: ../Hardware/mecanum_control.c

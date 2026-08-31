@@ -116,7 +116,7 @@ void StartDefaultTask(void *argument)
 {
   /* USER CODE BEGIN StartDefaultTask */
   /* Infinite loop */
-  /* 调用 OPS 全局定位移动示例（参考开源底盘，建议每5ms调用）：
+  /* 调用 OPS 全局定位移动示例（当前串口输出结构建议每20ms调用）：
      chassis_move(目标X, 目标Y, 目标航向角);
      SetMotorVoltageAndDirection(SpeedTarget[0], SpeedTarget[1], SpeedTarget[2], SpeedTarget[3]);
   */
@@ -132,4 +132,3 @@ void StartDefaultTask(void *argument)
 /* USER CODE BEGIN Application */
 
 /* USER CODE END Application */
-
