@@ -1,0 +1,285 @@
+* {
+    font-family: "Microsoft YaHei UI", "Segoe UI", sans-serif;
+    font-size: 10pt;
+    color: #DCE3ED;
+}
+
+QMainWindow, QWidget {
+    background: #14181E;
+}
+
+QFrame#TopBar {
+    background: #191E25;
+    border-bottom: 1px solid #2A313A;
+}
+QFrame#Sidebar {
+    background: #171B21;
+    border-right: 1px solid #252C35;
+}
+QFrame#Content {
+    background: #14181E;
+}
+QFrame#Footer {
+    background: #171B21;
+    border-top: 1px solid #252C35;
+}
+QFrame#Panel, QFrame#StatCard, QFrame#ParamRow {
+    background: #1E232B;
+    border: 1px solid #2B333D;
+    border-radius: 10px;
+}
+QFrame#ParamRow:hover {
+    border-color: #3B4654;
+    background: #222831;
+}
+
+QLabel#AppTitle {
+    font-size: 15pt;
+    font-weight: 700;
+    letter-spacing: 1px;
+    color: #F2F6FA;
+}
+QLabel#AppSubtitle,
+QLabel#PageSubtitle,
+QLabel#AppSubtitle,
+QLabel#HintLabel,
+QLabel#PathLabel,
+QLabel#VersionLabel,
+QLabel#CardUnit,
+QLabel#ParamDesc,
+QLabel#SidebarSection {
+    color: #8F9BAB;
+}
+QLabel#SidebarSection {
+    font-size: 8pt;
+    font-weight: 700;
+    letter-spacing: 1px;
+    padding: 4px 8px;
+}
+QLabel#PageTitle {
+    font-size: 18pt;
+    font-weight: 700;
+    color: #F5F8FB;
+}
+QLabel#SectionTitle {
+    font-size: 10pt;
+    font-weight: 700;
+    color: #BFC9D5;
+    letter-spacing: 1px;
+}
+QLabel#CardTitle {
+    font-size: 9pt;
+    color: #8F9BAB;
+}
+QLabel#CardValue {
+    font-family: "Consolas", "JetBrains Mono", monospace;
+    font-size: 19pt;
+    font-weight: 700;
+    color: #F5F8FB;
+}
+QLabel#CardUnit {
+    font-size: 9pt;
+    padding-top: 9px;
+}
+QLabel#HealthItem {
+    padding: 7px 4px;
+    border-bottom: 1px solid #2A313A;
+    color: #BFC9D5;
+}
+QLabel#ParamCmd {
+    font-family: "Consolas", monospace;
+    font-weight: 700;
+    color: #4FC3F7;
+}
+QLabel#Readback {
+    font-family: "Consolas", monospace;
+    color: #7DDAA3;
+}
+QLabel#StatusPill {
+    background: #232A33;
+    border: 1px solid #323B47;
+    border-radius: 14px;
+    padding: 5px 10px;
+    font-weight: 600;
+}
+QLabel#StatusPill[state="ok"] { color: #5AD68A; border-color: #315D45; background: #1A2B22; }
+QLabel#StatusPill[state="warn"] { color: #FFB74D; border-color: #66512C; background: #2B2519; }
+QLabel#StatusPill[state="error"] { color: #FF7078; border-color: #6A3438; background: #2C1D20; }
+QLabel#StatusPill[state="sim"] { color: #57D7D0; border-color: #2D5D5A; background: #192928; }
+QLabel#StatusPill[state="idle"] { color: #8F9BAB; }
+
+QPushButton {
+    background: #252C35;
+    border: 1px solid #343E49;
+    border-radius: 7px;
+    padding: 7px 12px;
+    color: #DCE3ED;
+}
+QPushButton:hover {
+    background: #303944;
+    border-color: #465361;
+}
+QPushButton:pressed {
+    background: #1C2229;
+}
+QPushButton[nav="true"] {
+    text-align: left;
+    border: none;
+    background: transparent;
+    color: #98A5B4;
+    padding: 10px 12px;
+    border-radius: 8px;
+}
+QPushButton[nav="true"]:hover {
+    background: #202630;
+    color: #E2E8EF;
+}
+QPushButton[nav="true"][active="true"] {
+    background: #203442;
+    color: #65CCF5;
+    font-weight: 700;
+    border-left: 3px solid #4FC3F7;
+}
+QPushButton#PrimaryButton,
+QPushButton#SmallPrimary,
+QPushButton#ConnectButton {
+    background: #1E5B7A;
+    border-color: #28789E;
+    color: #EAF8FF;
+    font-weight: 700;
+}
+QPushButton#PrimaryButton:hover,
+QPushButton#SmallPrimary:hover,
+QPushButton#ConnectButton:hover {
+    background: #246F94;
+}
+QPushButton#SuccessButton {
+    background: #215A3B;
+    border-color: #2F7A51;
+    color: #DFF8E9;
+    font-weight: 700;
+}
+QPushButton#WarningButton {
+    background: #674719;
+    border-color: #8A6125;
+    color: #FFE9C1;
+    font-weight: 700;
+}
+QPushButton#EmergencyButton,
+QPushButton#RecordButton {
+    background: #722C33;
+    border-color: #9A3A43;
+    color: #FFE6E8;
+    font-weight: 700;
+}
+QPushButton#EmergencyButton:hover,
+QPushButton#RecordButton:hover {
+    background: #89363E;
+}
+
+QComboBox, QLineEdit, QDoubleSpinBox, QSpinBox {
+    background: #171B21;
+    border: 1px solid #343E49;
+    border-radius: 6px;
+    padding: 6px 8px;
+    selection-background-color: #295C78;
+}
+QComboBox:hover, QLineEdit:hover, QDoubleSpinBox:hover, QSpinBox:hover {
+    border-color: #4A5968;
+}
+QComboBox::drop-down {
+    width: 22px;
+    border: none;
+}
+QComboBox QAbstractItemView {
+    background: #1D232B;
+    border: 1px solid #343E49;
+    selection-background-color: #29475B;
+    outline: none;
+}
+
+QSlider::groove:horizontal {
+    height: 5px;
+    background: #303843;
+    border-radius: 2px;
+}
+QSlider::sub-page:horizontal {
+    background: #3C8FB8;
+    border-radius: 2px;
+}
+QSlider::handle:horizontal {
+    width: 14px;
+    margin: -5px 0;
+    border-radius: 7px;
+    background: #63C7EE;
+    border: 1px solid #8AD8F5;
+}
+
+QTreeWidget {
+    background: #171B21;
+    border: 1px solid #2D3540;
+    border-radius: 7px;
+    outline: none;
+}
+QTreeWidget::item {
+    padding: 5px 3px;
+}
+QTreeWidget::item:selected {
+    background: #28495D;
+}
+
+QScrollArea {
+    border: none;
+    background: transparent;
+}
+QScrollBar:vertical {
+    background: transparent;
+    width: 9px;
+    margin: 1px;
+}
+QScrollBar::handle:vertical {
+    background: #3B4551;
+    min-height: 28px;
+    border-radius: 4px;
+}
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+    height: 0px;
+}
+
+QTextEdit#Console {
+    background: #101318;
+    border: 1px solid #2B333D;
+    border-radius: 9px;
+    font-family: "Consolas", "JetBrains Mono", monospace;
+    font-size: 9.5pt;
+    selection-background-color: #29475B;
+}
+
+QLabel#DmStatus {
+    background: #20262E;
+    border: 1px solid #343E49;
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-weight: 700;
+    color: #8F9BAB;
+}
+QLabel#DmStatus[enabled="true"] {
+    color: #5AD68A;
+    border-color: #315D45;
+    background: #1A2B22;
+}
+QLabel#DmStatus[fault="true"] {
+    color: #FF7078;
+    border-color: #6A3438;
+    background: #2C1D20;
+}
+QLabel#RecordState {
+    font-size: 15pt;
+    font-weight: 700;
+}
+
+QGraphicsView#FieldView {
+    background: #11151A;
+    border: 1px solid #2B333D;
+    border-radius: 10px;
+}

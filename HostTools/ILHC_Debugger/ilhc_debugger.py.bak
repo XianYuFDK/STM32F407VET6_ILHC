@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-ILHC 调试上位机 v1.1
+ILHC 调试上位机 v1.0
 ======================================================================
 配套工程：STM32F407VET6_ILHC（Hardware/debug_usart.c 调试模块）
 
@@ -22,7 +22,6 @@ ILHC 调试上位机 v1.1
   3. 底盘 / DM 电机可视化调参（滑条 + 输入框 + 一键下发 + 回读）
   4. 命令行（历史记录）、CSV 数据记录、DM 故障码中文提示
   5. 模拟模式：复刻固件解析行为，无硬件也可演示/测试
-  6. v1.1 安全增强：GUI 心跳、急停优先、遥测超时、地图静态禁区保护
 
 运行：python ilhc_debugger.py [--simulate] [--port COMx] [--baud 115200]
 自检：python ilhc_debugger.py --selftest
@@ -42,30 +41,22 @@ import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 
 import matplotlib
-# --selftest 必须能在无桌面/CI 环境运行；GUI 模式仍使用 TkAgg。
-matplotlib.use("Agg" if "--selftest" in sys.argv else "TkAgg")
+matplotlib.use("TkAgg")
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg  # noqa: E402
 from matplotlib.figure import Figure  # noqa: E402
 from matplotlib.patches import Circle, Rectangle  # noqa: E402
 
 import numpy as np  # noqa: E402
-try:
-    import serial  # noqa: E402
-    import serial.tools.list_ports  # noqa: E402
-except ImportError:
-    serial = None  # --selftest / --simulate 仍可使用；真实串口连接时给出明确提示
+import serial  # noqa: E402
+import serial.tools.list_ports  # noqa: E402
 
-APP_VERSION = "v1.1"
+APP_VERSION = "v1.0"
 FRAME_TAIL = b"\x00\x00\x80\x7F"
 FRAME_FLOATS = 24
 FRAME_DATA_LEN = 4 * FRAME_FLOATS
 FRAME_LEN = FRAME_DATA_LEN + 4                 # 100 字节
 DEFAULT_BAUD = 115200
 SEND_HZ = 50                                   # 固件 20 ms 一帧
-HEARTBEAT_INTERVAL_S = 0.20                      # GUI 存活心跳，5 Hz
-TELEMETRY_WARN_S = 0.35                          # 遥测延迟黄色阈值
-TELEMETRY_TIMEOUT_S = 1.00                       # 遥测超时红色阈值
-URGENT_COMMANDS = {"STOP", "DMSTOP", "DMOFF"}
 APP_NAME = "ILHC 调试上位机"
 
 # ======================================================================
@@ -171,22 +162,6 @@ QUICK_TARGETS = [
     ("粗加工区", (1200.0, 330.0)),
 ]
 
-# 地图直线 GOTO 的静态禁区（与 _draw_field 中场地几何一致）。
-# 注意：这里按设备实际绘制边界判断，未额外膨胀车体半径；若车体较宽，建议
-# 在固件路径规划或后续上位机 A* 中加入车体半宽 + 安全裕量。
-FIELD_FORBIDDEN_RECTS = [
-    (550.0, 550.0, 1000.0, 1000.0, "中央物料区"),
-    (1400.0, 550.0, 1850.0, 1000.0, "中央物料区"),
-    (550.0, 1400.0, 1000.0, 1850.0, "中央物料区"),
-    (1400.0, 1400.0, 1850.0, 1850.0, "中央物料区"),
-    (0.0, 910.0, 150.0, 1490.0, "暂存区设备"),
-    (1000.0, 0.0, 1400.0, 150.0, "粗加工区设备"),
-    (2388.0, 1170.0, 2400.0, 1230.0, "二维码板"),
-]
-FIELD_FORBIDDEN_CIRCLES = [
-    (1200.0, 2400.0, 110.0, "原料区圆盘"),
-]
-
 MPL_RC = {
     "figure.facecolor": BG_PANEL, "axes.facecolor": PLOT_BG,
     "axes.edgecolor": GRID_COL, "axes.labelcolor": FG,
@@ -204,9 +179,7 @@ class FrameParser:
     """标准 VOFA+ JustFloat 解析器。
 
     帧格式：24*float + 0x00 0x00 0x80 0x7F（100 字节）。
-    首次以帧尾同步；同步后按固定 100 字节帧长解析。这样即使 payload 中
-    某个 float 的字节序列恰好等于 JustFloat 帧尾（例如 +inf），也不会
-    把 payload 内部字节误判为真正帧尾。失步时自动回到搜索模式。
+    支持任意分包/粘包，以 JustFloat 固定帧尾重新同步。
     """
 
     def __init__(self):
@@ -214,58 +187,34 @@ class FrameParser:
         self.frames_ok = 0
         self.bytes_in = 0
         self.err_bytes = 0
-        self.synced = False
-
-    def _accept(self, payload):
-        values = struct.unpack("<%df" % FRAME_FLOATS, bytes(payload))
-        self.frames_ok += 1
-        return values
 
     def feed(self, data):
-        """输入任意长度字节流，返回解析出的 float 元组列表。"""
+        """输入任意长度字节流，返回解析出的 [(t 无关) float 元组, ...]"""
         self.buf += data
         self.bytes_in += len(data)
         frames = []
-
         while True:
-            # 已同步后严格按固定长度取帧，不再搜索 payload 内部的伪帧尾。
-            if self.synced:
-                if len(self.buf) < FRAME_LEN:
-                    break
-                if self.buf[FRAME_DATA_LEN:FRAME_LEN] == FRAME_TAIL:
-                    frames.append(self._accept(self.buf[:FRAME_DATA_LEN]))
-                    del self.buf[:FRAME_LEN]
-                    continue
-                # 固定位置帧尾不匹配：失步，转入重新同步。
-                self.synced = False
-
-            # 未同步：跳过不足 96 字节之前出现的帧尾（它可能位于 payload 内）。
-            search_from = 0
-            found = -1
-            while True:
-                i = self.buf.find(FRAME_TAIL, search_from)
-                if i < 0:
-                    break
-                if i >= FRAME_DATA_LEN:
-                    found = i
-                    break
-                search_from = i + 1
-
-            if found < 0:
-                # 保留最多 96 字节数据 + 3 字节可能被截断的帧尾。
+            i = self.buf.find(FRAME_TAIL)
+            if i < 0:
+                # 保留一帧数据和可能被截断的帧尾
                 keep = FRAME_DATA_LEN + len(FRAME_TAIL) - 1
                 if len(self.buf) > keep:
                     self.err_bytes += len(self.buf) - keep
                     del self.buf[:-keep]
                 break
+            if i < FRAME_DATA_LEN:
+                self.err_bytes += i + len(FRAME_TAIL)
+                del self.buf[:i + len(FRAME_TAIL)]
+                continue
 
-            start = found - FRAME_DATA_LEN
+            start = i - FRAME_DATA_LEN
             if start > 0:
                 self.err_bytes += start
-            frames.append(self._accept(self.buf[start:found]))
-            del self.buf[:found + len(FRAME_TAIL)]
-            self.synced = True
-
+            values = struct.unpack("<%df" % FRAME_FLOATS,
+                                   bytes(self.buf[start:i]))
+            frames.append(values)
+            self.frames_ok += 1
+            del self.buf[:i + len(FRAME_TAIL)]
         return frames
 
 
@@ -322,101 +271,47 @@ class RingBuffer:
 # 串口工作线程：收（解析遥测）+ 发（ASCII 命令）
 # ======================================================================
 class SerialWorker(threading.Thread):
-    def __init__(self, port, baud, frame_q, line_q, urgent_q=None, err_cb=None):
+    def __init__(self, port, baud, frame_q, line_q, err_cb=None):
         super().__init__(daemon=True)
         self.port, self.baud = port, baud
         self.frame_q, self.line_q = frame_q, line_q
-        self.urgent_q = urgent_q if urgent_q is not None else queue.Queue()
         self.err_cb = err_cb
         self.parser = FrameParser()
         self.stop_flag = False
         self.ser = None
-        self.opened = threading.Event()
-        self.last_frame_monotonic = 0.0
-        self.opened_monotonic = 0.0
-        self._write_lock = threading.Lock()
-
-    def _write_line(self, line):
-        if not self.ser or not self.ser.is_open:
-            return False
-        data = str(line).encode("ascii", "ignore") + b"\n"
-        with self._write_lock:
-            self.ser.write(data)
-        return True
-
-    @staticmethod
-    def _drain_one(q):
-        try:
-            return q.get_nowait()
-        except queue.Empty:
-            return None
-
-    def request_stop(self, safe=True):
-        """请求工作线程退出；真实串口断开前 best-effort 主动停车/失能。"""
-        # 先置退出标志并清除普通队列，避免安全指令之后又发送旧 GOTO/调参命令。
-        self.stop_flag = True
-        while True:
-            try:
-                self.line_q.get_nowait()
-            except queue.Empty:
-                break
-        if safe:
-            for cmd in ("STOP", "DMSTOP", "DMOFF"):
-                try:
-                    self._write_line(cmd)
-                except Exception:
-                    break
 
     def run(self):
         try:
             self.ser = serial.Serial(self.port, self.baud, bytesize=8,
                                      parity=serial.PARITY_NONE, stopbits=1,
-                                     timeout=0.05, write_timeout=0.10)
-            self.opened_monotonic = time.monotonic()
-            self.opened.set()
+                                     timeout=0.05)
         except Exception as e:  # 打开失败，通知 UI
             if self.err_cb:
                 self.err_cb("打开 %s 失败：%s" % (self.port, e))
             return
         try:
+            next_ping = time.monotonic()
             while not self.stop_flag:
-                # 急停/失能命令优先于读数据和普通参数命令。
-                while True:
-                    line = self._drain_one(self.urgent_q)
-                    if line is None:
-                        break
-                    self._write_line(line)
-
                 data = self.ser.read(2048)
                 if data:
-                    now = time.monotonic()
                     for f in self.parser.feed(data):
-                        self.last_frame_monotonic = now
-                        self._push((now, f))
-
-                # 读完后再次检查急停，最大额外等待约为串口 timeout=50 ms。
+                        self._push((time.monotonic(), f))
+                # 发送命令队列
                 while True:
-                    line = self._drain_one(self.urgent_q)
-                    if line is None:
+                    try:
+                        line = self.line_q.get_nowait()
+                    except queue.Empty:
                         break
-                    self._write_line(line)
-
-                if self.stop_flag:
-                    break
-
-                # 普通命令分小批发送；每发一条都检查是否出现新的急停命令。
-                for _ in range(16):
-                    if self.stop_flag or not self.urgent_q.empty():
-                        break
-                    line = self._drain_one(self.line_q)
-                    if line is None:
-                        break
-                    self._write_line(line)
+                    self.ser.write(line.encode("ascii", "ignore") + b"\n")
+                # 调试动作看门狗心跳，串口断开后固件会自动停车/失能
+                now = time.monotonic()
+                if now >= next_ping:
+                    self.ser.write(b"PING\n")
+                    next_ping = now + 0.2
         except Exception as e:
             if self.err_cb and not self.stop_flag:
                 self.err_cb("串口异常断开：%s" % e)
         finally:
-            self.opened.clear()
             try:
                 if self.ser and self.ser.is_open:
                     self.ser.close()
@@ -438,10 +333,9 @@ class SerialWorker(threading.Thread):
 # 模拟器：复刻 debug_usart.c 的命令解析 / 参数回读行为（无硬件演示用）
 # ======================================================================
 class Simulator(threading.Thread):
-    def __init__(self, frame_q, line_q, urgent_q=None):
+    def __init__(self, frame_q, line_q):
         super().__init__(daemon=True)
         self.frame_q, self.line_q = frame_q, line_q
-        self.urgent_q = urgent_q if urgent_q is not None else queue.Queue()
         self.stop_flag = False
         # 底盘参数（与固件默认值一致）
         self.kpx, self.kpy, self.kpz = 2.3, 2.3, 9.0
@@ -607,12 +501,6 @@ class Simulator(threading.Thread):
         t0 = time.monotonic()
         next_t = 0.0
         while not self.stop_flag:
-            # 与真实串口一致：急停/失能优先。
-            while True:
-                try:
-                    self.handle_line(self.urgent_q.get_nowait())
-                except queue.Empty:
-                    break
             while True:
                 try:
                     self.handle_line(self.line_q.get_nowait())
@@ -685,9 +573,7 @@ class App:
         # 数据
         self.frame_q = queue.Queue(maxsize=4000)
         self.line_q = queue.Queue()
-        self.urgent_q = queue.Queue()
         self.t0_monotonic = time.monotonic()
-        self.last_heartbeat_enqueue = 0.0
         self.window_s = 30.0
         cap = int(self.window_s * SEND_HZ) + 100
         self.ring = RingBuffer(cap, FRAME_FLOATS)
@@ -1196,90 +1082,8 @@ class App:
             return self.latest[2] if self.latest is not None else 0.0
         return float(yaw_sel.split()[1]) - self.map_theta
 
-    @staticmethod
-    def _point_in_rect(x, y, rect):
-        x0, y0, x1, y1, _name = rect
-        return x0 <= x <= x1 and y0 <= y <= y1
-
-    @staticmethod
-    def _seg_intersects_rect(x0, y0, x1, y1, rect):
-        """Liang-Barsky 线段/轴对齐矩形相交测试。"""
-        rx0, ry0, rx1, ry1, _name = rect
-        dx, dy = x1 - x0, y1 - y0
-        p = (-dx, dx, -dy, dy)
-        q = (x0 - rx0, rx1 - x0, y0 - ry0, ry1 - y0)
-        u0, u1 = 0.0, 1.0
-        for pi, qi in zip(p, q):
-            if abs(pi) < 1e-12:
-                if qi < 0:
-                    return False
-                continue
-            r = qi / pi
-            if pi < 0:
-                if r > u1:
-                    return False
-                u0 = max(u0, r)
-            else:
-                if r < u0:
-                    return False
-                u1 = min(u1, r)
-        return u0 <= u1
-
-    @staticmethod
-    def _seg_intersects_circle(x0, y0, x1, y1, circle):
-        cx, cy, r, _name = circle
-        dx, dy = x1 - x0, y1 - y0
-        den = dx * dx + dy * dy
-        if den <= 1e-12:
-            return math.hypot(x0 - cx, y0 - cy) <= r
-        u = ((cx - x0) * dx + (cy - y0) * dy) / den
-        u = min(1.0, max(0.0, u))
-        px, py = x0 + u * dx, y0 + u * dy
-        return math.hypot(px - cx, py - cy) <= r
-
-    def _field_point_blocked(self, x, y):
-        for rect in FIELD_FORBIDDEN_RECTS:
-            if self._point_in_rect(x, y, rect):
-                return rect[4]
-        for cx, cy, r, name in FIELD_FORBIDDEN_CIRCLES:
-            if math.hypot(x - cx, y - cy) <= r:
-                return name
-        return None
-
-    def _field_path_blocked(self, x0, y0, x1, y1):
-        for rect in FIELD_FORBIDDEN_RECTS:
-            if self._seg_intersects_rect(x0, y0, x1, y1, rect):
-                return rect[4]
-        for circle in FIELD_FORBIDDEN_CIRCLES:
-            if self._seg_intersects_circle(x0, y0, x1, y1, circle):
-                return circle[3]
-        return None
-
     def _goto_field(self, fx, fy):
-        """向场地坐标 (fx, fy) 下发 GOTO（地图点击与快速按钮共用）。
-
-        v1.1 在下发前做静态目标点/直线路径禁区检查。这里只负责阻止明显穿越
-        固定设备，不等价于考虑车体尺寸的完整避障路径规划。
-        """
-        blocked = self._field_point_blocked(fx, fy)
-        if blocked:
-            self.lbl_map.configure(
-                text="拒绝 GOTO：目标点位于禁区【%s】" % blocked, fg="#ef5350")
-            self.log("GOTO 被安全检查拒绝：目标(%.0f, %.0f) 位于%s" %
-                     (fx, fy, blocked), "warn")
-            return
-
-        v = self.latest
-        if v is not None and math.isfinite(v[0]) and math.isfinite(v[1]):
-            sx, sy = self._ops_to_field(v[0], v[1])
-            blocked = self._field_path_blocked(sx, sy, fx, fy)
-            if blocked:
-                self.lbl_map.configure(
-                    text="拒绝直线 GOTO：路径穿越【%s】，请先点击中间安全点绕行" % blocked,
-                    fg="#ef5350")
-                self.log("GOTO 被安全检查拒绝：直线路径穿越%s" % blocked, "warn")
-                return
-
+        """向场地坐标 (fx, fy) 下发 GOTO（地图点击与快速按钮共用）"""
         tx, ty = self._field_to_ops(fx, fy)
         z = self._target_yaw_ops()
         self.map_target = (fx, fy)
@@ -1413,8 +1217,6 @@ class App:
         row.pack(fill="x", pady=3)
         ttk.Label(row, text=cmd, style="Panel.TLabel", width=6,
                   font=("Consolas", 9, "bold")).pack(side="left")
-        ttk.Label(row, text=label, style="Dim.TLabel", width=13, anchor="w").pack(
-            side="left", padx=(0, 4))
         var = tk.StringVar(value=self._fmt(dflt))
         entry = ttk.Entry(row, textvariable=var, width=7, justify="center")
         entry.pack(side="left", padx=(2, 6))
@@ -1423,15 +1225,13 @@ class App:
                           command=lambda v, c=cmd, sv=var, s=scale_var:
                           self._scale_moved(c, sv, s, v))
         scale.pack(side="left", fill="x", expand=True, padx=(0, 6))
-        entry.bind("<Return>", lambda _e, c=cmd: self._validate_param(c))
-        entry.bind("<FocusOut>", lambda _e, c=cmd: self._validate_param(c, quiet=True))
-        self._mk_btn(row, "发送", lambda c=cmd: self._send_param(c),
+        self._mk_btn(row, "发送", lambda c=cmd, sv=var: self.send_line("%s=%s" % (c, sv.get())),
                      width=5).pack(side="left")
         rb = ttk.Label(row, text="—", style="Dim.TLabel", width=11,
                        font=("Consolas", 8), anchor="e")
         rb.pack(side="left", padx=(6, 0))
         store[cmd] = {"var": var, "scale": scale_var, "lo": lo, "hi": hi,
-                      "rb": rb, "rb_ch": rb_ch, "cmd": cmd, "entry": entry}
+                      "rb": rb, "rb_ch": rb_ch, "cmd": cmd}
 
     @staticmethod
     def _fmt(v):
@@ -1447,42 +1247,9 @@ class App:
         return s if s not in ("", "-", "-0") else "0"
 
     def _scale_moved(self, cmd, entry_var, scale_var, raw):
-        # 滑条 -> 输入框。输入框 -> 滑条在 _validate_param 中完成。
+        # 手动输入与滑条双向同步（滑条拖动 -> 更新输入框）
         entry_var.set(self._fmt(float(raw)))
-        _ = (cmd, scale_var)
-
-    def _param_row(self, cmd):
-        return self.chassis_rows.get(cmd) or self.dm_rows.get(cmd)
-
-    def _validate_param(self, cmd, quiet=False):
-        row = self._param_row(cmd)
-        if row is None:
-            return None
-        raw = row["var"].get().strip()
-        try:
-            value = float(raw)
-            if not math.isfinite(value):
-                raise ValueError
-        except ValueError:
-            if not quiet:
-                messagebox.showwarning(APP_NAME, "%s 参数必须是有限数字" % cmd)
-            row["var"].set(self._fmt(row["scale"].get()))
-            return None
-        clamped = min(row["hi"], max(row["lo"], value))
-        if cmd == "DMID":
-            clamped = int(round(clamped))
-        row["scale"].set(clamped)
-        row["var"].set(str(int(clamped)) if cmd == "DMID" else self._fmt(clamped))
-        if not quiet and clamped != value:
-            self.log("%s 输入 %.6g 已限幅为 %s" %
-                     (cmd, value, row["var"].get()), "warn")
-        return clamped
-
-    def _send_param(self, cmd):
-        if self._validate_param(cmd) is None:
-            return
-        row = self._param_row(cmd)
-        self.send_line("%s=%s" % (cmd, row["var"].get()))
+        _ = scale_var
 
     # ------------------------- DM 电机页 --------------------------------
     def _build_dm_tab(self):
@@ -1526,8 +1293,11 @@ class App:
         body = ttk.Frame(page, style="Panel.TFrame")
         body.pack(fill="x", padx=10, pady=(6, 0))
         for (cmd, label, lo, hi, dflt, rb, is_int) in DM_PARAMS:
-            self._make_param_row(body, cmd, label, lo, hi, dflt, rb, self.dm_rows)
-            _ = is_int
+            self._make_param_row(body, cmd, "%s %s" % (cmd, label), lo, hi, dflt,
+                                 rb, self.dm_rows)
+            if is_int:
+                self.dm_rows[cmd]["var"].trace_add(
+                    "write", lambda *a, c=cmd: self._dm_id_int(c))
 
         self.lbl_mode_note = tk.Label(page, text="位置速度模式：DMKP / DMKD / DMTOR 会被电机忽略",
                                       bg=BG_PANEL, fg=FG_DIM,
@@ -1695,11 +1465,6 @@ class App:
     # 逻辑
     # ------------------------------------------------------------------
     def refresh_ports(self):
-        if serial is None:
-            self.cmb_port["values"] = []
-            self.port_var.set("")
-            self.lbl_status.configure(text="● 未安装 pyserial（模拟模式可用）", fg="#ffb74d")
-            return
         ports = ["%s  %s" % (p.device, p.description) if p.description != p.device
                  else p.device for p in serial.tools.list_ports.comports()]
         self.cmb_port["values"] = ports
@@ -1713,12 +1478,6 @@ class App:
     def toggle_connect(self, force_on=None):
         want = force_on if force_on is not None else (self.worker is None)
         if want and self.worker is None:
-            if serial is None:
-                messagebox.showerror(APP_NAME,
-                                     "未安装 pyserial，无法连接真实串口。\n"
-                                     "请执行：pip install pyserial\n"
-                                     "或使用模拟模式。")
-                return
             if self.sim is not None:
                 self.toggle_sim(False)
             port = self._cur_port()
@@ -1730,28 +1489,24 @@ class App:
             except ValueError:
                 baud = DEFAULT_BAUD
             self.worker = SerialWorker(port, baud, self.frame_q, self.line_q,
-                                       urgent_q=self.urgent_q, err_cb=self._worker_err)
+                                       err_cb=self._worker_err)
             self.worker.start()
-            self.last_heartbeat_enqueue = 0.0
             self.btn_conn.configure(text="  断开  ", bg="#8d6e63")
-            self.lbl_status.configure(text="● 正在打开 %s @ %d..." % (port, baud),
-                                      fg="#ffb74d")
-            self.log("正在打开串口：%s @ %d 8N1" % (port, baud), "info")
+            self.lbl_status.configure(text="● 已连接 %s @ %d" % (port, baud), fg="#81c784")
+            self.log("串口已连接：%s @ %d 8N1" % (port, baud), "info")
         elif not want and self.worker is not None:
-            w = self.worker
+            self.worker.stop_flag = True
             self.worker = None
-            w.request_stop(safe=True)
-            self._clear_command_queues()
             self.btn_conn.configure(text="  连接  ", bg="#2e7d32")
             self.lbl_status.configure(text="● 未连接", fg=FG_DIM)
-            self.log("串口已安全断开（已尝试 STOP / DMSTOP / DMOFF）", "info")
+            self.log("串口已断开", "info")
 
     def toggle_sim(self, force_on=None):
         want = force_on if force_on is not None else (self.sim is None)
         if want and self.sim is None:
             if self.worker is not None:
                 self.toggle_connect(False)
-            self.sim = Simulator(self.frame_q, self.line_q, self.urgent_q)
+            self.sim = Simulator(self.frame_q, self.line_q)
             self.sim.start()
             self.btn_sim.configure(bg="#00695c", text=" 模拟中… ")
             self.lbl_status.configure(text="● 模拟模式（未连接真实硬件）", fg="#4dd0e1")
@@ -1813,40 +1568,12 @@ class App:
     def _quick(self, cmd):
         return lambda: self.send_line(cmd)
 
-    @staticmethod
-    def _drain_queue(q):
-        while True:
-            try:
-                q.get_nowait()
-            except queue.Empty:
-                return
-
-    def _clear_command_queues(self):
-        self._drain_queue(self.line_q)
-        self._drain_queue(self.urgent_q)
-
-    def _enqueue_heartbeat(self, now):
-        """GUI 主循环产生心跳；GUI 卡死时这里不再执行，固件看门狗才会超时。"""
-        if (self.worker is not None and self.worker.opened.is_set() and
-                now - self.last_heartbeat_enqueue >= HEARTBEAT_INTERVAL_S):
-            try:
-                self.urgent_q.put_nowait("PING")
-                self.last_heartbeat_enqueue = now
-            except queue.Full:
-                pass
-
     def send_line(self, text):
         text = str(text).strip()
         if not text:
             return
         if self.worker is not None or self.sim is not None:
-            cmd = text.upper().split("=", 1)[0].strip()
-            if cmd in URGENT_COMMANDS:
-                # 急停/失能前丢弃尚未发送的普通运动/调参命令，避免 STOP 后又执行旧命令。
-                self._drain_queue(self.line_q)
-                self.urgent_q.put(text)
-            else:
-                self.line_q.put(text)
+            self.line_q.put(text)
             self.send_count += 1
             self.log("TX> %s" % text, "tx")
         else:
@@ -1864,7 +1591,8 @@ class App:
 
     def _send_all_chassis(self):
         for (cmd, *_rest) in CHASSIS_PARAMS:
-            self._send_param(cmd)
+            row = self.chassis_rows[cmd]
+            self.send_line("%s=%s" % (cmd, row["var"].get()))
 
     def _worker_err(self, msg):
         # 串口线程回调 -> 转回主线程
@@ -1880,8 +1608,6 @@ class App:
     # 周期刷新
     # ------------------------------------------------------------------
     def _tick(self):
-        now_tick = time.monotonic()
-        self._enqueue_heartbeat(now_tick)
         # 取队列帧 -> 环形缓冲（O(1) 写入）
         got = 0
         try:
@@ -1974,9 +1700,6 @@ class App:
         view = self.ring.view()
         if view is not None:
             _t, data = view
-            start = np.searchsorted(_t, t_now - self.window_s)
-            if start > 0:
-                data = data[start:]
             for (idx, _k, _l, _u, gg) in CHANNELS:
                 if not self.cb_vars[idx].get():
                     continue
@@ -2052,30 +1775,6 @@ class App:
             self.fps_cnt = 0
             self.fps_t = now
         self.lbl_fps.configure(text="帧率 %d/s" % self.fps)
-
-        # 串口状态：区分“线程启动”“串口打开”“真正收到遥测”。
-        if self.worker is not None:
-            w = self.worker
-            if not w.opened.is_set():
-                self.lbl_status.configure(text="● 正在打开 %s @ %d..." % (w.port, w.baud),
-                                          fg="#ffb74d")
-            elif w.last_frame_monotonic <= 0:
-                self.lbl_status.configure(text="● 串口已打开，等待遥测 %s" % w.port,
-                                          fg="#ffb74d")
-            else:
-                age = now - w.last_frame_monotonic
-                if age <= TELEMETRY_WARN_S:
-                    self.lbl_status.configure(
-                        text="● 在线 %s @ %d · 遥测 %.0f ms" % (w.port, w.baud, age * 1000),
-                        fg="#81c784")
-                elif age <= TELEMETRY_TIMEOUT_S:
-                    self.lbl_status.configure(
-                        text="● 遥测延迟 %s · %.0f ms" % (w.port, age * 1000),
-                        fg="#ffb74d")
-                else:
-                    self.lbl_status.configure(
-                        text="● 遥测超时 %s · %.1f s" % (w.port, age), fg="#ef5350")
-
         p = self.worker.parser if self.worker is not None else None
         if p is not None:
             self.lbl_err.configure(text="错误字节 %d" % p.err_bytes)
@@ -2127,11 +1826,7 @@ class App:
             "  ① 车子摆进启停区 → 选“启停区1/2” → 点“置为原点并归零”：\n"
             "     区中心即坐标原点，同时下发 ZERO 让 OPS 归零；\n"
             "  ② 点击地图或用“快速前往”按钮即可让小车移动；\n"
-            "  ③ v1.1 会拒绝目标点落入固定设备、或直线路径明显穿越设备；\n"
-            "     当前不含车体半径膨胀/A* 自动绕障，必要时请用中间点绕行；\n"
-            "  ④ 若 OPS 零点朝向与场地不一致，用映射“旋转°”校正。\n\n"
-            "【v1.1 安全】PING 由 GUI 主循环产生；STOP/DMOFF 高优先级；\n"
-            "断开/退出会尝试 STOP + DMSTOP + DMOFF。\n\n"
+            "  ③ 若 OPS 零点朝向与场地不一致，用映射“旋转°”校正。\n\n"
             "固件无文本应答，参数以遥测回读通道为准。\n"
             "详见工程 Hardware/调试指令手册.md。")
 
@@ -2140,16 +1835,11 @@ class App:
             try:
                 if self.recorder:
                     self.recorder.close()
-                    self.recorder = None
                 if self.worker:
-                    w = self.worker
-                    self.worker = None
-                    w.request_stop(safe=True)
+                    self.worker.stop_flag = True
                 if self.sim:
                     self.sim.stop_flag = True
-                    self.sim = None
-                self._clear_command_queues()
-                self.root.after(120, self.root.destroy)
+                self.root.after(300, self.root.destroy)
             except Exception:
                 self.root.destroy()
         self.root.protocol("WM_DELETE_WINDOW", on_close)
@@ -2168,15 +1858,6 @@ def selftest():
     frames += p.feed(frame1[40:] + b"\x00" * 7)
     assert len(frames) == 2 and abs(frames[1][23] - 123.0) < 1e-6
     print("    ok, frames=%d err_bytes=%d" % (p.frames_ok, p.err_bytes))
-
-    print("[1b] payload 内嵌 JustFloat 帧尾（+inf）...")
-    p_inf = FrameParser()
-    vals_inf = [float(i) for i in range(24)]
-    vals_inf[7] = float("inf")
-    raw_inf = struct.pack("<24f", *vals_inf) + FRAME_TAIL
-    out_inf = p_inf.feed(raw_inf[:31]) + p_inf.feed(raw_inf[31:])
-    assert len(out_inf) == 1 and math.isinf(out_inf[0][7])
-    print("    ok")
 
     print("[2] 坏帧 / 伪帧头 ...")
     p2 = FrameParser()
@@ -2255,27 +1936,6 @@ def selftest():
     for i in range(150):
         f = sim5.make_frame(i / 50.0)
     assert math.hypot(f[0] - 600, f[1] - 0) < 50.0   # 从原点出发移动
-    print("    ok")
-
-    print("[7] 场地 GOTO 静态禁区检查...")
-    app_stub = object.__new__(App)
-    assert app_stub._field_point_blocked(600.0, 600.0) == "中央物料区"
-    assert app_stub._field_point_blocked(1200.0, 2200.0) is None
-    assert app_stub._field_path_blocked(2250.0, 2250.0, 330.0, 1200.0) is not None
-    assert app_stub._field_path_blocked(2250.0, 2250.0, 1200.0, 2200.0) is None
-    print("    ok")
-
-    print("[8] STOP 高优先级清空普通命令...")
-    broker = object.__new__(App)
-    broker.worker, broker.sim = object(), None
-    broker.line_q, broker.urgent_q = queue.Queue(), queue.Queue()
-    broker.send_count = 0
-    broker.log = lambda *_a, **_k: None
-    broker.lbl_status = None
-    App.send_line(broker, "GOTO=100,200,0")
-    assert broker.line_q.qsize() == 1
-    App.send_line(broker, "STOP")
-    assert broker.line_q.empty() and broker.urgent_q.get_nowait() == "STOP"
     print("    ok")
 
     print("\n全部自检通过 ✔")
