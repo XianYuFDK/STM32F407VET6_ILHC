@@ -60,6 +60,24 @@ void Error_Handler(void);
 
 /* USER CODE BEGIN Private defines */
 
+/* VM和补光灯仅输出控制电平，须接外部使能/功率驱动电路，不直接带负载。 */
+#define VM_EN_Pin GPIO_PIN_0
+#define VM_EN_GPIO_Port GPIOD
+#define CAMERA_LIGHT_EN_Pin GPIO_PIN_1
+#define CAMERA_LIGHT_EN_GPIO_Port GPIOD
+/* 启动按键上拉输入，按下接地；这里只定义电平，不包含消抖和启动动作。 */
+#define START_KEY1_Pin GPIO_PIN_2
+#define START_KEY1_GPIO_Port GPIOD
+#define START_KEY2_Pin GPIO_PIN_3
+#define START_KEY2_GPIO_Port GPIOD
+/* 已配置外设的用途标识：摄像头串口及夹爪舵机PWM，尚无应用协议。 */
+#define CAMERA_TX_Pin GPIO_PIN_10
+#define CAMERA_TX_GPIO_Port GPIOB
+#define CAMERA_RX_Pin GPIO_PIN_11
+#define CAMERA_RX_GPIO_Port GPIOB
+#define GRIPPER_PWM_Pin GPIO_PIN_9
+#define GRIPPER_PWM_GPIO_Port GPIOE
+
 /* USER CODE END Private defines */
 
 #ifdef __cplusplus

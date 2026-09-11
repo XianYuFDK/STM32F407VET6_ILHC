@@ -52,12 +52,17 @@ HAL_StatusTypeDef CAN_Start(CAN_HandleTypeDef *hcan);
  * @param  ID    标准 ID
  * @param  pData 数据
  * @param  Len   数据长度 0~8
+ * @return HAL_OK 已提交；HAL_BUSY 邮箱忙；HAL_ERROR 参数或 CAN 未启动。
+ * @note 短帧只要求输入 Len 字节；内部补齐 HAL 所需的八字节存储。
+ *       短临界区保护邮箱提交，无阻塞等待，恢复调用前中断状态。
  */
 HAL_StatusTypeDef CAN_SendData(CAN_HandleTypeDef *hcan, uint16_t ID,
                               const uint8_t *pData, uint16_t Len);
 
 /**
  * @brief  发送扩展 ID CAN 帧
+ * @param ID 29位扩展标识符，最大0x1FFFFFFF。
+ * @note 长度与返回状态同 CAN_SendData；不会改变实际 DLC。
  */
 HAL_StatusTypeDef CAN_SendEXData(CAN_HandleTypeDef *hcan, uint32_t ID,
                                 const uint8_t *pData, uint16_t Len);
@@ -67,6 +72,9 @@ HAL_StatusTypeDef CAN_SendEXData(CAN_HandleTypeDef *hcan, uint32_t ID,
  * @param  ID  起始扩展 ID，每包 ID 依次加 1
  * @param  cmd 数据
  * @param  len 数据长度
+ * @return 继承发送函数返回值，遇首个失败停止；先前包可能已提交。
+ * @note 每包最多八字节，末包保留真实 DLC；本接口没有整条消息队列或
+ *       自动重试。超过可用邮箱数量的长命令可能部分提交，由调用方调度。
  */
 HAL_StatusTypeDef Can_SendCmd(uint32_t ID, const uint8_t *cmd, uint8_t len);
 

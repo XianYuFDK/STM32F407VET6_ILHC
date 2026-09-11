@@ -597,6 +597,16 @@
           <GroupName>Hardware</GroupName>
           <Files>
           <File>
+            <FileName>stepper_2835.c</FileName>
+            <FileType>1</FileType>
+            <FilePath>../Hardware/stepper_2835.c</FilePath>
+          </File>
+          <File>
+            <FileName>OLED_SoftSPI.c</FileName>
+            <FileType>1</FileType>
+            <FilePath>../Hardware/OLED_SoftSPI.c</FilePath>
+          </File>
+          <File>
             <FileName>ops.c</FileName>
             <FileType>1</FileType>
             <FilePath>../Hardware/ops.c</FilePath>
@@ -644,4 +654,3 @@
     <files />
   </RTE>
 </Project>
-

@@ -43,6 +43,26 @@ static void CAN_Filter_ParamsInit(CAN_FilterTypeDef *sFilterConfig)
 
 /* --------------------------- 对外接口 ------------------------------ */
 
+/* 发送头与数据准备在调用栈上完成。短临界区保护“查空邮箱并提交”，
+   防止另一任务或中断在 HAL 选定邮箱后抢占并写入同一邮箱。
+   不在此等待发送完成；HAL_OK 只代表提交，HAL_BUSY 留给调用方重试。 */
+static HAL_StatusTypeDef HCan_Submit(CAN_HandleTypeDef *hcan,
+                                    CAN_TxHeaderTypeDef *header, const uint8_t *data)
+{
+  HAL_StatusTypeDef status;
+  uint32_t mailbox;
+  uint32_t primask = __get_PRIMASK();
+  __disable_irq();
+  if (hcan->State != HAL_CAN_STATE_LISTENING)
+    status = HAL_ERROR;
+  else if (HAL_CAN_GetTxMailboxesFreeLevel(hcan) == 0U)
+    status = HAL_BUSY;
+  else
+    status = HAL_CAN_AddTxMessage(hcan, header, (uint8_t *)data, &mailbox);
+  if (primask == 0U) __enable_irq();
+  return status;
+}
+
 /**
  * @brief  初始化 CAN 滤波、接收中断并启动 CAN
  */
@@ -81,8 +101,8 @@ HAL_StatusTypeDef CAN_Start(CAN_HandleTypeDef *hcan)
 HAL_StatusTypeDef CAN_SendData(CAN_HandleTypeDef *hcan, uint16_t ID,
                               const uint8_t *pData, uint16_t Len)
 {
-  static CAN_TxHeaderTypeDef tx_header;
-  uint32_t tx_mail_box;
+  CAN_TxHeaderTypeDef tx_header = {0};
+  uint8_t payload[8] = {0};
 
   if ((hcan == NULL) || (pData == NULL) || (Len > 8U) || (ID > 0x07FFU))
   {
@@ -95,7 +115,9 @@ HAL_StatusTypeDef CAN_SendData(CAN_HandleTypeDef *hcan, uint16_t ID,
   tx_header.RTR = CAN_RTR_DATA;
   tx_header.DLC = Len;
 
-  return HAL_CAN_AddTxMessage(hcan, &tx_header, (uint8_t *)pData, &tx_mail_box);
+  /* HAL 底层读取固定八字节；短帧先补齐本地存储，DLC 仍为实际长度。 */
+  memcpy(payload, pData, Len);
+  return HCan_Submit(hcan, &tx_header, payload);
 }
 
 /**
@@ -104,8 +126,8 @@ HAL_StatusTypeDef CAN_SendData(CAN_HandleTypeDef *hcan, uint16_t ID,
 HAL_StatusTypeDef CAN_SendEXData(CAN_HandleTypeDef *hcan, uint32_t ID,
                                 const uint8_t *pData, uint16_t Len)
 {
-  static CAN_TxHeaderTypeDef tx_header;
-  uint32_t tx_mail_box;
+  CAN_TxHeaderTypeDef tx_header = {0};
+  uint8_t payload[8] = {0};
 
   if ((hcan == NULL) || (pData == NULL) || (Len > 8U) || (ID > 0x1FFFFFFFUL))
   {
@@ -118,7 +140,8 @@ HAL_StatusTypeDef CAN_SendEXData(CAN_HandleTypeDef *hcan, uint32_t ID,
   tx_header.RTR = CAN_RTR_DATA;
   tx_header.DLC = Len;
 
-  return HAL_CAN_AddTxMessage(hcan, &tx_header, (uint8_t *)pData, &tx_mail_box);
+  memcpy(payload, pData, Len);
+  return HCan_Submit(hcan, &tx_header, payload);
 }
 
 /**
@@ -131,11 +154,15 @@ HAL_StatusTypeDef Can_SendCmd(uint32_t ID, const uint8_t *cmd, uint8_t len)
   uint8_t pack_num;
   uint8_t pack_last;
   uint8_t data[8];
+  HAL_StatusTypeDef status;
 
   if ((cmd == NULL) || (len == 0U))
   {
     return HAL_ERROR;
   }
+
+  /* 提交第一包前检查整个 ID 范围，避免后续包越界才报告错误。 */
+  if (ID > 0x1FFFFFFFUL - ((uint32_t)(len - 1U) / 8U)) return HAL_ERROR;
 
   if (len < 8U)
   {
@@ -144,7 +171,7 @@ HAL_StatusTypeDef Can_SendCmd(uint32_t ID, const uint8_t *cmd, uint8_t len)
     {
       data[i] = cmd[i];
     }
-    return CAN_SendEXData(HCAN_CAN_NUM, ID, data, 8U);
+    return CAN_SendEXData(HCAN_CAN_NUM, ID, data, len);
   }
 
   pack_num  = len / 8U;
@@ -157,9 +184,10 @@ HAL_StatusTypeDef Can_SendCmd(uint32_t ID, const uint8_t *cmd, uint8_t len)
     {
       data[i] = cmd[(uint16_t)n * 8U + i];
     }
-    if (CAN_SendEXData(HCAN_CAN_NUM, ID + n, data, 8U) != HAL_OK)
+    status = CAN_SendEXData(HCAN_CAN_NUM, ID + n, data, 8U);
+    if (status != HAL_OK)
     {
-      return HAL_ERROR;
+      return status;
     }
   }
 
@@ -170,9 +198,10 @@ HAL_StatusTypeDef Can_SendCmd(uint32_t ID, const uint8_t *cmd, uint8_t len)
     {
       data[i] = cmd[(uint16_t)pack_num * 8U + i];
     }
-    if (CAN_SendEXData(HCAN_CAN_NUM, ID + pack_num, data, pack_last) != HAL_OK)
+    status = CAN_SendEXData(HCAN_CAN_NUM, ID + pack_num, data, pack_last);
+    if (status != HAL_OK)
     {
-      return HAL_ERROR;
+      return status;
     }
   }
 

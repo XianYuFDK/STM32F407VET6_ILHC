@@ -1,5 +1,76 @@
 # Hardware
 
+### 2026-09-10 驱动修正与注释
+
+28/35 和 OLED 的头文件已逐个说明参数单位、返回值、边界、刷新与调用限制。CAN 公共发送层改为局部发送头，短临界区保护邮箱提交；短帧先复制到八字节本地缓冲，避免 HAL 固定读取八字节时越过四字节回零命令。DLC 仍保持实际长度。分包提前检查整个 ID 范围，保留 HAL_BUSY 返回；本接口仍不保证总线原子送达。
+
+28/35 在 CAN 未启动时返回 HAL_ERROR，回复计数饱和防止回绕误判。OLED 修复12像素字模填充位、非整页图片超范围绘制及滚动重新开始问题；原字库 GBK 注释已转 UTF-8，字模数据未改变。调试 USART1 在 DMA 忙时跳过遥测打包，不覆盖在途发送缓冲，控制处理仍继续执行。
+
+主机回归测试说明见 `Tests/hardware/README.md`；这些检查不替代控制器兼容性与机械行程实测。
+
+## 28 / 35 步进电机 CAN 驱动
+
+`stepper_2835.c/.h` 移植自原工程 `USER_Code/tower/tower.c/.h` 的张大头步进电机部分。复用当前 CAN1（PA11 RX / PA12 TX、1Mbps），不需要新增串口、定时器或重新启动 CAN。它和 UART4 的 `zdt_x42s` 属于不同报文接口。
+
+| 接口 | 用途 |
+| --- | --- |
+| `Motor_Homing(MOTOR35_CAN_ID)` / `Motor_Homing(MOTOR28_CAN_ID)` | 发送原协议多圈回零命令，可能产生运动 |
+| `Motor_AbsPosition(dir,id,step,speed)` | 方向 0/1、原协议位置计数、RPM；默认支持 0x300/0x400 |
+| `Motor35_AbsPosition(h,speed)` | 原车 Z 高度换算，h 单位 0.1mm、speed 单位 mm/s |
+| `Motor28_AbsPosition(r,speed)` | 原车伸缩半径换算，r 单位 0.1mm、speed 单位 mm/s |
+| `Stepper2835_GetReply(id,&reply)` | 读取原始回复、计数、时间戳快照，不代表到位 |
+
+位置指令保留原始 16 字节格式，通过 `Can_SendCmd()` 发送两个 8 字节扩展帧（ID 与 ID+1）。示例 `Motor_AbsPosition(0,0x300,1000,1000)` 的报文为：
+
+```text
+扩展 ID 0x300：FD 00 AF FF AF FF 03 E8
+扩展 ID 0x301：FD 00 00 03 E8 01 00 6B
+回零扩展 ID 0x300/0x400：9A 02 00 6B（DLC=4）
+```
+
+换算保留原车参数：35 的行程为 `clamp(2030-h,0,1600)`，每单位行程乘 44.94 得到协议位置计数，RPM=`speed*30`；28 的行程为 `clamp(r-1200,0,1660)`，计数乘 3.189，RPM=`speed*0.53`，整数结果向下截断。原车注释中的机械范围和这里的实际限幅不完全一致，必须以新机构标定为准，不能直接认定为新车安全行程。
+
+发送返回 `HAL_OK` 仅说明提交成功；两个邮箱不足返回 `HAL_BUSY`，应在任务后续周期重试，不能在中断中等待。连续发送两台位置指令可能遇到忙，不要默认同一周期都成功。35 的速度换算超出 16 位时拒绝发送，避免原代码截断回绕。
+
+CAN 扩展数据帧通过 `debug_usart.c` 的现有 `CAN_Rx_Callback()` 分派给本驱动；保留标准帧 DM 分支。原项目仅根据 ID 设置“完成标志”，未校验应答内容，本次不沿用该到位判断。回复协议确认前只能检查原始数据及新鲜度。
+
+只移植驱动和原车换算接口，未加入 `Tower_Control`、舵机、G6220、启动自动回零或新串口调试命令。当前 `STOP` / PING 失联保护不作用于这两台电机。首次调用回零/位置接口前，需要确定机械零点、行程及驱动器配置；协议计数与微步/实际角度的关系需按驱动器确认。
+
+```c
+#include "stepper_2835.h"
+
+/* 在 CAN 已启动的任务中按需调用；发送结果需由调用方处理。 */
+HAL_StatusTypeDef status = Motor_AbsPosition(0, MOTOR35_CAN_ID, 1000, 100);
+/* status == HAL_BUSY 时留到后续任务周期重试，不忙等待。 */
+```
+
+## OLED 显示驱动
+
+- `OLED_SoftSPI.c/.h`、`ZJY_oledfont.h`：移植自 Logistics_Vehicle_F407_V2.7.4_OpenSource 的 `USER_Code/OLED_SoftSPI/`，保留 `SoftSPI_OLED_*` 接口和原始字模。
+- 采用软件 SPI，128×64 可见像素；`GRAM[144][8]` 的后 16 列用于滚动暂存，占 1152 字节 RAM。字库仅由驱动源文件包含。
+- 接线：SCL/CLK → PB13，SDA/DIN → PC3，RES → PE2，DC → PE3，CS → PE4；GND 共地，供电按屏幕模块规格连接。这里的 SCL/SDA 是 SPI 时钟/数据，不是 I²C。
+- GPIO 在 `SoftSPI_OLED_Init()` 内按端口分别初始化，`.ioc` 同步预留引脚；改接线时同步修改头文件宏、端口时钟及 `.ioc`。
+- `main.c` 已调用初始化，上电复位、清屏；初始化包含约 220ms 阻塞等待。保留原工程控制器初始化序列，具体屏幕型号兼容性需实机确认。
+- 字符支持 6×8、6×12、8×16、12×24；汉字通过原字库索引显示，不是 UTF-8 字符串渲染。坐标是像素，不是页号。
+- 绘制函数修改显存，随后调用 `SoftSPI_OLED_Refresh()`；`SoftSPI_OLED_Clear()` 会同时清除显存并刷新。
+- 普通字符/汉字 `mode=1` 为正常点亮，`mode=0` 为反色；`ShowBN()` 保留原阴码字库处理方式，显示效果按原字模解释。
+- 修正跨端口 GPIO 初始化、显存/字库索引越界、64 像素字模长度溢出、画线端点及零半径圆死循环。
+- `SoftSPI_OLED_ScrollDisplay()` 改为单步滚动，每次一列，需由任务周期调用；同一实例只维护一组滚动状态。不要使用原版依赖无限循环的调用方式。
+- 刷新为同步软件 SPI，应在同一任务内串行操作，按显示需要低频刷新；不要在中断中调用，也不要每个字符单独刷新。
+
+任务中使用示例（初始化已在 main 中完成）：
+
+```c
+#include "OLED_SoftSPI.h"
+
+SoftSPI_OLED_Clear();
+SoftSPI_OLED_ShowString(0, 0, (uint8_t *)"ILHC READY", 16, 1);
+SoftSPI_OLED_ShowNum(0, 16, 1234, 4, 16, 1);
+SoftSPI_OLED_Refresh();
+```
+
+原工程还有依赖硬件 SPI1 的 `OLED_SPI.c`，本次移植的是主任务使用的软件 SPI 版本，两套接口不能混用。原始参考路径：`E:\STM32\ILHC\开源代码\Logistics_Vehicle_F407_V2\2025智能物流搬运_电控_XAUT_20250811\Logistics_Vehicle_F407_V2.7.4_OpenSource\USER_Code\OLED_SoftSPI`。
+
 存放本项目的自定义硬件/外设驱动代码（如传感器、电机、LED、按键等）。
 
 ## 使用约定
@@ -78,3 +149,7 @@
 - DmJ4310_Disable(canId)
 - DmJ4310_SetZero(canId)
 - DmJ4310_DecodeFeedback(data, len, &feedback)
+
+## PCB接口分配（2026-09-11）
+
+USART3用于摄像头预留，PE9 PWM用于夹爪舵机预留；PD0/PD1分别为VM开关/补光灯，高有效、默认关；PD2/PD3上拉按键输入，低有效。接口宏在Core/Inc/main.h，初始化在Core/Src/gpio.c。完整接线、上电行为及CAN/USB冲突见根目录PCB主控引脚说明.md。

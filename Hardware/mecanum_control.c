@@ -118,6 +118,7 @@ void SetMotorVoltageAndDirection(int MotorSpeed1, int MotorSpeed2,
                                  int MotorSpeed3, int MotorSpeed4)
 {
   int motor_speed[4];
+  /* 用户确认：俯视车头朝上，左前1、右前2、左后3、右后4。 */
   uint8_t motor_addr[4] = {1U, 2U, 3U, 4U};
   uint8_t i;
 

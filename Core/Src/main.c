@@ -32,6 +32,8 @@
 #include "zdt_x42s.h"
 #include "mecanum_control.h"
 #include "ops.h"
+#include "OLED_SoftSPI.h"
+#include "zdt_x42s.h"
 
 /* USER CODE END Includes */
 
@@ -106,6 +108,12 @@ int main(void)
   MX_USART3_UART_Init();
   MX_UART4_Init();
   /* USER CODE BEGIN 2 */
+  /* 初始化并清屏，在屏幕中央显示 READY，确认程序已执行到 OLED 初始化。
+   * 16像素字体每字符宽8像素，5个字符共40像素；绘制后需主动刷新。
+   * 此提示不表示电机、OPS等外设已通过通信检测。 */
+  SoftSPI_OLED_Init();
+  SoftSPI_OLED_ShowString(44U, 24U, (uint8_t *)"READY", 16U, 1U);
+  SoftSPI_OLED_Refresh();
   /* 启动 CAN1；失败时进入统一错误处理，避免静默运行 */
   if (CAN_Start(&hcan1) != HAL_OK)
   {
@@ -114,6 +122,8 @@ int main(void)
 
   /* OPS 定位模块初始化（USART2 空闲中断 + DMA 接收） */
   OPS_Init();
+  /* 在首次电机使能前启动UART4接收，避免遗漏启动应答。 */
+  if (ZDT_X42S_InitRx() != HAL_OK) Error_Handler();
   MecanumControl_Init();
   MecanumControl_Enable();
   DebugUsart_Init();

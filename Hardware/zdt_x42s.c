@@ -130,3 +130,92 @@ void ZDT_X42S_SpeedAcc(uint8_t addr, uint8_t dir, uint16_t rpm, uint8_t acc)
 
   ZDT_X42S_Send(cmd, sizeof(cmd));
 }
+
+
+/* UART4应答接收：中断只做四字节滑窗和入队，不打印、不发送运动命令。
+ * 帧间断开超过20ms即丢弃残帧；噪声采用逐字节滑动重新同步。
+ * 6B是固定校验字节而非CRC，因此有效格式不等于物理运动已完成。 */
+static uint8_t s_rx_byte, s_rx_window[4], s_rx_count;
+static uint8_t s_reply_queue[16][4];
+static volatile uint8_t s_reply_read, s_reply_write, s_rx_fault;
+static uint32_t s_rx_tick;
+
+static void ZDT_X42S_RxComplete(UART_HandleTypeDef *uart)
+{
+  uint8_t i, next;
+  uint32_t now = HAL_GetTick();
+  if ((uint32_t)(now - s_rx_tick) > 20U) s_rx_count = 0U;
+  s_rx_tick = now;
+  if (s_rx_count == 4U)
+  {
+    for (i = 0U; i < 3U; ++i) s_rx_window[i] = s_rx_window[i + 1U];
+    s_rx_count = 3U;
+  }
+  s_rx_window[s_rx_count++] = s_rx_byte;
+  if (s_rx_count == 4U && s_rx_window[0] != 0U &&
+      (s_rx_window[1] == 0xF3U || s_rx_window[1] == 0xF6U || s_rx_window[1] == 0xFEU) &&
+      s_rx_window[3] == 0x6BU)
+  {
+    next = (uint8_t)((s_reply_write + 1U) % 16U);
+    if (next != s_reply_read)
+    {
+      for (i = 0U; i < 4U; ++i) s_reply_queue[s_reply_write][i] = s_rx_window[i];
+      s_reply_write = next;
+    }
+    s_rx_count = 0U;
+  }
+  if (HAL_UART_Receive_IT(uart, &s_rx_byte, 1U) != HAL_OK) s_rx_fault = 1U;
+}
+
+static void ZDT_X42S_RxError(UART_HandleTypeDef *uart)
+{
+  (void)uart;
+  /* 奇偶、帧、噪声或溢出错误交由任务恢复，避免在中断里阻塞。 */
+  s_rx_fault = 1U;
+}
+
+HAL_StatusTypeDef ZDT_X42S_InitRx(void)
+{
+  s_rx_count = s_reply_read = s_reply_write = 0U;
+  s_rx_fault = 1U;
+  if (HAL_UART_RegisterCallback(&ZDT_X42S_UART, HAL_UART_RX_COMPLETE_CB_ID,
+                                ZDT_X42S_RxComplete) != HAL_OK) return HAL_ERROR;
+  if (HAL_UART_RegisterCallback(&ZDT_X42S_UART, HAL_UART_ERROR_CB_ID,
+                                ZDT_X42S_RxError) != HAL_OK) return HAL_ERROR;
+  if (HAL_UART_Receive_IT(&ZDT_X42S_UART, &s_rx_byte, 1U) != HAL_OK) return HAL_ERROR;
+  s_rx_fault = 0U;
+  return HAL_OK;
+}
+
+void ZDT_X42S_ServiceRx(void)
+{
+  if (s_rx_fault)
+  {
+    uint32_t mask = __get_PRIMASK();
+    __disable_irq();
+    /* UART4没有RX DMA，AbortReceive只关闭接收并复位状态，不等待DMA。 */
+    (void)HAL_UART_AbortReceive(&ZDT_X42S_UART);
+    __HAL_UART_CLEAR_OREFLAG(&ZDT_X42S_UART);
+    s_rx_count = 0U;
+    if (HAL_UART_Receive_IT(&ZDT_X42S_UART, &s_rx_byte, 1U) == HAL_OK) s_rx_fault = 0U;
+    if (mask == 0U) __enable_irq();
+  }
+}
+
+uint8_t ZDT_X42S_PopReply(uint8_t reply[4])
+{
+  uint8_t i;
+  uint32_t mask;
+  if (reply == NULL) return 0U;
+  mask = __get_PRIMASK();
+  __disable_irq();
+  if (s_reply_read == s_reply_write)
+  {
+    if (mask == 0U) __enable_irq();
+    return 0U;
+  }
+  for (i = 0U; i < 4U; ++i) reply[i] = s_reply_queue[s_reply_read][i];
+  s_reply_read = (uint8_t)((s_reply_read + 1U) % 16U);
+  if (mask == 0U) __enable_irq();
+  return 1U;
+}

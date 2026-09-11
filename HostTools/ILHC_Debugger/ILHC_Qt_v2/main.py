@@ -14,6 +14,7 @@ from __future__ import annotations
 import argparse
 import csv
 import html
+import json
 import math
 import os
 import queue
@@ -32,7 +33,7 @@ if "--selftest" in sys.argv:
 
 try:
     import pyqtgraph as pg
-    from PySide6.QtCore import QObject, QPointF, QRectF, Qt, QTimer, QUrl, Signal
+    from PySide6.QtCore import QEvent, QObject, QPointF, QRectF, Qt, QTimer, QUrl, Signal
     from PySide6.QtGui import (
         QBrush,
         QColor,
@@ -265,6 +266,8 @@ class FieldView(QGraphicsView):
         self.setDragMode(QGraphicsView.NoDrag)
         self.click_enabled = True
         self._trail_points: list[QPointF] = []
+        # 仅旋转显示：Qt屏幕Y向下，正90°即顺时针；点击由mapToScene逆变换。
+        self.rotate(90)
         self._build_field()
 
     @classmethod
@@ -273,12 +276,17 @@ class FieldView(QGraphicsView):
 
     def _add_centered_text(self, text: str, fx: float, fy: float, color: str, size=10, bold=False):
         item = QGraphicsSimpleTextItem(text)
-        font = QFont("Microsoft YaHei UI", size)
+        # 地图约2400场景单位，缩放后仍需保持文字可读。
+        font = QFont("Microsoft YaHei UI", round(size * 3.3))
         font.setBold(bold)
         item.setFont(font)
         item.setBrush(QColor(color))
+        item.setZValue(20)
         self.scene_obj.addItem(item)
         br = item.boundingRect()
+        # 抵消视图旋转，地图文字保持水平，位置仍随地图旋转。
+        item.setTransformOriginPoint(br.center())
+        item.setRotation(-90)
         item.setPos(fx - br.width() / 2, self.sy(fy) - br.height() / 2)
         return item
 
@@ -372,9 +380,21 @@ class FieldView(QGraphicsView):
             item.setVisible(False)
             self.scene_obj.addItem(item)
 
-        # 场地坐标角标
-        self._add_centered_text("0", 0, -80, "#8B95A3", 8)
-        self._add_centered_text("2400 mm", 2400, -80, "#8B95A3", 8)
+        # 用户坐标以启停区1中心为原点，绘图内部仍使用左下角坐标。
+        axis_pen = QPen(QColor("#C0392B"), 4)
+        self.scene_obj.addLine(2250, self.sy(2250), 1800, self.sy(2250), axis_pen)
+        self.scene_obj.addLine(1800, self.sy(2250), 1850, self.sy(2280), axis_pen)
+        self.scene_obj.addLine(1800, self.sy(2250), 1850, self.sy(2220), axis_pen)
+        self.scene_obj.addLine(2250, self.sy(2250), 2250, self.sy(1800), axis_pen)
+        self.scene_obj.addLine(2250, self.sy(1800), 2220, self.sy(1850), axis_pen)
+        self.scene_obj.addLine(2250, self.sy(1800), 2280, self.sy(1850), axis_pen)
+        self._add_centered_text("+Y 上", 1770, 2310, "#C0392B", 10, True)
+        self._add_centered_text("+X 左", 2310, 1750, "#C0392B", 10, True)
+        self._add_centered_text("(0, 0)", 2350, 2250, "#FFFFFF", 9)
+        self._add_centered_text("(2100, 0)", 2350, 150, "#FFFFFF", 9)
+        for value in range(0, 2401, 600):
+            self._add_centered_text(str(2250 - value), value, -80, "#8B95A3", 8)
+            self._add_centered_text(str(2250 - value), -100, value, "#8B95A3", 8)
 
         self.fitInView(self.scene_obj.sceneRect(), Qt.KeepAspectRatio)
 
@@ -674,6 +694,7 @@ class MainWindow(QMainWindow):
             self._build_dm_page(),
             self._build_record_page(),
             self._build_console_page(),
+            self._build_stepper_page(),
         ]
         for page in self.pages:
             self.stack.addWidget(page)
@@ -734,7 +755,8 @@ class MainWindow(QMainWindow):
         self.record_top_btn.clicked.connect(self.toggle_record)
         lay.addWidget(self.record_top_btn)
 
-        stop = QPushButton("■  全局急停")
+        stop = QPushButton("■  底盘 / DM 停止")
+        stop.setToolTip("停止底盘和DM，撤销待发28/35请求；不能停止已执行的28/35运动")
         stop.setObjectName("EmergencyButton")
         stop.clicked.connect(lambda: self.send_line("STOP"))
         lay.addWidget(stop)
@@ -752,7 +774,7 @@ class MainWindow(QMainWindow):
         sec.setObjectName("SidebarSection")
         lay.addWidget(sec)
 
-        names = ["总览", "实时波形", "比赛地图", "底盘调参", "DM 电机", "数据记录", "命令终端"]
+        names = ["总览", "实时波形", "比赛地图", "底盘调参", "DM 电机", "数据记录", "命令终端", "28 / 35 步进"]
         self.nav_buttons = []
         for i, name in enumerate(names):
             btn = QPushButton(name)
@@ -886,7 +908,7 @@ class MainWindow(QMainWindow):
         return page
 
     def _build_map_page(self):
-        page, lay = self._page_shell("比赛场地", "点击场地发送 GOTO；v2 保留静态禁区/直线路径安全检查")
+        page, lay = self._page_shell("比赛场地", "启停区1中心 (0,0)；向左 +X，向上 +Y，单位 mm；航向0°向左、90°向上")
 
         controls = QFrame()
         controls.setObjectName("Panel")
@@ -896,16 +918,16 @@ class MainWindow(QMainWindow):
 
         cl.addWidget(QLabel("启停区"))
         self.zone_combo = QComboBox()
-        self.zone_combo.addItem("启停区1（右上）", 1)
-        self.zone_combo.addItem("启停区2（右下）", 2)
+        self.zone_combo.addItem("启停区1（右下）", 1)
+        self.zone_combo.addItem("启停区2（左下）", 2)
         cl.addWidget(self.zone_combo)
-        origin = QPushButton("置为原点并归零")
+        origin = QPushButton("在所选区校准 OPS 零点")
         origin.setObjectName("WarningButton")
         origin.clicked.connect(self._set_start_zone)
         cl.addWidget(origin)
 
         cl.addSpacing(12)
-        cl.addWidget(QLabel("原点 X"))
+        cl.addWidget(QLabel("OPS零点 X"))
         self.map_ox_spin = QDoubleSpinBox()
         self.map_ox_spin.setRange(-5000, 5000)
         self.map_ox_spin.setDecimals(0)
@@ -965,8 +987,74 @@ class MainWindow(QMainWindow):
 
         self.map_view = FieldView()
         self.map_view.gotoRequested.connect(self._goto_field)
+        self.map_position = QLabel("场地位置：等待遥测（启停区1中心为0点）")
+        lay.addWidget(self.map_position)
         lay.addWidget(self.map_view, 1)
         return page
+
+    def _build_stepper_page(self):
+        page, lay = self._page_shell("28 / 35 步进电机", "CAN 绝对位置与回零调试；参数编辑后点击按钮才下发")
+        note = QLabel("机械换算沿用原车标定。35：高度43–203 mm；28：半径120–286 mm（不是伸出量）。\n"
+                      "STOP 仅停止底盘/DM；28/35 尚无已验证停机协议。取消待发不会停止已启动运动。\n"
+                      "当前24通道不含28/35反馈：命令入队不代表CAN发送成功、回零完成或到位。")
+        note.setWordWrap(True)
+        lay.addWidget(note)
+        self.stepper_widgets = {}
+        for motor, (title, label, lo, hi, default, vlo, vhi, can_id) in core.STEPPER_CONFIG.items():
+            panel = QFrame()
+            panel.setObjectName("Panel")
+            grid = QGridLayout(panel)
+            grid.addWidget(QLabel("%s · CAN 0x%03X" % (title, can_id)), 0, 0, 1, 4)
+            position = QDoubleSpinBox()
+            position.setRange(lo, hi)
+            position.setDecimals(1)
+            position.setSuffix(" mm")
+            position.setValue(default)
+            speed = QSpinBox()
+            speed.setRange(vlo, vhi)
+            speed.setSuffix(" mm/s")
+            speed.setValue(10)
+            grid.addWidget(QLabel(label), 1, 0)
+            grid.addWidget(position, 1, 1)
+            grid.addWidget(QLabel("线速度（协议范围）"), 1, 2)
+            grid.addWidget(speed, 1, 3)
+            move = QPushButton("执行机械目标")
+            move.clicked.connect(lambda _=False, m=motor: self._send_stepper(m, False))
+            grid.addWidget(move, 1, 4)
+            direction = QComboBox()
+            direction.addItems(["方向 0", "方向 1"])
+            steps = QDoubleSpinBox()
+            steps.setDecimals(0)
+            steps.setRange(0, 4294967295)
+            rpm = QSpinBox()
+            rpm.setRange(1, 65535)
+            rpm.setValue(10)
+            rpm.setSuffix(" RPM")
+            grid.addWidget(direction, 2, 0)
+            grid.addWidget(steps, 2, 1)
+            grid.addWidget(QLabel("绝对位置计数 / 转速"), 2, 2)
+            grid.addWidget(rpm, 2, 3)
+            raw = QPushButton("执行原始绝对位置")
+            raw.clicked.connect(lambda _=False, m=motor: self._send_stepper(m, True))
+            grid.addWidget(raw, 2, 4)
+            home = QPushButton("执行电机回零")
+            home.clicked.connect(lambda _=False, m=motor: self.send_line("S%dHOME" % m))
+            cancel = QPushButton("取消待发（不停车）")
+            cancel.clicked.connect(lambda _=False, m=motor: self.send_line("S%dCANCEL" % m))
+            grid.addWidget(home, 3, 0, 1, 2)
+            grid.addWidget(cancel, 3, 3, 1, 2)
+            self.stepper_widgets[motor] = (position, speed, direction, steps, rpm)
+            lay.addWidget(panel)
+        lay.addStretch(1)
+        return page
+
+    def _send_stepper(self, motor, raw):
+        position, speed, direction, steps, rpm = self.stepper_widgets[motor]
+        if raw:
+            command = "S%dRAW=%d,%d,%d" % (motor, direction.currentIndex(), int(steps.value()), rpm.value())
+        else:
+            command = core.stepper_move_command(motor, position.value(), speed.value())
+        self.send_line(command)
 
     def _build_chassis_page(self):
         page, lay = self._page_shell("底盘调参", "OPS 定位 P 系数、速度限幅与底盘安全控制")
@@ -997,6 +1085,89 @@ class MainWindow(QMainWindow):
         bl = QVBoxLayout(body)
         bl.setContentsMargins(0, 0, 0, 0)
         bl.setSpacing(7)
+        compensation = QFrame()
+        compensation.setObjectName("Panel")
+        cg = QGridLayout(compensation)
+        cg.addWidget(QLabel("OPS 安装偏心补偿 · 单位 mm"), 0, 0, 1, 4)
+        self.ops_offset_x = QDoubleSpinBox()
+        self.ops_offset_y = QDoubleSpinBox()
+        for spin, value in ((self.ops_offset_x, -50), (self.ops_offset_y, 60)):
+            spin.setRange(-500, 500)
+            spin.setDecimals(1)
+            spin.setSingleStep(1)
+            spin.setValue(value)
+            spin.setSuffix(" mm")
+        cg.addWidget(QLabel("前后偏移（前+ / 后−）"), 1, 0)
+        cg.addWidget(self.ops_offset_x, 1, 1)
+        cg.addWidget(QLabel("左右偏移（左+ / 右−）"), 1, 2)
+        cg.addWidget(self.ops_offset_y, 1, 3)
+        for i, (label, handler) in enumerate((("应用补偿并置零", self._apply_ops_offset),
+                                              ("保存到电脑", self._save_ops_offset),
+                                              ("加载文件", self._load_ops_offset),
+                                              ("填入初始值", self._reset_ops_offset))):
+            button = QPushButton(label)
+            button.clicked.connect(handler)
+            cg.addWidget(button, 2, i)
+        self.ops_offset_status = QLabel("默认：后50 / 左60 mm。应用会停车并重新置零；调参只写RAM，断电恢复默认。")
+        self.ops_offset_status.setWordWrap(True)
+        cg.addWidget(self.ops_offset_status, 3, 0, 1, 4)
+        self.ops_drift = QLabel("补偿后位置：等待遥测；置零后原地旋转，观察X/Y是否接近0。")
+        self.ops_drift.setWordWrap(True)
+        cg.addWidget(self.ops_drift, 4, 0, 1, 4)
+        bl.addWidget(compensation)
+        self.manual_vector = None
+        self.manual_timer = QTimer(self)
+        self.manual_timer.timeout.connect(self._manual_tick)
+        self.manual_timer.setInterval(100)
+        panel = QFrame()
+        panel.setObjectName("Panel")
+        grid = QGridLayout(panel)
+        grid.addWidget(QLabel("手动控制 · 按住运行，松开停车（车体方向）"), 0, 0, 1, 4)
+        self.manual_speed = QSpinBox()
+        self.manual_speed.setRange(1, 300)
+        self.manual_speed.setValue(60)
+        self.manual_turn = QSpinBox()
+        self.manual_turn.setRange(1, 300)
+        self.manual_turn.setValue(30)
+        grid.addWidget(QLabel("平移分量 RPM"), 1, 0)
+        grid.addWidget(self.manual_speed, 1, 1)
+        grid.addWidget(QLabel("旋转分量 RPM"), 1, 2)
+        grid.addWidget(self.manual_turn, 1, 3)
+        actions = [("前进", (1,0,0)), ("后退", (-1,0,0)),
+                   ("左移", (0,1,0)), ("右移", (0,-1,0)),
+                   ("逆时针旋转", (0,0,1)), ("顺时针旋转", (0,0,-1)),
+                   ("前进 + 左旋", (1,0,1)), ("前进 + 右旋", (1,0,-1)),
+                   ("后退 + 左旋", (-1,0,1)), ("后退 + 右旋", (-1,0,-1))]
+        self.manual_buttons = []
+        for i, (label, vector) in enumerate(actions):
+            button = QPushButton(label)
+            button.pressed.connect(lambda v=vector: self._manual_start(v))
+            button.released.connect(self._manual_stop)
+            grid.addWidget(button, 2 + i // 4, i % 4)
+            self.manual_buttons.append(button)
+        self.manual_custom = []
+        for i, label in enumerate(("前后", "左右", "旋转")):
+            spin = QSpinBox()
+            spin.setRange(-300, 300)
+            spin.setPrefix(label + " ")
+            spin.setSuffix(" RPM")
+            self.manual_custom.append(spin)
+            grid.addWidget(spin, 5, i)
+        custom = QPushButton("按住组合运动")
+        custom.pressed.connect(lambda: self._manual_start(tuple(x.value() for x in self.manual_custom), True))
+        custom.released.connect(self._manual_stop)
+        grid.addWidget(custom, 5, 3)
+        self.manual_status = QLabel("待机 · 手动模式不依赖 OPS；首次低速确认实际轮向")
+        self.manual_status.setWordWrap(True)
+        grid.addWidget(self.manual_status, 6, 0, 1, 4)
+        grid.addWidget(QLabel("俯视，车头朝上：左前 1 ｜右前 2 ｜左后 3 ｜右后 4"), 7, 0, 1, 4)
+        self.manual_invert = []
+        for i, label in enumerate(("前后反向", "左右反向", "旋转反向")):
+            check = QCheckBox(label)
+            check.toggled.connect(self._manual_stop)
+            self.manual_invert.append(check)
+            grid.addWidget(check, 8, i)
+        bl.addWidget(panel)
         self.chassis_rows = {}
         for cmd, label, lo, hi, dflt, rb in core.CHASSIS_PARAMS:
             row = ParamRow(cmd, label, lo, hi, dflt, rb, False)
@@ -1007,6 +1178,81 @@ class MainWindow(QMainWindow):
         scroll.setWidget(body)
         lay.addWidget(scroll, 1)
         return page
+
+    def _apply_ops_offset(self):
+        if self.worker is None and self.sim is None:
+            self.ops_offset_status.setText("未连接，补偿参数未发送。")
+            return
+        self._manual_stop()
+        self.send_line("STOP")
+        command = core.ops_offset_command(self.ops_offset_x.value(), self.ops_offset_y.value())
+        self.send_line(command)
+        self.ops_offset_status.setText("已请求：%s；固件停车并置零。无参数回读，请通过旋转遥测验证。" % command)
+
+    def _reset_ops_offset(self):
+        self.ops_offset_x.setValue(-50)
+        self.ops_offset_y.setValue(60)
+        self.ops_offset_status.setText("已填入后50 / 左60 mm；点击应用才下发。")
+
+    def _save_ops_offset(self):
+        path, _ = QFileDialog.getSaveFileName(self, "保存OPS补偿", "ops-offset.json", "JSON (*.json)")
+        if not path:
+            return
+        try:
+            Path(path).write_text(json.dumps({"version": 1, "x_mm": self.ops_offset_x.value(),
+                                             "y_mm": self.ops_offset_y.value()}, ensure_ascii=False, indent=2), encoding="utf-8")
+            self.ops_offset_status.setText("已保存到电脑；不代表已写入单片机Flash。")
+        except OSError as exc:
+            self.ops_offset_status.setText("保存失败：%s" % exc)
+
+    def _load_ops_offset(self):
+        path, _ = QFileDialog.getOpenFileName(self, "加载OPS补偿", "", "JSON (*.json)")
+        if not path:
+            return
+        try:
+            data = json.loads(Path(path).read_text(encoding="utf-8"))
+            if data["version"] != 1:
+                raise ValueError("不支持的参数文件版本")
+            x, y = float(data["x_mm"]), float(data["y_mm"])
+            core.ops_offset_command(x, y)
+            self.ops_offset_x.setValue(x)
+            self.ops_offset_y.setValue(y)
+            self.ops_offset_status.setText("已加载；点击应用才下发，不会自动启动车辆。")
+        except (OSError, ValueError, KeyError, TypeError) as exc:
+            self.ops_offset_status.setText("加载失败：%s" % exc)
+
+    def _manual_start(self, vector, raw=False):
+        if self.worker is None and self.sim is None:
+            self.log("请先连接串口或开启模拟", "warn")
+            return
+        if not raw:
+            vector = (vector[0] * self.manual_speed.value(),
+                      vector[1] * self.manual_speed.value(),
+                      vector[2] * self.manual_turn.value())
+        vector = tuple(-v if c.isChecked() else v for v, c in zip(vector, self.manual_invert))
+        self.manual_vector = vector
+        self._drain_queue(self.line_q)
+        self._manual_tick()
+        self.manual_timer.start()
+        self.manual_status.setText("手动运行：前后 %d / 左右 %d / 旋转 %d RPM · 松开停车" % vector)
+
+    def _manual_tick(self):
+        if self.manual_vector is not None:
+            # 普通队列为空时才续发，避免累积旧运动指令。
+            if self.line_q.empty():
+                self.line_q.put("MANUAL=%d,%d,%d" % self.manual_vector)
+
+    def _manual_stop(self):
+        if getattr(self, "manual_vector", None) is not None:
+            self.manual_vector = None
+            self.manual_timer.stop()
+            self.manual_status.setText("已请求停车 · 再次按住可运行")
+            self.send_line("STOP")
+
+    def changeEvent(self, event):
+        if event.type() == QEvent.ActivationChange and not self.isActiveWindow():
+            self._manual_stop()
+        super().changeEvent(event)
 
     def _build_dm_page(self):
         page, lay = self._page_shell("DM 电机", "MIT / 位置速度模式，实时反馈与故障状态")
@@ -1148,6 +1394,7 @@ class MainWindow(QMainWindow):
             self.setStyleSheet(path.read_text(encoding="utf-8"))
 
     def _select_page(self, idx: int):
+        self._manual_stop()
         if hasattr(self, "stack") and idx < self.stack.count():
             self.stack.setCurrentIndex(idx)
         for i, b in enumerate(self.nav_buttons):
@@ -1180,6 +1427,7 @@ class MainWindow(QMainWindow):
                 return
 
     def _clear_command_queues(self):
+        self._manual_stop()
         self._drain_queue(self.line_q)
         self._drain_queue(self.urgent_q)
 
@@ -1249,6 +1497,8 @@ class MainWindow(QMainWindow):
             self.log("未连接，命令未发送：%s" % text, "warn")
             return
         cmd = text.upper().split("=", 1)[0].strip()
+        if cmd in ("STOP", "ZERO", "GOTO", "OPSOFFSET"):
+            self._manual_stop()
         if cmd in core.URGENT_COMMANDS:
             self._drain_queue(self.line_q)
             self.urgent_q.put(text)
@@ -1268,6 +1518,7 @@ class MainWindow(QMainWindow):
             self.last_heartbeat_enqueue = now
 
     def _on_worker_error(self, msg: str):
+        self._manual_stop()
         self.log(msg, "warn")
         if self.worker is not None:
             old = self.worker
@@ -1348,8 +1599,12 @@ class MainWindow(QMainWindow):
             self.health_dm.setText("● DM：%s" % text)
             self.footer_dm.setText("DM[%d] %s" % (int(v[12]), text))
 
+            self.ops_drift.setText("中心位置：X %.1f / Y %.1f mm ｜距零点 %.1f mm ｜航向 %.1f°" % (v[0], v[1], math.hypot(v[0], v[1]), v[2]))
             fx, fy = self._ops_to_field(v[0], v[1])
             self.map_view.set_pose(fx, fy, self.map_theta + v[2])
+            ux, uy = core.layout_to_field(fx, fy)
+            heading = (270.0 - self.map_theta - v[2]) % 360.0
+            self.map_position.setText("场地 X=%.1f mm   Y=%.1f mm   航向=%.1f°（0°左 / 90°上）" % (ux, uy, heading))
 
         view = self.ring.view()
         self.wave_page.update_data(view, self.latest_t, self.window_s)
@@ -1394,8 +1649,8 @@ class MainWindow(QMainWindow):
         y = d[::stride, 1]
         th = math.radians(self.map_theta)
         c, s = math.cos(th), math.sin(th)
-        fx = self.map_ox + c * x - s * y
-        fy = self.map_oy + s * x + c * y
+        fx, fy = core.field_to_layout(self.map_ox - s * x - c * y,
+                                      self.map_oy - c * x + s * y)
         self.map_view.set_trail(fx, fy)
 
     def _status_tick(self):
@@ -1532,33 +1787,47 @@ class MainWindow(QMainWindow):
     def _ops_to_field(self, x: float, y: float):
         th = math.radians(self.map_theta)
         c, s = math.cos(th), math.sin(th)
-        return self.map_ox + c * x - s * y, self.map_oy + s * x + c * y
+        # 场地X向左，OPS沿用固件坐标；反射只发生在显示坐标转换中。
+        return core.field_to_layout(self.map_ox - s * x - c * y,
+                                    self.map_oy - c * x + s * y)
 
     def _field_to_ops(self, fx: float, fy: float):
         th = math.radians(self.map_theta)
         c, s = math.cos(th), math.sin(th)
-        dx, dy = fx - self.map_ox, fy - self.map_oy
+        ux, uy = core.layout_to_field(fx, fy)
+        dx, dy = self.map_oy - uy, self.map_ox - ux
         return c * dx + s * dy, -s * dx + c * dy
 
     def _set_start_zone(self):
         zone = int(self.zone_combo.currentData())
         zx, zy = core.ZONE_CENTER[zone]
-        self.map_ox_spin.setValue(zx)
-        self.map_oy_spin.setValue(zy)
+        ux, uy = core.layout_to_field(zx, zy)
+        self.map_ox_spin.setValue(ux)
+        self.map_oy_spin.setValue(uy)
         self._apply_map_mapping()
         self.send_line("ZERO")
         self.traj_ring.clear()
         self.map_target = None
-        self.map_status.setText("启停区%d 已设为 OPS 原点，并发送 ZERO" % zone)
-        self.log("启停区%d -> 原点(%.0f, %.0f)，已发送 ZERO" % (zone, zx, zy), "info")
+        self.map_status.setText("OPS零点校准至场地(%.0f, %.0f)；场地原点固定在启停区1" % (ux, uy))
+        self.log("启停区%d -> OPS零点(%.0f, %.0f)，请求 ZERO" % (zone, ux, uy), "info")
 
     def _target_yaw_ops(self):
         field_yaw = self.map_yaw_combo.currentData()
         if field_yaw is None:
             return float(self.latest[2]) if self.latest is not None else 0.0
-        return float(field_yaw) - self.map_theta
+        return 270.0 - float(field_yaw) - self.map_theta
 
-    def _goto_field(self, fx: float, fy: float):
+    def _goto_field(self, fx: float, fy: float, yaw_override=None):
+        if self.worker is None and self.sim is None:
+            self.log("未连接，导航未发送", "warn")
+            return
+        if self.latest is None or not all(math.isfinite(v) for v in self.latest[:3]):
+            self.log("无有效定位，导航未发送", "warn")
+            return
+        if self.worker is not None and (not self.worker.opened.is_set() or
+                time.monotonic() - self.worker.last_frame_monotonic > core.TELEMETRY_WARN_S):
+            self.log("定位遥测过期，导航未发送", "warn")
+            return
         blocked = core.field_point_blocked(fx, fy)
         if blocked:
             self.map_status.setText("拒绝 GOTO：目标位于【%s】" % blocked)
@@ -1574,19 +1843,17 @@ class MainWindow(QMainWindow):
                 return
 
         tx, ty = self._field_to_ops(fx, fy)
-        yaw = self._target_yaw_ops()
+        yaw = self._target_yaw_ops() if yaw_override is None else yaw_override
         self.map_target = (fx, fy)
         self.send_line("GOTO=%.0f,%.0f,%.0f" % (tx, ty, yaw))
-        self.map_status.setText("目标：场地(%.0f, %.0f) → OPS GOTO=%.0f,%.0f,%.0f" % (fx, fy, tx, ty, yaw))
+        ux, uy = core.layout_to_field(fx, fy)
+        self.map_status.setText("目标：场地(%.0f, %.0f) → OPS GOTO=%.0f,%.0f,%.0f" % (ux, uy, tx, ty, yaw))
 
     def _goto_home(self):
         zone = int(self.zone_combo.currentData())
         zx, zy = core.ZONE_CENTER[zone]
-        home_yaw = (270.0 if zone == 1 else 90.0) - self.map_theta
-        tx, ty = self._field_to_ops(zx, zy)
-        self.map_target = (zx, zy)
-        self.send_line("GOTO=%.0f,%.0f,%.0f" % (tx, ty, home_yaw))
-        self.map_status.setText("返回启停区%d" % zone)
+        home_yaw = 270.0 - (0.0 if zone == 1 else 180.0) - self.map_theta
+        self._goto_field(zx, zy, home_yaw)
 
     # ---------------- 控制台 ----------------
     def _send_console(self):
@@ -1607,6 +1874,7 @@ class MainWindow(QMainWindow):
         self.console.append('<span style="color:%s">[%s] %s</span>' % (color, stamp, safe))
 
     def closeEvent(self, event: QCloseEvent):
+        self._manual_stop()
         try:
             if self.recorder is not None:
                 self.recorder.close()

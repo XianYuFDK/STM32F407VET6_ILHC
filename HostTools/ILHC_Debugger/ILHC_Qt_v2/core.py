@@ -37,7 +37,7 @@ SEND_HZ = 50                                   # 固件 20 ms 一帧
 HEARTBEAT_INTERVAL_S = 0.20                      # GUI 存活心跳，5 Hz
 TELEMETRY_WARN_S = 0.35                          # 遥测延迟黄色阈值
 TELEMETRY_TIMEOUT_S = 1.00                       # 遥测超时红色阈值
-URGENT_COMMANDS = {"STOP", "DMSTOP", "DMOFF"}
+URGENT_COMMANDS = {"STOP", "DMSTOP", "DMOFF", "S28CANCEL", "S35CANCEL"}
 APP_NAME = "ILHC 调试上位机"
 
 # ======================================================================
@@ -136,6 +136,30 @@ GRID_COL  = "#343945"
 
 # 启停区中心（场地坐标 mm，原点=场地左下角）
 ZONE_CENTER = {1: (2250.0, 2250.0), 2: (2250.0, 150.0)}
+
+
+def layout_to_field(x, y):
+    """旋转后屏幕坐标：启停区1中心为零，屏幕左为+X，上为+Y。"""
+    return 2250.0 - y, 2250.0 - x
+
+
+def field_to_layout(x, y):
+    return 2250.0 - y, 2250.0 - x
+
+
+STEPPER_CONFIG = {
+    35: ("35 升降电机", "目标高度", 43.0, 203.0, 203.0, 1, 2184, 0x300),
+    28: ("28 伸缩电机", "目标半径", 120.0, 286.0, 120.0, 2, 65535, 0x400),
+}
+
+
+def stepper_move_command(motor, position_mm, speed):
+    """机械位置以0.1mm整数发送，避免MCU小数解析与单位歧义。"""
+    _, _, lo, hi, _, vlo, vhi, _ = STEPPER_CONFIG[motor]
+    if not (math.isfinite(position_mm) and lo <= position_mm <= hi
+            and vlo <= speed <= vhi and int(speed) == speed):
+        raise ValueError("步进目标或速度超范围")
+    return "S%dMOVE=%d,%d" % (motor, round(position_mm * 10), speed)
 # 快速前往目标点（避开功能区边缘的可达点）
 QUICK_TARGETS = [
     ("原料区", (1200.0, 2200.0)),
@@ -396,6 +420,14 @@ class SerialWorker(threading.Thread):
 # ======================================================================
 # 模拟器：复刻 debug_usart.c 的命令解析 / 参数回读行为（无硬件演示用）
 # ======================================================================
+def ops_offset_command(x_mm, y_mm):
+    """安装偏移：车前为正X、车左为正Y；成对发送毫米参数。"""
+    values = (float(x_mm), float(y_mm))
+    if any(not math.isfinite(v) or abs(v) > 500 for v in values):
+        raise ValueError("安装偏移必须在 -500..500 mm 内")
+    return "OPSOFFSET=%.1f,%.1f" % values
+
+
 class Simulator(threading.Thread):
     def __init__(self, frame_q, line_q, urgent_q=None):
         super().__init__(daemon=True)
@@ -418,7 +450,13 @@ class Simulator(threading.Thread):
         self.hold = None        # (x, y) 固定点位；None = 演示巡航
         self.goto = None        # (x, y, z) 目标
         self.zval = 0.0         # 当前航向（deg）
+        self.ops_offset = (-50.0, 60.0)
+        self.ops_reference_yaw = 0.0
+        self.manual = None
+        self.manual_tick = 0.0
         self._t = 0.0
+        # 仅记录调试目标，不伪造28/35硬件位置或到位反馈。
+        self.stepper_commands = {28: None, 35: None}
 
     # ---------- 命令解析（镜像 Debug_ParseLine / Debug_SetDmValue） ----------
     @staticmethod
@@ -429,13 +467,61 @@ class Simulator(threading.Thread):
         line = line.strip().upper()
         if not line:
             return
+        if line.startswith(("S28", "S35")):
+            motor = int(line[1:3])
+            if line[3:] == "CANCEL":
+                self.stepper_commands[motor] = None
+            elif line[3:] == "HOME" or line[3:].startswith(("MOVE=", "RAW=")):
+                self.stepper_commands[motor] = line
+            return
+        if line.startswith("OPSOFFSET="):
+            try:
+                parts = line[10:].split(",")
+                if len(parts) != 2:
+                    return
+                # 与固件一致，只接受十进制小数，不接受指数或空白。
+                for p in parts:
+                    number = p.lstrip("+-")
+                    if p[:2] in ("++", "--", "+-", "-+") or number.count(".") > 1 or not number.replace(".", "").isascii() or not number.replace(".", "").isdigit():
+                        return
+                x, y = map(float, parts)
+                ops_offset_command(x, y)
+            except (ValueError, OverflowError):
+                return
+            self.ops_offset = (x, y)
+            self.manual = self.goto = None
+            self.hold = (0.0, 0.0)
+            self.ops_reference_yaw = self.zval
+            return
+        if line.startswith("MANUAL="):
+            parts = line[7:].split(",")
+            if len(parts) != 3 or any(not p.lstrip("+-").isascii() or not p.lstrip("+-").isdigit() for p in parts):
+                return
+            try:
+                v = tuple(int(p) for p in parts)
+            except ValueError:
+                return
+            if any(abs(x) > 300 for x in v):
+                return
+            self.manual = v
+            self.manual_tick = time.monotonic()
+            self.goto = None
+            if self.hold is None:
+                self.hold = (600.0 * math.sin(0.25 * self._t), 450.0 * math.cos(0.19 * self._t))
+            return
         if line == "STOP":
+            self.manual = None
+            self.dm_active = 0
+            self.stepper_commands = {28: None, 35: None}
             if self.hold is None:                  # 原地停住（同固件急停）
                 self.hold = (600.0 * math.sin(0.25 * self._t),
                              450.0 * math.cos(0.19 * self._t))
             self.goto = None                       # 取消 GOTO 目标（同固件）
             return
         if line == "ZERO":
+            self.ops_reference_yaw = self.zval
+            self.manual = None
+            self.goto = None
             if self.hold is None:                  # 巡航中收到归零：停在当前位置
                 self.hold = (600.0 * math.sin(0.25 * self._t),
                              450.0 * math.cos(0.19 * self._t))
@@ -447,6 +533,7 @@ class Simulator(threading.Thread):
             except ValueError:
                 return
             if len(parts) >= 2:
+                self.manual = None
                 if self.hold is None:              # 从演示巡航位置切入定位模式
                     self.hold = (600.0 * math.sin(0.25 * self._t),
                                  450.0 * math.cos(0.19 * self._t))
@@ -494,6 +581,17 @@ class Simulator(threading.Thread):
     # ---------- 生成一帧遥测（镜像 DebugUsart_Send 的 data[0..23]） ----------
     def make_frame(self, t):
         self._t = t
+        if self.manual is not None:
+            if time.monotonic() - self.manual_tick > 0.350:
+                self.manual = None
+            else:
+                vx, vy, wz = self.manual
+                angle = math.radians(self.zval)
+                px, py = self.hold
+                # 演示换算，不代表实车轮径、轮距标定结果。
+                self.hold = (px + (vx * math.cos(angle) - vy * math.sin(angle)) / 0.238 / SEND_HZ,
+                             py + (vx * math.sin(angle) + vy * math.cos(angle)) / 0.238 / SEND_HZ)
+                self.zval += wz / SEND_HZ
         n = lambda a=1.0: random.gauss(0, a)     # noqa: E731
         if self.goto is not None and self.hold is not None:
             # GOTO 定位模式：以 500mm/s 限速驶向目标，航向最短路径逼近
@@ -554,6 +652,12 @@ class Simulator(threading.Thread):
             self.fb_status = 0x00
             self.fb_tmos = max(32.0, self.fb_tmos - 0.01) + 0.02 * n()
             self.fb_trotor = max(30.0, self.fb_trotor - 0.012) + 0.02 * n()
+        if self.hold is not None:
+            angle, ref = math.radians(self.zval), math.radians(self.ops_reference_yaw)
+            dc, ds = math.cos(angle) - math.cos(ref), math.sin(angle) - math.sin(ref)
+            ex, ey = -50.0 - self.ops_offset[0], 60.0 - self.ops_offset[1]
+            pos_x -= dc * ex - ds * ey
+            pos_y -= ds * ex + dc * ey
         return (
             pos_x, pos_y, zangle, devx, devy, devz,
             self.kpx, self.kpy, self.kpz, self.xyvmax, self.zvmax, spd0,

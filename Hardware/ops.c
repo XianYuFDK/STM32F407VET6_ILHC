@@ -8,8 +8,8 @@
  *          - 发送 2 字节初始化/启动命令：0xC5 0x22 / 0xC5 0x30
  *          - CRC8 使用 DJI RM CRC8_CRC16.c 中的查表算法，与 ops9-main 兼容
  *          - 坐标清零采用“本地零点偏移”方式，与 ops9-main 底盘标定一致：
- *              清零后 X = 零点X - OPS绝对X
- *              清零后 Y = 零点Y - OPS绝对Y
+ *              清零后 X = 零点X - OPS绝对X + 偏心旋转位移X
+ *              清零后 Y = 零点Y - OPS绝对Y + 偏心旋转位移Y
  *              Z 为航向角，不清零
  *
  * 使用方法：
@@ -28,6 +28,11 @@
 /* ---------------------------- 私有变量 ---------------------------- */
 static uint8_t             s_rx_buf[OPS_FRAME_LEN];  /* DMA 接收缓冲区        */
 static OPS_Data_t          s_ops;                    /* 解析结果              */
+/* 车体坐标：前+X、左+Y；OPS测量交点相对底盘中心。单位mm。 */
+static float s_mount_x_mm = -50.0f;
+static float s_mount_y_mm = 60.0f;
+static float s_reference_yaw; /* 首个有效帧航向，建立未清零坐标参考 */
+static float s_origin_yaw;    /* ZERO时航向，与原始零点成对保存 */
 static volatile uint8_t    s_new_flag;               /* 新数据标志            */
 
 /* CRC8：生成多项式 G(x)=x^8+x^5+x^4+1，初值 0xFF（DJI RM CRC8 查表） */
@@ -123,35 +128,42 @@ static uint8_t OPS_CopyPosition(float *x, float *y, float *z, uint8_t absolute)
     return 0U;
   }
 
-  /* 关中断拷贝，保证与接收中断无竞争 */
-  primask = __get_PRIMASK();
-  __disable_irq();
-
-  if (absolute != 0U)
+  /* 只在短临界区快照；三角运算在恢复中断后执行。 */
   {
-    *x = s_ops.frame.x;
-    *y = s_ops.frame.y;
-    *z = s_ops.frame.z;
-  }
-  else if (s_ops.zero_enabled != 0U)
-  {
-    /* 与 ops9-main 底盘坐标换算一致：X/Y 取反并加零点，Z 为航向角不清零 */
-    *x = s_ops.origin_x - s_ops.frame.x;
-    *y = s_ops.origin_y - s_ops.frame.y;
-    *z = s_ops.frame.z;
-  }
-  else
-  {
-    *x = s_ops.frame.x;
-    *y = s_ops.frame.y;
-    *z = s_ops.frame.z;
-  }
-
-  is_new     = s_new_flag;
-  s_new_flag = 0U;
-  if (primask == 0U)
-  {
-    __enable_irq();
+    float px, py, yaw, ox, oy, ref, rx, ry;
+    uint8_t zero, valid;
+    primask = __get_PRIMASK();
+    __disable_irq();
+    px = s_ops.frame.x; py = s_ops.frame.y; yaw = s_ops.frame.z;
+    ox = s_ops.origin_x; oy = s_ops.origin_y;
+    zero = s_ops.zero_enabled;
+    valid = (s_ops.valid_count != 0U);
+    ref = zero ? s_origin_yaw : s_reference_yaw;
+    rx = s_mount_x_mm * 0.001f; ry = s_mount_y_mm * 0.001f;
+    is_new = s_new_flag;
+    s_new_flag = 0U;
+    if (primask == 0U) __enable_irq();
+    *z = yaw;
+    *x = px; *y = py;
+    /* 原始绝对接口保持线缆数据，避免补偿叠加。 */
+    if (!absolute && valid)
+    {
+      float dc = cosf(yaw) - cosf(ref);
+      float ds = sinf(yaw) - sinf(ref);
+      float dx = dc * rx - ds * ry;
+      float dy = ds * rx + dc * ry;
+      if (zero)
+      {
+        /* 保留既有ZERO反号约定：-(原始位移-偏心旋转位移)。 */
+        *x = ox - px + dx;
+        *y = oy - py + dy;
+      }
+      else
+      {
+        *x = px - dx;
+        *y = py - dy;
+      }
+    }
   }
 
   return is_new;
@@ -190,6 +202,9 @@ void OPS_Start(void)
 void OPS_Init(void)
 {
   memset(&s_ops, 0, sizeof(s_ops));
+  s_mount_x_mm = -50.0f;
+  s_mount_y_mm = 60.0f;
+  s_reference_yaw = s_origin_yaw = 0.0f;
   s_ops.status = OPS_STATUS_IDLE;
   s_new_flag  = 0U;
 
@@ -274,7 +289,7 @@ uint8_t OPS_IsOnline(uint32_t timeout_ms)
 /**
  * @brief  以当前 OPS 位置作为坐标零点
  * @note   必须收到过有效 OPS 帧后调用；清零后：
- *          X = 零点X - OPS绝对X，Y = 零点Y - OPS绝对Y，Z 保持绝对航向角
+ *          X/Y在原有反号约定上加偏心旋转补偿，Z保持绝对航向角
  */
 void OPS_ZeroCoordinates(void)
 {
@@ -289,6 +304,7 @@ void OPS_ZeroCoordinates(void)
   __disable_irq();
   s_ops.origin_x     = s_ops.frame.x;
   s_ops.origin_y     = s_ops.frame.y;
+  s_origin_yaw       = s_ops.frame.z;
   s_ops.zero_enabled = 1U;
   if (primask == 0U)
   {
@@ -316,6 +332,7 @@ void OPS_SetOrigin(float x, float y)
   __disable_irq();
   s_ops.origin_x     = x;
   s_ops.origin_y     = y;
+  s_origin_yaw       = s_ops.frame.z;
   s_ops.zero_enabled = 1U;
   if (primask == 0U)
   {
@@ -361,6 +378,7 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
           (fabsf(frame.x) < 1000.0f) && (fabsf(frame.y) < 1000.0f) &&
           (fabsf(frame.z) < 1000000.0f))
       {
+        if (s_ops.valid_count == 0U) s_reference_yaw = frame.z;
         memcpy(&s_ops.frame, &frame, sizeof(OPS_Frame_t));
         s_ops.valid_count++;
         s_ops.last_update_tick = HAL_GetTick();
@@ -387,4 +405,25 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
 
   /* 解析完成后重新启动接收 */
   (void)OPS_RestartReceive();
+}
+
+/* 成对更新安装偏移；由任务停车后调用。未写入Flash。 */
+uint8_t OPS_SetMountOffset(float x_mm, float y_mm)
+{
+  uint32_t mask;
+  if (!(x_mm >= -500.0f && x_mm <= 500.0f &&
+        y_mm >= -500.0f && y_mm <= 500.0f)) return 0U;
+  mask = __get_PRIMASK();
+  __disable_irq();
+  s_mount_x_mm = x_mm;
+  s_mount_y_mm = y_mm;
+  if (s_ops.valid_count != 0U)
+  {
+    s_ops.origin_x = s_ops.frame.x;
+    s_ops.origin_y = s_ops.frame.y;
+    s_origin_yaw = s_ops.frame.z;
+    s_ops.zero_enabled = 1U;
+  }
+  if (mask == 0U) __enable_irq();
+  return 1U;
 }

@@ -80,8 +80,11 @@ uint8_t OPS_IsNew(void);                                  /* 是否有新数据 
 void    OPS_ClearNew(void);                               /* 清除新数据标志                       */
 uint8_t OPS_IsOnline(uint32_t timeout_ms);                 /* 定位数据是否在超时时间内更新         */
 
+/* 安装偏移：前+X、左+Y，mm，±500；有效帧存在时同时重新置零。 */
+uint8_t OPS_SetMountOffset(float x_mm, float y_mm);
+
 void OPS_ZeroCoordinates(void);                            /* 以当前 OPS 坐标作为零点               */
-void OPS_ClearZero(void);                                   /* 取消清零，恢复原始绝对坐标            */
+void OPS_ClearZero(void);                                   /* 取消清零，恢复补偿后的未清零坐标      */
 void OPS_SetOrigin(float x, float y);                       /* 手动设置 X/Y 零点                     */
 uint8_t OPS_IsZeroEnabled(void);                            /* 查询当前是否已坐标清零                */
 
