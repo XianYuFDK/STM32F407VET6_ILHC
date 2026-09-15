@@ -76,7 +76,9 @@ void chassis_turn(int z);
 /* 封装接口 */
 void MecanumControl_Init(void);
 void MecanumControl_Enable(void);
+void MecanumControl_Disable(void);
 void MecanumControl_Stop(void);
+void MecanumControl_ClearTarget(void);
 void MecanumControl_MoveVelocity(float vxRpm, float vyRpm, float vzRpm);
 uint8_t MecanumControl_GotoOPS(float targetX, float targetY, float targetYaw, float maxRpm);
 uint8_t MecanumControl_MoveTo(float targetX, float targetY, float targetYaw, float maxRpm);

@@ -122,7 +122,8 @@ Mcu.Pin24=PD0
 Mcu.Pin25=PD1
 Mcu.Pin26=PD2
 Mcu.Pin27=PD3
-Mcu.PinsNb=28
+Mcu.Pin28=PB2
+Mcu.PinsNb=29
 Mcu.ThirdPartyNb=0
 Mcu.UserConstants=
 Mcu.UserName=STM32F407VETx
@@ -310,3 +311,11 @@ PB11.GPIO_Label=CAMERA_RX
 
 PE9.GPIOParameters=GPIO_Label
 PE9.GPIO_Label=GRIPPER_PWM
+
+PB2.GPIOParameters=GPIO_Label,GPIO_Speed,GPIO_PuPd,PinState
+PB2.GPIO_Label=COMM_LED
+PB2.GPIO_Speed=GPIO_SPEED_FREQ_LOW
+PB2.GPIO_PuPd=GPIO_NOPULL
+PB2.PinState=GPIO_PIN_RESET
+PB2.Locked=true
+PB2.Signal=GPIO_Output

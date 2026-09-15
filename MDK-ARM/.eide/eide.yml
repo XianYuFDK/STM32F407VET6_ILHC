@@ -221,8 +221,8 @@ targets:
         baseAddr: ""
         bin: ""
         cpuInfo:
-          cpuName: "null"
-          vendor: "null"
+          cpuName: STM32F407VE
+          vendor: ST
         otherCmds: ""
         proType: 1
         speed: 8000
@@ -236,4 +236,4 @@ targets:
         resetMode: default
         runAfterProgram: true
         speed: 4000
-    uploader: STLink
+    uploader: JLink

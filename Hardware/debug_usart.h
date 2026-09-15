@@ -37,6 +37,7 @@ extern "C" {
  */
 void DebugUsart_Init(void);
 
+
 /**
  * @brief  发送一次 VOFA+ JustFloat 数据帧，并处理待执行命令
  * @note   同时恢复异常中断的USART1接收，只复位RX，不主动中止TX。

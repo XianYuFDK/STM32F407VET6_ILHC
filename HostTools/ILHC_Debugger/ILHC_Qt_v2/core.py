@@ -11,6 +11,7 @@
 """
 
 import csv
+from collections import deque
 import math
 import os
 import queue
@@ -20,6 +21,22 @@ import threading
 import time
 
 import numpy as np
+
+
+class CommandQueue(queue.Queue):
+    """普通命令保序；待发MANUAL只保留最新目标，并优先于普通参数。
+
+    Queue在持锁状态调用_put，替换与工作线程取出不会交叉；STOP仍走独立紧急队列。
+    """
+    def _put(self, item):
+        if str(item).strip().upper().startswith("MANUAL="):
+            kept = deque(cmd for cmd in self.queue
+                         if not str(cmd).strip().upper().startswith("MANUAL="))
+            self.unfinished_tasks -= len(self.queue) - len(kept)
+            self.queue = kept
+            self.queue.appendleft(item)
+        else:
+            super()._put(item)
 
 try:
     import serial
@@ -354,7 +371,7 @@ class SerialWorker(threading.Thread):
         try:
             self.ser = serial.Serial(self.port, self.baud, bytesize=8,
                                      parity=serial.PARITY_NONE, stopbits=1,
-                                     timeout=0.05, write_timeout=0.10)
+                                     timeout=0.01, write_timeout=0.10)
             self.opened_monotonic = time.monotonic()
             self.opened.set()
         except Exception as e:  # 打开失败，通知 UI
@@ -362,6 +379,9 @@ class SerialWorker(threading.Thread):
                 self.err_cb("打开 %s 失败：%s" % (self.port, e))
             return
         try:
+            # 固件可能停留在ZDT文字模式；连接后只恢复遥测，不触发运动。
+            if not self.stop_flag:
+                self._write_line("VOFA")
             while not self.stop_flag:
                 # 急停/失能命令优先于读数据和普通参数命令。
                 while True:
@@ -370,14 +390,15 @@ class SerialWorker(threading.Thread):
                         break
                     self._write_line(line)
 
-                data = self.ser.read(2048)
+                # 有数据就立即处理；无数据最多等10ms，避免大块read拖延控制发送。
+                data = self.ser.read(min(2048, self.ser.in_waiting) or 1)
                 if data:
                     now = time.monotonic()
                     for f in self.parser.feed(data):
                         self.last_frame_monotonic = now
                         self._push((now, f))
 
-                # 读完后再次检查急停，最大额外等待约为串口 timeout=50 ms。
+                # 读完后再次检查急停，读取引入的额外等待最多约10ms。
                 while True:
                     line = self._drain_one(self.urgent_q)
                     if line is None:
@@ -454,6 +475,8 @@ class Simulator(threading.Thread):
         self.ops_reference_yaw = 0.0
         self.manual = None
         self.manual_tick = 0.0
+        # 四轮锁轴状态：与固件一致，上电已使能；失能期间拒绝运动命令。
+        self.wheel_enabled = True
         self._t = 0.0
         # 仅记录调试目标，不伪造28/35硬件位置或到位反馈。
         self.stepper_commands = {28: None, 35: None}
@@ -466,6 +489,16 @@ class Simulator(threading.Thread):
     def handle_line(self, line):
         line = line.strip().upper()
         if not line:
+            return
+        # 四轮锁轴/释放：与固件一致，失能相当于停车并取消手动/GOTO。
+        # 演示模式不伪造UART4应答，只维护状态并让运动命令被拒绝。
+        if line in ("WHEELEN", "WHEELOFF"):
+            self.wheel_enabled = line == "WHEELEN"
+            self.manual = None
+            self.goto = None
+            if self.hold is None:                  # 巡航中切换：停在当前位置
+                self.hold = (600.0 * math.sin(0.25 * self._t),
+                             450.0 * math.cos(0.19 * self._t))
             return
         if line.startswith(("S28", "S35")):
             motor = int(line[1:3])
@@ -494,6 +527,8 @@ class Simulator(threading.Thread):
             self.ops_reference_yaw = self.zval
             return
         if line.startswith("MANUAL="):
+            if not self.wheel_enabled:             # 与固件一致：失能不运动
+                return
             parts = line[7:].split(",")
             if len(parts) != 3 or any(not p.lstrip("+-").isascii() or not p.lstrip("+-").isdigit() for p in parts):
                 return
@@ -528,6 +563,8 @@ class Simulator(threading.Thread):
             self.hold = (0.0, 0.0)                 # 以当前位置为新原点
             return
         if line.startswith("GOTO="):
+            if not self.wheel_enabled:             # 与固件一致：失能不接受新目标
+                return
             try:
                 parts = [float(p) for p in line[5:].split(",") if p.strip()]
             except ValueError:
@@ -829,5 +866,16 @@ def selftest():
     assert field_point_blocked(1200, 2200) is None
     assert field_path_blocked(2250, 2250, 330, 1200) is not None
     assert field_path_blocked(2250, 2250, 1200, 2200) is None
+    print('    ok')
+
+    print('[5] 四轮使能/失能闸门 ...')
+    sim = Simulator(queue.Queue(), queue.Queue(), queue.Queue())
+    sim.handle_line('WHEELOFF')
+    sim.handle_line('MANUAL=60,0,0')
+    sim.handle_line('GOTO=100,100,0')
+    assert sim.wheel_enabled is False and sim.manual is None and sim.goto is None
+    sim.handle_line('WHEELEN')
+    sim.handle_line('MANUAL=60,0,0')
+    assert sim.wheel_enabled is True and sim.manual == (60, 0, 0)
     print('    ok')
     print('全部核心自检通过 ✔')

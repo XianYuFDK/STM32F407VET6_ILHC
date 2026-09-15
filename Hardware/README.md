@@ -105,7 +105,11 @@ SoftSPI_OLED_Refresh();
   - 参考开源底盘：chassis_move(x, y, z) + SetMotorVoltageAndDirection(SpeedTarget[0..3])
   - 通过 OPS_GetPosition() 读取定位反馈，P 比例控制 + 斜坡限制 + 到位判断
   - OPS 原始 m/rad 在底盘层统一转换为 mm/deg，定位数据超过 200ms 未更新自动停车
-- 调用顺序：MX_UART4_Init -> OPS_Init -> MecanumControl_Init -> MecanumControl_Enable
+  - 四轮锁轴：MecanumControl_Enable() 使能并保持位置（内部等待 100ms）、
+    MecanumControl_Disable() 失能不锁轴（不等待）、MecanumControl_Stop() 停车并下发
+    速度 0 帧、MecanumControl_ClearTarget() 只清目标不发帧
+  - 失能后必须用 ClearTarget：ZDT_X42S 在速度模式下收到速度命令会重新使能锁轴
+  - 调用顺序：MX_UART4_Init -> OPS_Init -> MecanumControl_Init -> MecanumControl_Enable
 
 ## USART1 调试模块
 
@@ -114,6 +118,9 @@ SoftSPI_OLED_Refresh();
   - TX：DMA 发送 VOFA+ JustFloat 数据帧
   - RX：DMA 空闲中断接收 ASCII 命令
   - 命令示例：KPX=3.0、KPY=3.0、KPZ=10.0、XVMAX=1600、ZVMAX=750、STOP、ZERO
+  - 四轮锁轴命令：WHEELEN（使能/锁轴）、WHEELOFF（失能/不锁轴），失能期间拒绝
+    GOTO/MANUAL/ZDT；锁轴切换排在每周期最后，失能后所有停车路径只清目标不发速度帧
+    （Debug_ChassisStop），见调试指令手册
   - DM 电机命令：DMID=1、DMEN、DMOFF、DMSTOP、DMZERO
   - DM 控制命令：DMMODE=1/2、DMPOS=3.14、DMVEL=2、DMKP=2、DMKD=1、DMTOR=0.5
   - VOFA+ 通道：0~11 为底盘，12~23 为 DM（ID/位置/速度/力矩/状态/温度/目标值）

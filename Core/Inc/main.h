@@ -60,6 +60,10 @@ void Error_Handler(void);
 
 /* USER CODE BEGIN Private defines */
 
+/* 板载PB2 LED高电平点亮；PB2兼作BOOT1，保留原板下拉及正常BOOT0配置。 */
+#define COMM_LED_Pin GPIO_PIN_2
+#define COMM_LED_GPIO_Port GPIOB
+
 /* VM和补光灯仅输出控制电平，须接外部使能/功率驱动电路，不直接带负载。 */
 #define VM_EN_Pin GPIO_PIN_0
 #define VM_EN_GPIO_Port GPIOD

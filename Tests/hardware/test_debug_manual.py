@@ -20,13 +20,16 @@ prelude = r'''
 static volatile uint8_t s_manual_active;
 static volatile int16_t s_manual_velocity[3];
 static volatile uint32_t s_manual_tick;
-static uint32_t tick, mask, stops, moves;
+/* 四轮锁轴闸门：失能后手动服务只清目标，不产生速度帧。 */
+static uint8_t s_wheel_enabled = 1U;
+static uint32_t tick, mask, stops, moves, clears;
 static int16_t output[3];
 static uint32_t HAL_GetTick(void) {return tick;}
 static uint32_t __get_PRIMASK(void) {return mask;}
 static void __disable_irq(void) {mask=1;}
 static void __enable_irq(void) {mask=0;}
 static void MecanumControl_Stop(void) {stops++;}
+static void MecanumControl_ClearTarget(void) {clears++;}
 static void MecanumControl_MoveVelocity(float x,float y,float w)
 {moves++; output[0]=x; output[1]=y; output[2]=w;}
 '''
@@ -47,6 +50,14 @@ int main(void) {
  tick=250; Debug_ServiceManual(); assert(stops==2 && !s_manual_active && mask==1);
  s_manual_active=1; s_manual_tick=tick; s_manual_velocity[0]=s_manual_velocity[2]=0;
  mask=0; Debug_ServiceManual(); assert(stops==3 && !mask);
+ /* 四轮失能：带速手动只清目标，既不回落到MoveVelocity也不发停车速度帧 */
+ s_manual_active=1; s_manual_tick=tick;
+ s_manual_velocity[0]=60; s_manual_velocity[1]=0; s_manual_velocity[2]=30;
+ s_wheel_enabled=0; mask=1;
+ Debug_ServiceManual(); assert(clears==1 && moves==2 && stops==3 && mask==1);
+ /* 重新使能后带速手动恢复正常下发 */
+ s_manual_tick=tick; s_wheel_enabled=1; mask=0;
+ Debug_ServiceManual(); assert(moves==3 && output[0]==60 && output[2]==30 && clears==1);
  puts("Manual parser / mixed velocity / timeout / tick wrap tests passed");
  return 0;
 }
@@ -54,6 +65,7 @@ int main(void) {
 with tempfile.TemporaryDirectory(prefix="ilhc_manual_test_") as directory:
     folder=Path(directory)
     src, exe=folder/"test.c", folder/"test.exe"
-    src.write_text(prelude + function("Debug_ParseManual") + function("Debug_ServiceManual") + checks,encoding="utf-8")
+    src.write_text(prelude + function("Debug_ParseManual") + function("Debug_WheelReady")
+                   + function("Debug_ServiceManual") + checks,encoding="utf-8")
     subprocess.run(["gcc","-std=c99","-Wall","-Wextra","-Werror",str(src),"-o",str(exe)],check=True)
     subprocess.run([str(exe)],check=True)

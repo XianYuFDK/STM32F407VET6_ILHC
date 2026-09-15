@@ -351,12 +351,29 @@ void MecanumControl_Enable(void)
 }
 
 /**
- * @brief  停止底盘并清零目标
+ * @brief  失能四个电机（释放锁轴）
+ * @note   只发送驱动器失能帧，不修改SpeedTarget，调用方应先停车再失能。
+ *         失能后轮子不再保持位置，重新运动前必须MecanumControl_Enable。
+ *         这里不等同于MecanumControl_Enable的100ms等待：失能后不应再发
+ *         速度帧，无需等待驱动器进入可接收速度命令的状态。
  */
-void MecanumControl_Stop(void)
+void MecanumControl_Disable(void)
+{
+  ZDT_X42S_Disable(1U);
+  ZDT_X42S_Disable(2U);
+  ZDT_X42S_Disable(3U);
+  ZDT_X42S_Disable(4U);
+}
+
+/**
+ * @brief  只清零底盘运动状态，不向电机下发任何速度帧
+ * @note   用于四轮已失能的场合。ZDT_X42S 在速度模式下收到任意速度命令都会
+ *         重新使能并锁轴，失能后再下发速度帧会把刚才的失能帧覆盖掉，表现为
+ *         "失能了还是锁"，因此失能后只能清理软件目标。
+ */
+void MecanumControl_ClearTarget(void)
 {
   SpeedTarget_stop();
-  SetMotorVoltageAndDirection(0, 0, 0, 0);
 
   last_Speed[0] = 0;
   last_Speed[1] = 0;
@@ -366,6 +383,17 @@ void MecanumControl_Stop(void)
   in_pos    = 0U;
   near_pos  = 0U;
   delay_pos = 0U;
+}
+
+/**
+ * @brief  停止底盘并清零目标
+ * @note   会向四轮下发速度0帧。四轮已失能时改用 MecanumControl_ClearTarget，
+ *         否则速度0帧会重新使能电机并把轮子重新锁住。
+ */
+void MecanumControl_Stop(void)
+{
+  MecanumControl_ClearTarget();
+  SetMotorVoltageAndDirection(0, 0, 0, 0);
 }
 
 /**

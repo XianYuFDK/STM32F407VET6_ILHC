@@ -1,5 +1,38 @@
 # 工程导航与维护约定
 
+2026-09-16：修复"WHEELOFF失能后轮子仍然锁轴"。根因是任务体时序：DebugUsart_Send先执行
+Debug_ServiceWheel发出失能帧，之后s_stop_req/s_zero_req/s_offset_req/GOTO分支又调用
+MecanumControl_Stop()发出速度0帧；ZDT_X42S在速度模式下收到任意速度命令都会重新使能
+锁轴，因此失能帧被覆盖。Qt上位机点击「失能电机」时先发STOP再发WHEELOFF，两条命令落在
+同一个20ms周期，必然复现。修复：mecanum_control.c拆出MecanumControl_ClearTarget（只清
+SpeedTarget/last_Speed/in_pos等，不碰UART4），MecanumControl_Stop改为ClearTarget +
+SetMotorVoltageAndDirection(0,0,0,0)；debug_usart.c新增Debug_ChassisStop（使能状态发速度
+帧、失能状态只清目标），任务体六处停车路径统一改用它，GOTO分支在失能时只取消目标，手动
+服务在失能时只清目标；Debug_ServiceWheel移到Debug_ServiceManual之后，保证失能帧是该周期
+UART4上的最后一批帧。回归Tests/hardware/test_debug_wheel.py新增Debug_ChassisStop编译用例
+与"任务体不得出现裸MecanumControl_Stop"文本断言，test_debug_manual.py补闸门用例；
+固件EIDE编译通过，必须重新烧录。
+
+2026-09-15：新增底盘四轮锁轴命令WHEELEN（使能/锁轴）和WHEELOFF（失能/不锁轴）。
+接收中断只置s_wheel_req，任务Debug_ServiceWheel先取消GOTO/手动并停车，再发UART4
+使能或失能帧；使能闸门在MecanumControl_Enable完成后才打开。失能期间GOTO/MANUAL
+在Debug_ParseLine解析阶段丢弃，ZDT回复ERR WHEEL DISABLED需先WHEELEN；STOP和主机
+失联不改变锁轴状态。mecanum_control.c新增MecanumControl_Disable（1~4号
+ZDT_X42S_Disable，不等待，与Enable的100ms等待不对称）；ZDT测试遇锁轴切换按既有
+STOP/ZERO/OPSOFFSET规则取消，避免测试阶段1重新使能已失能的轮子。Qt「底盘调参」
+新增两个按钮，失能状态下本地也拒绝地图GOTO/键盘遥控，命令终端手输同步界面状态。
+无状态回读。测试Tests/hardware/test_debug_wheel.py、test_debug_zdt.py（新增锁轴
+取消用例）与Qt test_debugger；固件EIDE编译通过，必须重新烧录。
+
+2026-09-13：Qt连续遥控改为50ms PreciseTimer；core.CommandQueue合并最新MANUAL并优先普通参数，
+STOP仍走紧急队列。串口read改为已有字节/空闲1字节，超时10ms；仅绘制当前页面图表。
+固件350ms超时未改，未实车验证顿挫原因；新增最新目标队列、短读取及发送优先级回归。
+
+2026-09-12：Qt手动区改为键盘遥控，WASD平移、Q/E旋转、Shift30%低速、空格停车、Esc退出。
+仅主动接管且键盘区有焦点时生效，失焦/切页/断连清除按键，不自动恢复。
+复用MANUAL和350ms固件超时；松开键优先发送MANUAL=0,0,0，运动中退出使用STOP。
+固件本次未改动，回归包含Qt键事件、组合/反向/重复键、失焦和模拟器超时。
+
 2026-09-11：仅修复USART1接收异常恢复。debug_usart.c注册专用ErrorCallback，
 中断置s_rx_recover，DebugUsart_Send入口任务恢复RX；启动/重启失败下周期重试，
 等待RX DMA异步终止完成，只AbortReceive及RX DMA，不主动中止TX。
@@ -141,6 +174,7 @@ HAL 毫秒时基由 TIM7 中断和 `HAL_TIM_PeriodElapsedCallback()` 维护；RT
 - 固件不提供普通文本 ACK；不要把打印文本混入同一遥测流。
 - `PING` 建议每 200ms 发送；固件超过 1s 没收到完整命令行时停止活动的 GOTO/DM 调试动作。两版上位机当前均由 GUI 主循环产生心跳。
 - `STOP` 取消 GOTO、停车并失能 DM；`ZERO` 先取消定位移动并停车，再置本地 X/Y 原点。
+- `WHEELEN`/`WHEELOFF` 只切换四轮锁轴，不改变 DM 和 28/35；失能期间拒绝 GOTO/MANUAL/ZDT，需显式重新使能。无锁轴状态回读。锁轴切换每周期最后执行；**失能后任何路径都不得再向 UART4 发速度帧**，因为 ZDT_X42S 速度命令会重新使能锁轴，停车只能走 `MecanumControl_ClearTarget()` / `Debug_ChassisStop()`。
 - 修改帧格式、通道或命令范围时，同时核对固件、原版 `ilhc_debugger.py`、Qt `core.py/main.py` 和中文手册。两版上位机并未共用同一个协议模块。
 
 ## 6. 构建与验证
@@ -173,6 +207,7 @@ py -3 HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py --selftest
 - 新增 `.c` 文件需要同步 EIDE `virtualFolder` 与 Keil `Hardware` 分组；当前并非自动扫描全部 `Hardware/*.c`。
 - CubeMX 自定义代码尽量放 `USER CODE` 块；引脚、DMA、中断和 HAL 配置变更同时核对 `.ioc`。当前存在手工维护的初始化/IRQ 代码，再生成后必须检查差异。
 - 中断回调只做必要解析和状态更新；阻塞发送、等待、复杂控制放任务中。共享结构快照保护需恢复进入临界区前的 PRIMASK，不可无条件开中断。
+- 新增 UART4 轮速输出前先确认四轮使能状态：ZDT_X42S 在速度模式下收到速度命令会重新使能并锁轴，失能后多一条速度帧就会把失能帧覆盖掉。停车分两条路径，`MecanumControl_Stop()` 会发速度 0 帧，`MecanumControl_ClearTarget()` 只清软件目标。
 - DMA 发送缓冲区在传输完成前不能重写；新增任务或增加局部缓冲区时核对默认任务 512 字节栈及 RTOS 堆。
 - OPS 当前按单个 14 字节帧接收，没有完整的字节流重同步/拼帧机制；不要描述成任意拆包粘包均可恢复。
 - 主机失联保护在调试任务中执行，不是所有底层运动 API 的统一保护。UART4 发送仍阻塞且未解析电机应答；DM 模式切换也未读回确认。
@@ -206,3 +241,25 @@ py -3 HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py --selftest
 2026-09-10：zdt_x42s.c新增UART4单字节IT接收（注册专用RxComplete/Error回调），仅解析F3/F6/FE四字节6B控制回包。main首次使能前InitRx；debug任务ServiceRx/PopReply，文字模式ZDT RX显示，500ms目标地址无回包提示（非逐命令事务超时），VOFA模式丢弃显示但持续接收。测试Tests/hardware/test_zdt_rx.py。
 
 2026-09-11 GPIO分配：USART3 PB10/PB11摄像头预留；PE9 TIM1_CH1夹爪舵机预留，原频率未改且未启动PWM。PD0 VM_EN、PD1 CAMERA_LIGHT_EN推挽输出默认低、高有效；PD2/PD3 START_KEY1/2上拉轮询输入、低有效，无消抖/启动动作。源码和.ioc已同步。详见PCB主控引脚说明.md；VM若供电机，开启后需等待上电并重新使能，当前不自动开启VM。
+
+2026-09-11 USART1早期启动提示：main在MX_USART1_UART_Init后调用DebugUsart_SendStartup，独立const缓冲区DMA发送一次UTF-8/ASCII启动消息；提交失败由DebugUsart_Send开头重试。不表示USB连接检测或MCU RX已正常，未改变默认JustFloat遥测。
+
+2026-09-11：PB2 COMM_LED高有效、默认低；只支持LED ON/LED OFF完整行指令，忽略大小写，默认任务执行GPIO。无自动心跳/接收闪烁，无文字回执，不触发电机。GPIO/ioc及PCB说明已同步。
+
+## 2026-09-11：CAN启动失败隔离
+
+`main.c`中`CAN_Start`失败不再进入`Error_Handler`：关闭CAN中断，保留ErrorCode，置HAL_CAN_STATE_ERROR，继续独立串口驱动及RTOS初始化。不自动重试CAN；修复硬件后重新启动。此改动针对CAN_Start失败，未将所有MX外设初始化错误改为可忽略。
+
+`DebugUsart_Init`在CAN不可用时进入文字模式，并通过既有任务DMA发送队列输出：
+`ERR CAN START FAILED; CAN DISABLED; USART1 AVAILABLE`
+
+CAN不可用时DM/S28/S35指令直接拒绝，不缓存动作，回复：
+`ERR CAN DISABLED; DM/S28/S35 REJECTED`
+
+底层HCan_Submit原有LISTENING检查继续保护所有CAN发送。LED、ZDT、STOP等独立功能不受此CAN失败阻断。发送`VOFA`加换行可恢复波形输出。CAN失败提示不代表PA10已通过实测。
+
+测试：`python Tests/hardware/test_can_degraded.py`，以及既有接收恢复、步进、GPIO和驱动回归；固件编译通过，尚未烧录实测。
+
+## 2026-09-12：移除临时串口通信测试
+
+已删除USART1 READY启动横幅及DebugUsart_SendStartup接口，删除led on/led off解析与LED任务服务。历史章节中的这些测试功能不再生效。PB2仍初始化为低电平输出，保留作未来状态灯。正式VOFA调参、MANUAL/ZDT/DM/28/35控制、应答、RX异常恢复及CAN失败隔离保持不变；命令仍需CR或LF结尾。

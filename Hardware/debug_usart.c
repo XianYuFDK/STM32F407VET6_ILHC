@@ -8,6 +8,9 @@
  *                            以及 DM 电机：DMID/DMEN/DMOFF/DMMODE/DMPOS 等
  *          - GOTO=x,y,z：上位机点击场地地图下发 OPS 全局定位移动目标，
  *            本任务每 20ms 周期执行一步 MecanumControl_GotoOPS，STOP 取消
+ *          - WHEELEN/WHEELOFF：底盘四轮统一锁轴/释放，失能期间拒绝运动命令；
+ *            失能后停车只清目标（MecanumControl_ClearTarget），绝不再发速度帧，
+ *            否则ZDT_X42S会重新使能锁轴，表现为"失能了还是锁"
  *          - 参数表可扩展：在 DebugParam_t 表中增加一项即可
  ******************************************************************************
  */
@@ -89,6 +92,13 @@ static volatile uint8_t s_manual_active;
 static volatile int16_t s_manual_velocity[3];
 static volatile uint32_t s_manual_tick;
 
+/* 底盘四轮锁轴控制：接收中断只置请求，UART4阻塞发送由任务执行。
+ * 0无请求、1使能（锁轴）、2失能（不锁轴）；同一周期后到的请求覆盖先到的。
+ * s_wheel_enabled 由任务写、中断读：失能后不锁轴，GOTO/MANUAL/ZDT
+ * 一律拒绝，必须显式 WHEELEN 恢复。main.c 启动时已使能四轮，初值为1。 */
+static volatile uint8_t s_wheel_req;
+static uint8_t s_wheel_enabled;
+
 /* 单轮限时测试：中断发布请求，任务执行；阶段1等待使能，阶段2计时运行。
  * 测试最长5秒，不依赖主机心跳续期；不修改现有24通道遥测格式。 */
 static volatile uint8_t s_zdt_req, s_zdt_active;
@@ -113,7 +123,11 @@ static const char * const s_ack_text[] = {
   "ACK ZDT RUN_REQUESTED (NO MOTOR ACK)\r\n",
   "ACK ZDT STOP_REQUESTED (NO MOTOR ACK)\r\n",
   "ACK ZDT CANCELLED (NO MOTOR ACK)\r\n",
-  "WARN ZDT NO_VALID_REPLY IN 500MS\r\n"
+  "WARN ZDT NO_VALID_REPLY IN 500MS\r\n",
+  NULL, /* 事件7用于原始电机回包，不索引文本。 */
+  "ERR CAN START FAILED; CAN DISABLED; USART1 AVAILABLE\r\n",
+  "ERR CAN DISABLED; DM/S28/S35 REJECTED\r\n",
+  "ERR WHEEL DISABLED; WHEELEN FIRST\r\n"
 };
 
 static void Debug_ZdtAck(uint8_t event)
@@ -195,6 +209,9 @@ typedef struct
 static volatile DebugStepperRequest_t s_stepper_req[2]; /* 35、28 */
 
 /* --------------------------- 私有函数 ------------------------------ */
+
+
+
 
 /**
  * @brief  ASCII 忽略大小写比较
@@ -562,6 +579,28 @@ static uint8_t Debug_ParseManual(const char *s, int16_t *v)
   return 1U;
 }
 
+/* 底盘运动闸门：四轮失能后 GOTO/MANUAL 在解析阶段即被丢弃。
+ * 由任务修改，接收中断只读，不阻塞也不改中断状态。 */
+static uint8_t Debug_WheelReady(void)
+{
+  return (s_wheel_enabled != 0U) ? 1U : 0U;
+}
+
+/* 四轮失能后禁止再向 UART4 下发任何速度帧：ZDT_X42S 在速度模式下收到任意
+ * 速度命令都会重新使能并锁轴，失能帧之后只要还有一条速度帧，轮子就会立刻
+ * 重新锁住。因此失能后只清理软件目标，停车帧留给重新使能之后再发。 */
+static void Debug_ChassisStop(void)
+{
+  if (Debug_WheelReady() != 0U)
+  {
+    MecanumControl_Stop();
+  }
+  else
+  {
+    MecanumControl_ClearTarget();
+  }
+}
+
 static void Debug_ServiceManual(void)
 {
   int16_t v[3];
@@ -578,15 +617,54 @@ static void Debug_ServiceManual(void)
     v[0] = v[1] = v[2] = 0;
   }
   if (mask == 0U) __enable_irq();
-  if (active)
+  if (active == 0U) return;
+  if (Debug_WheelReady() == 0U)
   {
-    if (v[0] == 0 && v[1] == 0 && v[2] == 0) MecanumControl_Stop();
-    else MecanumControl_MoveVelocity(v[0], v[1], v[2]);
+    /* 失能状态下不得输出轮速，只清理目标，避免重新使能锁轴。 */
+    MecanumControl_ClearTarget();
+    return;
   }
+  if (v[0] == 0 && v[1] == 0 && v[2] == 0) MecanumControl_Stop();
+  else MecanumControl_MoveVelocity(v[0], v[1], v[2]);
+}
+
+/* 任务上下文执行四轮使能/失能：先取消运动并停车，再发UART4阻塞帧。
+ * 失能只释放锁轴，不改变DM、28/35状态，也不停止串口遥测。
+ * 请求在中断中只置位，因此同一周期内只有最后一次状态切换生效。
+ * 本函数在每个周期内最后执行，保证失能帧是该周期UART4上的最后一批帧；
+ * 其余停车路径统一走Debug_ChassisStop，失能后不再产生速度帧。 */
+static void Debug_ServiceWheel(void)
+{
+  uint8_t request;
+  uint32_t mask = __get_PRIMASK();
+  __disable_irq();
+  request = s_wheel_req;
+  s_wheel_req = 0U;
+  if (mask == 0U) __enable_irq();
+  if (request == 0U) return;
+
+  /* 切换使能状态前取消手动/GOTO并停车，避免带速使能或释放。 */
+  s_manual_active = 0U;
+  s_goto_active = 0U;
+  MecanumControl_Stop();
+
+  if (request == 1U)
+  {
+    /* 闸门在使能完成后才打开，使能等待期间不接受新的运动请求。 */
+    MecanumControl_Enable();
+    s_wheel_enabled = 1U;
+    return;
+  }
+
+  /* 先关闭运动闸门，再清除本次调用前可能已被中断置位的运动请求。 */
+  s_wheel_enabled = 0U;
+  s_manual_active = 0U;
+  s_goto_active = 0U;
+  MecanumControl_Disable();
 }
 
 /* 任务上下文执行，禁止在接收中断中阻塞发送或延时。
- * STOP/ZERO/安装参数调整优先取消测试，且撤销尚未执行的请求。
+ * STOP/ZERO/安装参数调整/四轮使能切换优先取消测试，且撤销尚未执行的请求。
  * 切入测试先停止四轮，随后只对选中地址重新使能、发送速度和专用停止帧。 */
 static void Debug_ServiceZdt(void)
 {
@@ -594,7 +672,8 @@ static void Debug_ServiceZdt(void)
   int16_t args[3];
   uint32_t mask = __get_PRIMASK();
   __disable_irq();
-  cancel = (uint8_t)(s_stop_req || s_zero_req || s_offset_req);
+  /* 四轮使能切换必须取消测试：否则阶段1的重新使能会让已失能的轮子重新上电。 */
+  cancel = (uint8_t)(s_stop_req || s_zero_req || s_offset_req || (s_wheel_req != 0U));
   request = s_zdt_req;
   args[0] = s_zdt_args[0]; args[1] = s_zdt_args[1]; args[2] = s_zdt_args[2];
   s_zdt_req = 0U;
@@ -662,6 +741,23 @@ static uint8_t Debug_ParseOffset(const char *s, float *v)
   return 1U;
 }
 
+/* CAN不可用时直接拒绝CAN电机命令，避免产生待执行请求。
+ * 仅拦截DM、S28、S35命令；ZDT、STOP及串口其他功能保持可用。
+ * 回复复用现有队列，由任务DMA发送，中断中不阻塞发送。 */
+static uint8_t Debug_RejectCanCommand(const char *line)
+{
+  if (hcan1.State != HAL_CAN_STATE_LISTENING &&
+      (Debug_StrCaseCmpN(line, "DM", 2U) == 0U ||
+       Debug_StrCaseCmpN(line, "S28", 3U) == 0U ||
+       Debug_StrCaseCmpN(line, "S35", 3U) == 0U))
+  {
+    s_zdt_text_mode = 1U;
+    Debug_ZdtAck(9U);
+    return 1U;
+  }
+  return 0U;
+}
+
 static void Debug_ParseLine(char *line)
 {
   char *equal;
@@ -672,6 +768,7 @@ static void Debug_ParseLine(char *line)
     ++line;
   }
 
+  if (Debug_RejectCanCommand(line)) return;
   if (Debug_ParseStepper(line)) return;
 
   if (Debug_StrCaseCmp(line, "STOP") == 0U)
@@ -727,6 +824,22 @@ static void Debug_ParseLine(char *line)
     return;
   }
 
+  /* 底盘四轮锁轴/释放：中断只置请求，UART4阻塞发送由任务执行。
+   * 失能只释放锁轴，不影响DM、28/35和串口遥测；失能期间的运动命令
+   * 在本函数后面的MANUAL/GOTO/ZDT分支被丢弃，必须显式WHEELEN恢复。
+   * STOP/ZERO/OPSOFFSET不是使能命令，失能后它们只清目标不发速度帧。 */
+  if (Debug_StrCaseCmp(line, "WHEELEN") == 0U)
+  {
+    s_wheel_req = 1U;
+    return;
+  }
+
+  if (Debug_StrCaseCmp(line, "WHEELOFF") == 0U)
+  {
+    s_wheel_req = 2U;
+    return;
+  }
+
   /* ZDT=地址,有符号RPM,秒数；只允许底盘1~4号，限速300、限时1~5秒。
    * 测试期间拒绝新的单轮/MANUAL/GOTO命令，防止上位机周期刷新覆盖测试。
    * 接收成功仅表示请求入队，不代表电机已应答；STOP始终可以取消。 */
@@ -734,6 +847,11 @@ static void Debug_ParseLine(char *line)
   {
     int16_t v[3];
     s_zdt_text_mode = 1U;
+    if (!Debug_WheelReady())
+    {
+      Debug_ZdtAck(10U);
+      return;
+    }
     if (s_stop_req || s_zero_req || s_offset_req || s_zdt_active || s_zdt_req)
     {
       Debug_ZdtAck(1U);
@@ -757,7 +875,8 @@ static void Debug_ParseLine(char *line)
   if (Debug_StrCaseCmpN(line, "MANUAL=", 7U) == 0U)
   {
     int16_t v[3];
-    if (!s_stop_req && !s_zero_req && Debug_ParseManual(line + 7U, v))
+    if (!s_stop_req && !s_zero_req && Debug_WheelReady() &&
+        Debug_ParseManual(line + 7U, v))
     {
       s_manual_velocity[0] = v[0];
       s_manual_velocity[1] = v[1];
@@ -769,13 +888,14 @@ static void Debug_ParseLine(char *line)
     return;
   }
 
-  /* GOTO=x,y,z：OPS 全局定位移动目标，z 可省略（保持当前航向） */
+  /* GOTO=x,y,z：OPS 全局定位移动目标，z 可省略（保持当前航向）。
+   * 四轮失能时不接受新目标，避免释放状态下位置环持续输出轮速。 */
   if ((Debug_StrCaseCmpN(line, "GOTO", 4U) == 0U) && (line[4] == '='))
   {
     float v[3];
     uint8_t n = Debug_ParseFloatList(line + 5U, v, 3U);
 
-    if (n >= 2U)
+    if ((n >= 2U) && (Debug_WheelReady() != 0U))
     {
       if (v[0] < -3000.0f) { v[0] = -3000.0f; }
       if (v[0] > 3000.0f)  { v[0] = 3000.0f; }
@@ -861,6 +981,8 @@ static void DebugUsart_ServiceRx(void)
 
 /* --------------------------- 对外接口 ------------------------------ */
 
+
+
 /**
  * @brief  初始化 USART1 调试接收
  */
@@ -876,6 +998,9 @@ void DebugUsart_Init(void)
   s_goto_x = 0.0f;
   s_goto_y = 0.0f;
   s_goto_z = 0.0f;
+  /* main.c 在调用本函数前已使能四轮，这里只清除未处理的切换请求。 */
+  s_wheel_req = 0U;
+  s_wheel_enabled = 1U;
 
   /* DM 电机默认值 */
   s_dm_id = DEBUG_DM_DEFAULT_ID;
@@ -894,6 +1019,14 @@ void DebugUsart_Init(void)
   s_dm_start_pending = 0U;
   s_dm_mode_tick = 0U;
   s_host_last_tick = HAL_GetTick();
+
+  /* CAN启动失败仍继续启用串口RX；提示排队等待DMA空闲，不阻塞控制任务。
+   * 默认切换文字模式避免VOFA二进制淹没报错；用户发送VOFA可恢复波形。 */
+  if (hcan1.State != HAL_CAN_STATE_LISTENING)
+  {
+    s_zdt_text_mode = 1U;
+    Debug_ZdtAck(8U);
+  }
 
   /* 启动失败也保留恢复请求，由默认任务重试。 */
   s_rx_callbacks_ready = 0U;
@@ -923,7 +1056,7 @@ void DebugUsart_Send(void)
     if (s_goto_active != 0U)
     {
       s_goto_active = 0U;
-      MecanumControl_Stop();
+      Debug_ChassisStop();
     }
     if ((s_dm_active != 0U) || (s_dm_start_pending != 0U))
     {
@@ -940,7 +1073,8 @@ void DebugUsart_Send(void)
     s_manual_active = 0U;
     s_stop_req = 0U;
     s_goto_active = 0U;
-    MecanumControl_Stop();
+    /* STOP 不是使能命令：四轮已失能时只清目标，不下发速度帧。 */
+    Debug_ChassisStop();
     s_dm_active = 0U;
     s_dm_start_pending = 0U;
     s_dm_enable_req = 0U;
@@ -953,7 +1087,7 @@ void DebugUsart_Send(void)
     s_manual_active = 0U;
     s_zero_req = 0U;
     s_goto_active = 0U;
-    MecanumControl_Stop();
+    Debug_ChassisStop();
     OPS_ZeroCoordinates();
   }
 
@@ -967,27 +1101,38 @@ void DebugUsart_Send(void)
     s_offset_req = 0U;
     s_manual_active = s_goto_active = 0U;
     if (primask == 0U) __enable_irq();
-    MecanumControl_Stop();
+    Debug_ChassisStop();
     (void)OPS_SetMountOffset(x_mm, y_mm);
   }
 
   /* GOTO 定位移动：本任务 20ms 周期执行一步 P 控制并下发轮速，
      maxRpm 传 0 表示沿用当前调试限幅（XVMAX/ZVMAX），STOP 可随时取消 */
+  if ((s_goto_active != 0U) && (Debug_WheelReady() == 0U))
+  {
+    /* 四轮已失能：位置环不得输出轮速，只取消目标。 */
+    s_goto_active = 0U;
+    MecanumControl_ClearTarget();
+  }
   if (s_goto_active != 0U)
   {
     if (OPS_IsOnline(DEBUG_OPS_TIMEOUT_MS) == 0U)
     {
       s_goto_active = 0U;
-      MecanumControl_Stop();
+      Debug_ChassisStop();
     }
     else if (MecanumControl_GotoOPS(s_goto_x, s_goto_y, s_goto_z, 0.0f) != 0U)
     {
       s_goto_active = 0U;
-      MecanumControl_Stop();
+      Debug_ChassisStop();
     }
   }
 
   Debug_ServiceManual();
+
+  /* 四轮使能切换在ZDT服务之后，也在所有停车/清目标路径之后执行：
+   * 正在运行的测试先按同一请求取消，且失能帧是该周期UART4上的最后一批帧，
+   * 不会被STOP/ZERO/OPSOFFSET/GOTO随后发出的速度帧重新使能锁轴。 */
+  Debug_ServiceWheel();
 
   /* DM 电机命令处理 */
   if (s_dm_disable_req != 0U)

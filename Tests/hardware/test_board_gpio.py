@@ -3,7 +3,7 @@ from pathlib import Path
 import tempfile, subprocess, re
 root=Path(__file__).resolve().parents[2]
 header=(root/"Core/Inc/main.h").read_text(encoding="utf-8")
-macros="\n".join(line for line in header.splitlines() if re.match(r"#define (VM_EN|CAMERA_LIGHT_EN|START_KEY[12]|CAMERA_[TR]X|GRIPPER_PWM)_",line))
+macros="\n".join(line for line in header.splitlines() if re.match(r"#define (COMM_LED|VM_EN|CAMERA_LIGHT_EN|START_KEY[12]|CAMERA_[TR]X|GRIPPER_PWM)_",line))
 config={}
 for line in (root/"STM32F407VET6_ILHC.ioc").read_text(encoding="utf-8").splitlines():
     if "=" in line:
@@ -44,8 +44,9 @@ pre=r'''
 #define __HAL_RCC_GPIOD_CLK_ENABLE() (clock_on=1)
 typedef struct {uint32_t Pin,Mode,Pull,Speed;} GPIO_InitTypeDef;
 static int clock_on,step;
-static void HAL_GPIO_WritePin(void *p,uint32_t pins,int value){assert(clock_on&&step==0&&p==GPIOD&&pins==3&&value==0);step++;}
+static void HAL_GPIO_WritePin(void *p,uint32_t pins,int value){assert(clock_on&&value==0);if(step==0){assert(p==GPIOD&&pins==3);}else{assert(step==3&&p==GPIOB&&pins==4);}step++;}
 static void HAL_GPIO_Init(void *p,GPIO_InitTypeDef *s){
+ if(step==4){assert(p==GPIOB&&s->Pin==4&&s->Mode==GPIO_MODE_OUTPUT_PP&&s->Pull==GPIO_NOPULL);step++;return;}
  assert(p==GPIOD);
  if(step==1){assert(s->Pin==3&&s->Mode==GPIO_MODE_OUTPUT_PP&&s->Pull==GPIO_NOPULL&&s->Speed==GPIO_SPEED_FREQ_LOW);}
  else {assert(step==2&&s->Pin==12&&s->Mode==GPIO_MODE_INPUT&&s->Pull==GPIO_PULLUP);}
@@ -56,7 +57,7 @@ with tempfile.TemporaryDirectory(prefix="ilhc_gpio_") as d:
     p=Path(d)
     (p/"gpio.h").write_text(pre+macros,encoding="utf-8")
     body=(root/"Core/Src/gpio.c").read_text(encoding="utf-8")
-    (p/"test.c").write_text(body+"\nint main(void){MX_GPIO_Init();assert(step==3);return 0;}\n",encoding="utf-8")
+    (p/"test.c").write_text(body+"\nint main(void){MX_GPIO_Init();assert(step==5);return 0;}\n",encoding="utf-8")
     subprocess.run(["gcc","-std=c99","-Wall","-Wextra","-Werror","-I",str(p),str(p/"test.c"),"-o",str(p/"test.exe")],check=True)
     subprocess.run([str(p/"test.exe")],check=True)
 print("Board GPIO and CubeMX configuration tests passed")

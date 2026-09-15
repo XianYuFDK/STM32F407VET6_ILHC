@@ -612,7 +612,7 @@ class MainWindow(QMainWindow):
 
         # 后端状态
         self.frame_q = queue.Queue(maxsize=4000)
-        self.line_q = queue.Queue()
+        self.line_q = core.CommandQueue()
         self.urgent_q = queue.Queue()
         self.worker = None
         self.sim = None
@@ -624,6 +624,9 @@ class MainWindow(QMainWindow):
         self.ring = core.RingBuffer(int(self.window_s * core.SEND_HZ) + 100, core.FRAME_FLOATS)
         self.traj_ring = core.RingBuffer(int(self.window_s * core.SEND_HZ) + 100, 2)
         self.paused = False
+        # 四轮锁轴状态：None未请求 / True已请求使能 / False已请求失能。
+        # 固件无状态回读，这里只记录本机发出的最后一条请求。
+        self.wheel_state = None
         self.map_ox = 0.0
         self.map_oy = 0.0
         self.map_theta = 0.0
@@ -1061,8 +1064,10 @@ class MainWindow(QMainWindow):
 
         safe = QFrame()
         safe.setObjectName("Panel")
-        sl = QHBoxLayout(safe)
+        sl = QVBoxLayout(safe)
         sl.setContentsMargins(12, 10, 12, 10)
+        sl.setSpacing(8)
+        top_row = QHBoxLayout()
         stop = QPushButton("■ 底盘急停 STOP")
         stop.setObjectName("EmergencyButton")
         stop.clicked.connect(lambda: self.send_line("STOP"))
@@ -1072,10 +1077,33 @@ class MainWindow(QMainWindow):
         sendall = QPushButton("一键下发全部参数")
         sendall.setObjectName("PrimaryButton")
         sendall.clicked.connect(self._send_all_chassis)
-        sl.addWidget(stop)
-        sl.addWidget(zero)
-        sl.addStretch(1)
-        sl.addWidget(sendall)
+        top_row.addWidget(stop)
+        top_row.addWidget(zero)
+        top_row.addStretch(1)
+        top_row.addWidget(sendall)
+        sl.addLayout(top_row)
+
+        # 四轮锁轴：使能=电机保持位置；失能=轮子可自由推动。
+        # 固件在失能期间丢弃 GOTO/MANUAL/ZDT，必须显式重新使能。
+        wheel_row = QHBoxLayout()
+        wheel_row.setSpacing(8)
+        wheel_en = QPushButton("使能电机（锁轴）")
+        wheel_en.setObjectName("SuccessButton")
+        wheel_en.setToolTip("四轮统一使能并保持位置。固件上电时默认已使能，先停车再使能。")
+        wheel_en.clicked.connect(lambda: self.send_line("WHEELEN"))
+        wheel_off = QPushButton("失能电机（不锁轴）")
+        wheel_off.setObjectName("WarningButton")
+        wheel_off.setToolTip("四轮统一失能，轮子可自由推动。会先停车；失能期间地图 GOTO、\n"
+                            "键盘遥控和 ZDT 单轮测试都会被固件拒绝，需重新使能。")
+        wheel_off.clicked.connect(lambda: self.send_line("WHEELOFF"))
+        self.wheel_status = QLabel("")
+        self.wheel_status.setObjectName("HintLabel")
+        self.wheel_status.setWordWrap(True)
+        wheel_row.addWidget(wheel_en)
+        wheel_row.addWidget(wheel_off)
+        wheel_row.addWidget(self.wheel_status, 1)
+        sl.addLayout(wheel_row)
+        self._update_wheel_status()
         lay.addWidget(safe)
 
         scroll = QScrollArea()
@@ -1118,11 +1146,12 @@ class MainWindow(QMainWindow):
         self.manual_vector = None
         self.manual_timer = QTimer(self)
         self.manual_timer.timeout.connect(self._manual_tick)
-        self.manual_timer.setInterval(100)
+        self.manual_timer.setInterval(50)
+        self.manual_timer.setTimerType(Qt.PreciseTimer)
         panel = QFrame()
         panel.setObjectName("Panel")
         grid = QGridLayout(panel)
-        grid.addWidget(QLabel("手动控制 · 按住运行，松开停车（车体方向）"), 0, 0, 1, 4)
+        grid.addWidget(QLabel("键盘遥控 · WASD 平移 / Q E 转向（车体方向）"), 0, 0, 1, 4)
         self.manual_speed = QSpinBox()
         self.manual_speed.setRange(1, 300)
         self.manual_speed.setValue(60)
@@ -1133,37 +1162,41 @@ class MainWindow(QMainWindow):
         grid.addWidget(self.manual_speed, 1, 1)
         grid.addWidget(QLabel("旋转分量 RPM"), 1, 2)
         grid.addWidget(self.manual_turn, 1, 3)
-        actions = [("前进", (1,0,0)), ("后退", (-1,0,0)),
-                   ("左移", (0,1,0)), ("右移", (0,-1,0)),
-                   ("逆时针旋转", (0,0,1)), ("顺时针旋转", (0,0,-1)),
-                   ("前进 + 左旋", (1,0,1)), ("前进 + 右旋", (1,0,-1)),
-                   ("后退 + 左旋", (-1,0,1)), ("后退 + 右旋", (-1,0,-1))]
-        self.manual_buttons = []
-        for i, (label, vector) in enumerate(actions):
-            button = QPushButton(label)
-            button.pressed.connect(lambda v=vector: self._manual_start(v))
-            button.released.connect(self._manual_stop)
-            grid.addWidget(button, 2 + i // 4, i % 4)
-            self.manual_buttons.append(button)
-        self.manual_custom = []
-        for i, label in enumerate(("前后", "左右", "旋转")):
-            spin = QSpinBox()
-            spin.setRange(-300, 300)
-            spin.setPrefix(label + " ")
-            spin.setSuffix(" RPM")
-            self.manual_custom.append(spin)
-            grid.addWidget(spin, 5, i)
-        custom = QPushButton("按住组合运动")
-        custom.pressed.connect(lambda: self._manual_start(tuple(x.value() for x in self.manual_custom), True))
-        custom.released.connect(self._manual_stop)
-        grid.addWidget(custom, 5, 3)
-        self.manual_status = QLabel("待机 · 手动模式不依赖 OPS；首次低速确认实际轮向")
+        self.keyboard_enabled = False
+        self.keyboard_keys = set()
+        self.keyboard_button = QPushButton("进入键盘遥控")
+        self.keyboard_button.setFocusPolicy(Qt.NoFocus)
+        self.keyboard_button.clicked.connect(self._keyboard_toggle)
+        grid.addWidget(self.keyboard_button, 2, 0, 1, 2)
+        self.keyboard_exit = QPushButton("退出遥控 / 停车（Esc）")
+        self.keyboard_exit.clicked.connect(self._manual_stop)
+        grid.addWidget(self.keyboard_exit, 2, 2, 1, 2)
+        self.keyboard_pad = QFrame()
+        self.keyboard_pad.setFocusPolicy(Qt.StrongFocus)
+        self.keyboard_pad.installEventFilter(self)
+        key_grid = QGridLayout(self.keyboard_pad)
+        self.keyboard_labels = {}
+        for key, label, row, col in ((Qt.Key_Q, "Q 左转", 0, 0), (Qt.Key_W, "W 前进", 0, 1),
+                                     (Qt.Key_E, "E 右转", 0, 2), (Qt.Key_A, "A 左移", 1, 0),
+                                     (Qt.Key_S, "S 后退", 1, 1), (Qt.Key_D, "D 右移", 1, 2)):
+            item = QLabel(label)
+            item.setAlignment(Qt.AlignCenter)
+            item.setMinimumHeight(38)
+            item.setStyleSheet("background: #242A33; border: 1px solid #38434F; border-radius: 6px; padding: 6px;")
+            self.keyboard_labels[key] = item
+            key_grid.addWidget(item, row, col)
+        key_grid.addWidget(QLabel("Shift：30%低速    空格：停车    Esc：退出遥控\n"
+                                 "支持 W+A / W+Q 等组合；松键停车，点击其他控件或切出窗口自动退出。"), 2, 0, 1, 3)
+        grid.addWidget(self.keyboard_pad, 3, 0, 1, 4)
+        self.manual_status = QLabel("待机 · 点击进入遥控后使用键盘；不依赖 OPS")
         self.manual_status.setWordWrap(True)
         grid.addWidget(self.manual_status, 6, 0, 1, 4)
         grid.addWidget(QLabel("俯视，车头朝上：左前 1 ｜右前 2 ｜左后 3 ｜右后 4"), 7, 0, 1, 4)
         self.manual_invert = []
         for i, label in enumerate(("前后反向", "左右反向", "旋转反向")):
             check = QCheckBox(label)
+            # 实车确认W会后退：默认反转前后分量，左右与旋转保持原设置。
+            check.setChecked(i == 0)
             check.toggled.connect(self._manual_stop)
             self.manual_invert.append(check)
             grid.addWidget(check, 8, i)
@@ -1225,24 +1258,104 @@ class MainWindow(QMainWindow):
         if self.worker is None and self.sim is None:
             self.log("请先连接串口或开启模拟", "warn")
             return
+        if self.wheel_state is False:
+            self.manual_status.setText("四轮已请求失能：固件会拒绝 MANUAL，请先「使能电机（锁轴）」")
+            return
         if not raw:
             vector = (vector[0] * self.manual_speed.value(),
                       vector[1] * self.manual_speed.value(),
                       vector[2] * self.manual_turn.value())
         vector = tuple(-v if c.isChecked() else v for v, c in zip(vector, self.manual_invert))
         self.manual_vector = vector
-        self._drain_queue(self.line_q)
         self._manual_tick()
-        self.manual_timer.start()
+        if not self.manual_timer.isActive():
+            self.manual_timer.start()
         self.manual_status.setText("手动运行：前后 %d / 左右 %d / 旋转 %d RPM · 松开停车" % vector)
+
+    def _keyboard_toggle(self):
+        if self.keyboard_enabled:
+            self._manual_stop()
+            return
+        if self.worker is None and self.sim is None:
+            self.manual_status.setText("请先连接串口或开启模拟")
+            return
+        if self.worker is not None and not self.worker.opened.is_set():
+            self.manual_status.setText("串口尚未就绪")
+            return
+        if self.wheel_state is False:
+            self.manual_status.setText("四轮已请求失能：固件会拒绝 MANUAL，请先「使能电机（锁轴）」")
+            return
+        self.send_line("STOP")  # 接管前取消原有GOTO，禁止旧目标继续运行。
+        self.keyboard_enabled = True
+        self.keyboard_keys.clear()
+        self.keyboard_button.setText("键盘已接管")
+        self.keyboard_pad.setFocus(Qt.OtherFocusReason)
+        self.manual_status.setText("键盘已接管 · WASD平移，Q/E转向，Shift低速，空格停车")
+
+    def _keyboard_refresh(self):
+        keys = self.keyboard_keys
+        for key, label in self.keyboard_labels.items():
+            label.setStyleSheet("background: %s; border-radius: 6px; padding: 6px;" %
+                               ("#19799B" if key in keys else "#242A33"))
+        forward = int(Qt.Key_W in keys) - int(Qt.Key_S in keys)
+        left = int(Qt.Key_A in keys) - int(Qt.Key_D in keys)
+        turn = int(Qt.Key_Q in keys) - int(Qt.Key_E in keys)
+        if not (forward or left or turn):
+            if self.manual_vector is not None:
+                self.manual_vector = None
+                self.manual_timer.stop()
+                self._drain_queue(self.line_q)
+                self.urgent_q.put("MANUAL=0,0,0")
+            self.manual_status.setText("键盘遥控待机 · 按住运行，松开停车")
+            return
+        scale = 0.3 if Qt.Key_Shift in keys else 1.0
+        # 斜向平移归一化，避免两个轴同时按下时总速度增加sqrt(2)。
+        speed = self.manual_speed.value() * scale / max(1.0, math.hypot(forward, left))
+        self._manual_start((round(forward * speed), round(left * speed),
+                            round(turn * self.manual_turn.value() * scale)), True)
+
+    def eventFilter(self, watched, event):
+        if watched is getattr(self, "keyboard_pad", None):
+            if event.type() == QEvent.FocusOut:
+                self._manual_stop()
+            if getattr(self, "keyboard_enabled", False):
+                if event.type() in (QEvent.KeyPress, QEvent.KeyRelease, QEvent.ShortcutOverride):
+                    key = event.key()
+                    if key in (Qt.Key_W, Qt.Key_A, Qt.Key_S, Qt.Key_D, Qt.Key_Q, Qt.Key_E,
+                               Qt.Key_Shift, Qt.Key_Space, Qt.Key_Escape):
+                        if event.type() == QEvent.ShortcutOverride:
+                            event.accept()
+                            return True
+                        if event.isAutoRepeat():
+                            return True
+                        if key == Qt.Key_Escape:
+                            self._manual_stop()
+                        elif key == Qt.Key_Space:
+                            self.keyboard_keys.clear()
+                            self._keyboard_refresh()
+                        else:
+                            if event.type() == QEvent.KeyPress:
+                                self.keyboard_keys.add(key)
+                            else:
+                                self.keyboard_keys.discard(key)
+                            self._keyboard_refresh()
+                        return True
+        return super().eventFilter(watched, event)
 
     def _manual_tick(self):
         if self.manual_vector is not None:
-            # 普通队列为空时才续发，避免累积旧运动指令。
-            if self.line_q.empty():
-                self.line_q.put("MANUAL=%d,%d,%d" % self.manual_vector)
+            # 原子替换旧速度目标，不被参数积压饿死，也不积累过期方向。
+            self.line_q.put("MANUAL=%d,%d,%d" % self.manual_vector)
 
     def _manual_stop(self):
+        if hasattr(self, "keyboard_enabled"):
+            if self.keyboard_enabled:
+                self.manual_status.setText("已退出键盘遥控 · 点击进入后重新接管")
+            self.keyboard_enabled = False
+            self.keyboard_keys.clear()
+            self.keyboard_button.setText("进入键盘遥控")
+            for label in self.keyboard_labels.values():
+                label.setStyleSheet("background: #242A33; border: 1px solid #38434F; border-radius: 6px; padding: 6px;")
         if getattr(self, "manual_vector", None) is not None:
             self.manual_vector = None
             self.manual_timer.stop()
@@ -1497,13 +1610,21 @@ class MainWindow(QMainWindow):
             self.log("未连接，命令未发送：%s" % text, "warn")
             return
         cmd = text.upper().split("=", 1)[0].strip()
-        if cmd in ("STOP", "ZERO", "GOTO", "OPSOFFSET"):
+        # 锁轴切换前先停止键盘续发，避免失能后仍周期发送MANUAL。
+        if cmd in ("STOP", "ZERO", "GOTO", "OPSOFFSET", "WHEELEN", "WHEELOFF"):
             self._manual_stop()
         if cmd in core.URGENT_COMMANDS:
             self._drain_queue(self.line_q)
             self.urgent_q.put(text)
         else:
             self.line_q.put(text)
+        # 终端手输同一命令也要同步界面状态，避免与实际请求不一致。
+        if cmd == "WHEELEN":
+            self.wheel_state = True
+            self._update_wheel_status()
+        elif cmd == "WHEELOFF":
+            self.wheel_state = False
+            self._update_wheel_status()
         self.send_count += 1
         self.log("TX> %s" % text, "tx")
 
@@ -1606,10 +1727,14 @@ class MainWindow(QMainWindow):
             heading = (270.0 - self.map_theta - v[2]) % 360.0
             self.map_position.setText("场地 X=%.1f mm   Y=%.1f mm   航向=%.1f°（0°左 / 90°上）" % (ux, uy, heading))
 
-        view = self.ring.view()
-        self.wave_page.update_data(view, self.latest_t, self.window_s)
-        self._update_dashboard_plots(view)
-        self._update_map_trail()
+        # 仅绘制当前页；键盘控制页不复制整段波形、也不重建隐藏地图轨迹。
+        page = self.stack.currentIndex()
+        if page == 1:
+            self.wave_page.update_data(self.ring.view(), self.latest_t, self.window_s)
+        elif page == 0:
+            self._update_dashboard_plots(self.ring.view())
+        elif page == 2:
+            self._update_map_trail()
         if self.map_target is None:
             self.map_view.set_target(None, None)
         else:
@@ -1765,6 +1890,18 @@ class MainWindow(QMainWindow):
         self.log("已导出 %d 行 -> %s" % (len(t), path), "info")
 
     # ---------------- 参数 ----------------
+    def _update_wheel_status(self):
+        """刷新四轮锁轴提示。固件无状态回读，只能显示本机发出的请求。"""
+        if not hasattr(self, "wheel_status"):
+            return
+        if self.wheel_state is None:
+            text = "电机：未请求（固件上电默认已使能；无回读，请以轮子能否推动确认）"
+        elif self.wheel_state:
+            text = "电机：已请求使能（锁轴）；无回读，请以轮子能否推动确认"
+        else:
+            text = "电机：已请求失能（不锁轴）；GOTO、键盘遥控与 ZDT 单轮测试将被固件拒绝"
+        self.wheel_status.setText(text)
+
     def _send_all_chassis(self):
         for row in self.chassis_rows.values():
             self.send_line(row.command_text())
@@ -1820,6 +1957,10 @@ class MainWindow(QMainWindow):
     def _goto_field(self, fx: float, fy: float, yaw_override=None):
         if self.worker is None and self.sim is None:
             self.log("未连接，导航未发送", "warn")
+            return
+        if self.wheel_state is False:
+            self.map_status.setText("四轮已请求失能：固件会拒绝 GOTO，请先「使能电机（锁轴）」")
+            self.log("GOTO 未发送：四轮已请求失能", "warn")
             return
         if self.latest is None or not all(math.isfinite(v) for v in self.latest[:3]):
             self.log("无有效定位，导航未发送", "warn")

@@ -11,6 +11,7 @@ code=r"""
 #include <stdint.h>
 #include <assert.h>
 static uint8_t s_zdt_req,s_zdt_active,s_zdt_addr,s_stop_req,s_zero_req,s_offset_req;
+static uint8_t s_wheel_req;
 static int16_t s_zdt_args[3],s_zdt_rpm;
 static uint8_t s_zdt_watch;
 static uint32_t s_zdt_watch_tick;
@@ -39,6 +40,12 @@ int main(void){
  s_zdt_args[0]=4;s_zdt_req=1;Debug_ServiceZdt();assert(enables==2);
  s_stop_req=1;Debug_ServiceZdt();assert(!s_zdt_active&&last_addr==4&&speeds==1);
  s_zdt_req=1;Debug_ServiceZdt();assert(!s_zdt_req&&enables==2);
+ /* 四轮使能切换与STOP一样取消运行中的测试，且不重新使能轮子 */
+ s_stop_req=0;s_wheel_req=0;
+ s_zdt_args[0]=2;s_zdt_args[1]=50;s_zdt_args[2]=1;s_zdt_req=1;
+ tick=3000;Debug_ServiceZdt();assert(s_zdt_active==1&&enables==3&&stops==14);
+ tick=3100;Debug_ServiceZdt();assert(speeds==2&&s_zdt_active==2);
+ s_wheel_req=2;Debug_ServiceZdt();assert(!s_zdt_active&&speeds==2&&enables==3);
  return 0;
 }
 """
