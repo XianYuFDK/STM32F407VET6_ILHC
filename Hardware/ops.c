@@ -154,9 +154,12 @@ static uint8_t OPS_CopyPosition(float *x, float *y, float *z, uint8_t absolute)
       float dy = ds * rx + dc * ry;
       if (zero)
       {
-        /* 保留既有ZERO反号约定：-(原始位移-偏心旋转位移)。 */
-        *x = ox - px + dx;
-        *y = oy - py + dy;
+        /* 置零后仍为物理正向：车向前→x增大、车向左→y增大，与非置零状态一致。
+         * 原实现为 ox-px 的“ZERO反号”，使符号随是否置零翻转，且位置环
+         * 只在置零状态下才是负反馈；去掉反号后由 chassis_move 的
+         * devx=tgt-cur 保证方向一致，轮速指令逐周期不变。 */
+        *x = px - ox - dx;
+        *y = py - oy - dy;
       }
       else
       {
@@ -289,7 +292,8 @@ uint8_t OPS_IsOnline(uint32_t timeout_ms)
 /**
  * @brief  以当前 OPS 位置作为坐标零点
  * @note   必须收到过有效 OPS 帧后调用；清零后：
- *          X/Y在原有反号约定上加偏心旋转补偿，Z保持绝对航向角
+ *          X/Y为物理正向（前→+X增大、左→+Y增大）并加偏心旋转补偿，
+ *          Z保持绝对航向角；是否置零不再改变X/Y的符号方向
  */
 void OPS_ZeroCoordinates(void)
 {

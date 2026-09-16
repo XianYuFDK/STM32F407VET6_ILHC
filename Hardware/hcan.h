@@ -3,14 +3,18 @@
  * @file    hcan.h
  * @brief   CAN 协议收发封装（移植自 tower/hcan.c）
  *
- *          - CAN1 标准 ID / 扩展 ID 帧发送
+ *          - CAN2 标准 ID / 扩展 ID 帧发送（PB5=CAN2_RX、PB6=CAN2_TX）
  *          - 长数据自动分包，每帧最多 8 字节
  *          - FIFO0 接收中断，保存最近一帧
  *
+ *          CAN2 注意：CAN2 是 CAN1 的从机，滤波器寄存器位于 CAN1 地址空间，
+ *          且只能使用 Bank14~27；因此 can.c 的 MspInit 同时使能 CAN1 时钟，
+ *          CAN_Start 里的 FilterBank 必须是 14 而不是 0。
+ *
  *          使用：
- *            CAN_Start(&hcan1);                 // 使能滤波 + 接收中断 + 启动
- *            CAN_SendData(&hcan1, ID, data, 8);
- *            CAN_SendEXData(&hcan1, ID, data, 8);
+ *            CAN_Start(&hcan2);                 // 使能滤波 + 接收中断 + 启动
+ *            CAN_SendData(&hcan2, ID, data, 8);
+ *            CAN_SendEXData(&hcan2, ID, data, 8);
  *            Can_SendCmd(ID, longData, len);    // 自动分包
  ******************************************************************************
  */
@@ -24,8 +28,8 @@ extern "C" {
 #include "main.h"
 #include "can.h"
 
-/* 默认 CAN1 句柄 */
-#define HCAN_CAN_NUM   &hcan1
+/* 默认 CAN2 句柄 */
+#define HCAN_CAN_NUM   &hcan2
 
 /* 接收帧结构 */
 typedef struct

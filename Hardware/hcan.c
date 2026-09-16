@@ -33,7 +33,9 @@ static void CAN_Filter_ParamsInit(CAN_FilterTypeDef *sFilterConfig)
   sFilterConfig->FilterMaskIdHigh = 0;
   sFilterConfig->FilterMaskIdLow = 0;
   sFilterConfig->FilterFIFOAssignment = CAN_FILTER_FIFO0;
-  sFilterConfig->FilterBank = 0;
+  /* CAN2 是 CAN1 的从机：Bank0~13 属于 CAN1，CAN2 只能用 Bank14~27，
+   * 这里用 14（与 SlaveStartFilterBank 一致）。写的是 CAN1 地址空间的滤波寄存器。 */
+  sFilterConfig->FilterBank = 14;
   sFilterConfig->FilterMode = CAN_FILTERMODE_IDMASK;
   sFilterConfig->FilterScale = CAN_FILTERSCALE_32BIT;
   sFilterConfig->FilterActivation = ENABLE;

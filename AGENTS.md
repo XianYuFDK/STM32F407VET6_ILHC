@@ -1,5 +1,129 @@
 # 工程导航与维护约定
 
+2026-09-16 GOTO 横移修复（实车："手动 `GOTO=0,1000,0` 想让车沿 Y 前进 1 米，车却直接向右移动"）：
+**这正是此前记录的 `chassis_move` 轴通道互换，实车把它证实了**——原公式把车体"前后"(vx1+vx2)与
+"左右"(vy1−vy2)两个分量送进了相反的槽位（`chassis_move` 实际等价于 `MoveVelocity(vx=左右, vy=前后)`），
+所以 MANUAL（走 MoveVelocity）方向正常、而 GOTO（走 chassis_move 的位置环）前进变横移。之前 OPS 是死的、
+GOTO 直接被拒，所以这个 bug 一直没暴露；OPS 修好后位置环真跑起来就露出来了。
+修复：只对调 `speed[1]`/`speed[2]` 的交叉项（`speed[0]`/`speed[3]` 对两个分量对称，不改）：
+`speed[1] = (int) (vx1 + vx2 - vy1 + vy2 - vz);`、`speed[2] = (int)-(vx1 + vx2 - vy1 + vy2 + vz);`。
+数值等价验证：406 组样本修正后与 `MoveVelocity(vx=B, vy=A)` **逐轮完全一致（0 处不一致）**，修正前 404 处
+不一致；"向前"(A=0,B=100) 的轮子模式由 `(-100,-100,+100,+100)`（前后互顶）变为 `(-100,+100,-100,+100)`
+（与实车已验证的 MANUAL 前进模式相同）。护栏：`test_coordinate_chain.py` 第 5 节改为断言修正后的四式，
+并把修正前的两行列入 `must_not`，防止回归。复位后 `Code=31916`，12 套回归全过。
+**注意：本次同样没能烧录**（SWD `connect under reset failed`，板子无法 attach），需自行烧录
+`MDK-ARM/build/STM32F407VET6_ILHC/STM32F407VET6_ILHC.hex`（21:27:08，SHA256 前缀 B8BB16E886603C17）。
+**验收**：`GOTO=0,1000,0` 沿车头前进 1 米；`GOTO=1000,0` 向车左平移 1 米；`GOTO=0,0,90` 原地转到 90°；
+地图点击导航走同一路径，随之恢复正常。同时确认 MANUAL 的 W/S/A/D 未受影响（两条公式现在同约定）。
+
+2026-09-16 车头方向修正（实车两次反馈：先"x、y 车头方向反了，按 W 的移动方向才是车头"，再
+"键盘遥控 A/D 左右反了、地图点击坐标的换算不对"）：由此确认**底盘内部坐标系与真实车体是镜像
+关系**——内部 `pos_x` 指向车尾，而 `pos_y` 与车左**同向**。第一轮按"相差 180°"把两个轴都取了
+反，实车 A/D 立刻反了，直接证明左右轴**不需要**取反：正确修法是**在四个对外边界统一做一次镜像
+（交换后只把前后轴取反）**，底层解算与内部坐标系完全不动：
+`debug_usart.c` 遥测 `data[0]=pos_y`、`data[1]=-pos_x`、`data[3]=devy`、`data[4]=-devx`
+（ch6/ch7 只交换不取反）；`MANUAL` → `MecanumControl_MoveVelocity(-v[1], v[0], v[2])`；
+`GOTO` → `s_goto_x=-v[1]`、`s_goto_y=v[0]`；`OPSOFFSET` → `s_offset_x=-v[1]`、`s_offset_y=v[0]`。
+这也解释了团队此前在 Qt 里勾"前后反向"救 W 的历史：`MANUAL` 被界面补偿过，但 **GOTO 与遥测从未
+补偿**，所以坐标一直是反的。Qt 侧同步：三个"反向"开关全部默认关闭（`manual_invert` 由 `i==0`
+改为全 False，根因已在固件修掉，开关只作兜底）；`test_vehicle_forward_default_is_reversed` 改写为
+`test_manual_direction_defaults_not_inverted`；**`core.Simulator` 必须同步镜像**（MANUAL/GOTO/
+OPSOFFSET 解析、遥测打包、偏心默认值改为内部(+50,+60)），否则 simulate 模式下点击地图会朝镜像
+方向跑——实车反馈的"地图点击坐标的换算不对"就是这个原因。镜像在 GOTO 环路里自洽（目标与测量
+一起镜像），**GOTO 控制律与地图显示本身无需改动**（地图只消费遥测）。回归：`test_coordinate_chain.py`
+断言四处边界只对前后轴取反（并 `assert "-v[0]" not in d`，防止再犯 A/D 那个错），
+`test_parse_line_axes.py`、`test_debug_manual.py`、Qt `test_debugger.py` 同步更新，12 套全过。
+在板验证（上一版 180° 实现）：遥测缓冲 `s_tx` 中 ch0..ch3 为 `0x80000000`(-0.0)；DMA2_Stream7
+抓到 `EN=1` 且 NDTR 85→41→13 的在途帧。**本镜像版已编译（Code=31908），但当时板子无法 SWD
+attach（VTref=3.3V 却 connect under reset 失败），尚未烧录。**
+**遗留待实测**：① `ops.c` 默认安装偏移 `(-50,+60)` 与"车左60/车后50"不符（内部应为 `(+50,+60)`，
+即下发 `OPSOFFSET=60,-50`），默认值疑似反号，需实车确认后再改默认；② 实体方向按验收表逐项确认：
+W→车头、S→车尾、A→车左、D→车右；③ OPS 无数据时无法远程验证坐标符号（OPS 目前完全静默）。
+
+2026-09-16 CAN1→CAN2 改造与在板诊断（含 J-Link 实测）：应要求把整条 CAN 链路从 CAN1 换到 CAN2。
+改动：`Core/Src/can.c` 句柄 `hcan1`→`hcan2`、`MX_CAN1_Init`→`MX_CAN2_Init`（Instance=CAN2，
+时序参数与原来相同；MspInit/DeInit 改为 **CAN1+CAN2 双时钟使能** + **PB5=CAN2_RX/PB6=CAN2_TX
+(AF9)** + NVIC `CAN2_RX0_IRQn` 优先级5）；`Hardware/hcan.h` 的 `HCAN_CAN_NUM` 改指 `&hcan2`；
+`Hardware/hcan.c` 的滤波器 **FilterBank 0→14**（CAN2 是 CAN1 的从机，滤波器寄存器在 CAN1
+地址空间，只能用 Bank14~27，且 CAN1 时钟必须使能）；`stm32f4xx_it.c` 的 `CAN1_RX0_IRQHandler`
+→`CAN2_RX0_IRQHandler`；`main.c` 改 `MX_CAN2_Init()`/`CAN_Start(&hcan2)`；`.ioc` 同步
+（CAN2.*、PB5/PB6、NVIC.CAN2_RX0、functionlistsort 的 MX_CAN2_Init）；测试桩
+`Tests/hardware/{main.h,regression.c}` 与 `test_can_degraded.py` 同步改名。
+**实测结论（J-Link SWD 1000kHz，不停CPU读内存）**：
+① 固件侧 CAN2 配置正确——`hcan2.Instance=0x40006800`、`Init` 五项与原来一致、`BTR=0x00220005`
+（1 Mbps）、`GPIOB MODER/AFRL` 显示 PB5/PB6=AF9、NVIC 里 CAN2_RX0(IRQ64) 已使能；
+② 但 **PB5 悬空**：把 PB5 内部上拉打开后 `GPIOB IDR` 的 bit5 由 0 变 1，且 **CAN2 `MSR.INAK`
+立刻由 1 变 0**（bxCAN 一旦看到隐性位就退出初始化模式）——证明之前一直卡在初始化模式纯粹是
+"没有收发器接到 PB5"，不是 MCU 配置问题；③ 因此 `HAL_CAN_Start` 等 `INAK` 清零超时，
+`ErrorCode=0x00020000 (HAL_CAN_ERROR_TIMEOUT)`，`State=5`——注意 **本 HAL 里
+`HAL_CAN_STATE_ERROR=5`、`LISTENING=2`**，且 `CAN_HandleTypeDef` 无 Lock 成员、
+`FunctionalState` 是 1 字节，故 Instance(+0)/Init(+4)/State(+32)/ErrorCode(+36)。
+**本 HAL 的 `HAL_CAN_Start` 会等待 INAK 清零并可能返回 HAL_TIMEOUT**（旧认知"Start 不检查
+总线"不适用于此版本）。
+串口侧：已把 CAN 故障与遥测**彻底解耦**——`DebugUsart_Init` 与 `Debug_RejectCanCommand` 都
+不再置 `s_zdt_text_mode`，只排队报错；`test_can_degraded.py` 增加断言（CAN 失败必须报错且
+**不得**置文字模式）。实测 CAN 正处于失败状态时，USART1 遥测照样连续输出（gState 在
+READY/BUSY_TX 间循环、DMA2_Stream7 的 NDTR 连续递减、PA9=AF7 且空闲为高）。
+OPS 侧：`s_ops` 全 0（`valid_count=0` **且** `error_count=0`）、USART2 `SR` 无 RXNE/ORE/FE、
+RX DMA `NDTR` 恒为 14/14 ⇒ **OPS 一个字节都没发过来**，不是坐标换算问题。
+串口接线提醒：本机两个 CH340 中 **COM9 才是调试口（常被上位机占用）**，COM14 恒为 0 字节，
+排查时不要抓错口。
+遗留：① CAN 收发器必须实际接到 PB5/PB6 并上电，否则 CAN2 同样起不来；② USART1 TX 缺超时
+恢复——`HAL_UART_Transmit_DMA` 返回值被忽略且以 `gState` 作为闸门，一旦 TX 卡在 BUSY_TX
+遥测会静默永久停止，建议加"连续 N 周期非 READY 就 Abort 复位"；③ 收发器与总线
+（CANH/CANL 短路、终端电阻、DM 电机供电）仍需万用表排查。
+
+2026-09-16 遥测静默修复（上位机侧，无需烧录）：实车抓到 COM14 原始数据，遥测帧正常
+（ch6/ch7=2.3、ch8=9.0、ch9=1600、ch10=750）之后紧跟一行 ASCII
+`ERR CAN START FAILED; CAN DISABLED; USART1 AVAILABLE`，随后串口再无数据。根因链：
+CAN1 启动失败 → `DebugUsart_Init` 置 `s_zdt_text_mode=1`（`debug_usart.c:1040-1044`）
+关掉全部 24 通道遥测 → 只有 `VOFA` 能恢复 → 旧上位机**只在打开串口那一刻发一次 VOFA
+（`core.py:385`）**，板子若在上位机已连接时复位/上电（或那次 VOFA 落进 `OPS_Init` 约 1.3s
+的启动空窗），之后再无补发机制 → 永久 0 字节。同时 `FrameParser` 只认 JustFloat 帧，
+固件这行关键报错被**静默丢弃**，界面上完全看不到。修复（`ILHC_Qt_v2`）：
+① `SerialWorker` 增加 VOFA 自动补发——超过 `VOFA_RETRY_GAP_S=1.5s` 没有可解析帧就补发，
+每次中断最多 `VOFA_MAX_RETRIES=6` 次，收到任一帧即重置计数，覆盖复位后 1.3s 启动空窗；
+② `FrameParser` 增加 `_scan_text`/`take_text`，把固件文字应答（CAN 失败、ZDT 应答等）
+提取出来经新增的 `text_q` 显示到日志，不再吞掉；③ `main.py` 新增 `fw_text_q` 并在
+`_process_frames` 里按 ERR/FAIL 关键字着色。回归：Qt `test_debugger.py` 新增
+`test_firmware_text_is_surfaced_not_swallowed`、`test_firmware_text_and_vofa_notice_reach_log`、
+`test_serial_worker_resends_vofa_when_silent`，共 31 用例全过。**仍待处理**：CAN1 启动失败
+本身未解决（DM/S28/S35 全部不可用），且 `CAN_Start` 的失败步骤与 HAL 错误码没有上报，
+无法定位是 `HAL_CAN_ConfigFilter`/`HAL_CAN_ActivateNotification`/`HAL_CAN_Start` 哪一步；
+建议固件改为 CAN 失败**不再关闭遥测**（只报一次错误）并在报错里带上 `ErrorCode`。
+注意 bxCAN 进入 NORMAL 模式不需要总线上有其它节点，所以 START 失败通常不是 CANH/CANL
+接线问题。
+
+2026-09-16 坐标统一：对外统一为 +X=小车左方（左右轴）、+Y=小车正前方（前后轴）、+Z=逆时针为正，
+无论是否按过 ZERO 都是物理正向（左移 X 增大、前移 Y 增大）。ops.c 去掉"保留既有 ZERO 反号"分支，
+置零时改为 `*x = px - ox - dx`、`*y = py - oy - dy`（原为 `GetPosition = -(原始相对位移 - 偏心旋转位移)`）；
+未置零分支、yaw 不置零、`OPS_GetAbsolutePosition()`/`OPS_GetData()->frame` 仍返回原始数据、偏心补偿
+`中心相对位移 = 原始OPS位移 - (R(yaw)-R(参考yaw))*r` 的形式均未变。mecanum_control.c 的 chassis_move()
+误差同步改为 `devx = 目标 - pos_x`、`devy = 目标 - pos_y`（原为 当前-目标），与 ops.c 必须成对出现，
+否则位置环变成正反馈；置零状态下逐周期轮速与改动前完全相同，底层两条麦轮公式本轮刻意未改。
+debug_usart.c 只在边界各交换一次：遥测 `data[0]=pos_y`、`data[1]=pos_x`、`data[3]=devy`、`data[4]=devx`、
+`data[6]=mKpy`、`data[7]=mKpx`（ch2/ch5/ch8 及其余通道、24 通道数与 JustFloat 帧尾不变；固件内部变量仍是
+`pos_x`=前后、`pos_y`=左右，交换只发生在打包/解析边界）；`KPX` 改指左右轴增益 `mKpy`、`KPY` 改指前后轴
+增益 `mKpx`，两个命令名和 0~50 范围不变。协议：`MANUAL=X(左右),Y(前后),W`，固件调用
+`MecanumControl_MoveVelocity(v[1], v[0], v[2])`（该 C 接口形参顺序仍是(前后,左右,旋转)）；
+`GOTO=X(场地左右),Y(场地前后),Z`（Z 可省略则保持当前航向，x/y 仍 ±3000mm）；`OPSOFFSET=X(左右安装偏移,
+左+右−),Y(前后安装偏移,前+后−)`（±500mm），物理默认安装（车左60mm、车后50mm）现下发
+`OPSOFFSET=60.0,-50.0`，`OPS_SetMountOffset` 形参顺序仍是(前后,左右)。Qt：地图 +X=屏幕左、+Y=屏幕上，
+与协议轴序重合，`_ops_to_field`/`_field_to_ops` 不再交换或取反、只做一次 `map_theta` 标定旋转，地图几何、
+ZONE_CENTER、禁区/圆形障碍、快速目标和已有 map_theta 标定值均未改变；键盘遥控按键语义不变，且
+"实车确认原方向按 W 后退→默认勾选前后反向"仍然有效，只作用于键盘手动这一路；Qt 的
+`core.ops_offset_command(left_mm, forward_mm)` 按协议顺序取参，界面两个 spinbox 仍标 前后偏移/左右偏移，
+JSON 键 `x_mm`=前后、`y_mm`=左右保持不变（与线序相反）；遥测显示名改为「OPS X 坐标（左右）」
+「OPS Y 坐标（前后）」
+「X 轴误差（左右）」「Y 轴误差（前后）」「X 轴 P（左右）」「Y 轴 P（前后）」，底盘参数标签为
+「X 轴 P 系数（左右）」「Y 轴 P 系数（前后）」，CSV 列名 `pos_x/pos_y/devx/devy…` 不变。回归：新增
+Tests/hardware/test_coordinate_chain.py（源码文本锁定上述边界交换，并断言 24 通道帧格式与麦轮公式未被波及）
+与 test_parse_line_axes.py（编译真实 Debug_ParseLine，验证 GOTO/OPSOFFSET/KPX/KPY 的内部落点、±3000 钳位、
+省略 Z、超限钳位到 50 与 WHEELOFF 失能闸门）；test_ops_offset.py、test_debug_manual.py 按新符号/新顺序更新；
+Qt 新增 test_telemetry_direction_matches_field_axes。**当时的"已知未修"问题**（chassis_move 与
+MecanumControl_MoveVelocity 两条麦轮公式的轴通道归属互换）已于同日按实车证据单独修复，见本文件
+最上面 2026-09-16 GOTO 横移修复条目。
+
 2026-09-16：修复"WHEELOFF失能后轮子仍然锁轴"。根因是任务体时序：DebugUsart_Send先执行
 Debug_ServiceWheel发出失能帧，之后s_stop_req/s_zero_req/s_offset_req/GOTO分支又调用
 MecanumControl_Stop()发出速度0帧；ZDT_X42S在速度模式下收到任意速度命令都会重新使能
@@ -40,7 +164,7 @@ STOP仍走紧急队列。串口read改为已有字节/空闲1字节，超时10ms
 其余代码审查问题（STOP竞态、DM失能、输入校验等）尚未修复。
 
 2026-09-10 Qt/步进更新：Qt地图顺时针旋转90°后，固定右下启停区1中心为场地零点，屏幕左+X、上+Y，左下区2=(2100,0)；
-OPS遥测/GOTO保持固件坐标，由main.py转换。新增28/35页：机械目标、原始位置/RPM、回零、取消待发。
+OPS遥测/GOTO保持固件坐标，由main.py转换（已由 2026-09-16 坐标统一更新，见上）。新增28/35页：机械目标、原始位置/RPM、回零、取消待发。
 debug_usart.c支持S35/S28的MOVE=h10或r10,speed、RAW=dir,count,rpm、HOME、CANCEL。
 中断只写每电机一个最新请求，任务提交CAN，BUSY最多重试1秒，ERROR不重试。
 STOP/失联只撤销28/35待发，不停止已发送运动；没有验证过的28/35停机协议。
@@ -96,9 +220,7 @@ STM32F407VET6_ILHC/
 │   ├── startup_stm32f407xx.s         向量表与启动代码
 │   └── build/STM32F407VET6_ILHC/      EIDE 参数、日志和固件产物
 └── HostTools/ILHC_Debugger/
-    ├── ilhc_debugger.py              Tkinter/Matplotlib 上位机与模拟器
-    ├── README.md                     原版上位机使用说明
-    ├── 启动上位机.bat                原版启动入口
+    ├── ILHC_Qt_v2.zip                Qt 版本打包备份
     └── ILHC_Qt_v2/
         ├── main.py                   PySide6 界面、交互与心跳调度
         ├── core.py                   协议、串口、模拟器、CSV、地图几何
@@ -148,9 +270,9 @@ HAL 毫秒时基由 TIM7 中断和 `HAL_TIM_PeriodElapsedCallback()` 维护；RT
 
 - OPS 上行：`0x5C + float32 x + float32 y + float32 z + CRC8`，14 字节。CRC 算法以 `ops.c` 实现为准。
 - OPS 原始坐标与 `OPS_GetPosition()` / `OPS_GetAbsolutePosition()` 返回单位为 **m、rad**；`mecanum_control.c` 内统一转换为 **mm、deg**。
-- `OPS_ZeroCoordinates()` 仅在本地记录 X/Y 原点；不重置 OPS 本体，也不将 yaw 清零。`OPS_ClearZero()` 恢复绝对 X/Y。
+- `OPS_ZeroCoordinates()` 仅在本地记录 X/Y 原点；不重置 OPS 本体，也不将 yaw 清零。`OPS_ClearZero()` 恢复绝对 X/Y。置零分支不再反号：`GetPosition = 原始相对位移 - 偏心旋转位移`，与非置零分支同为物理正向（内部 `pos_x` 向前增大、`pos_y` 向左增大）。
 - `OPS_Init()` 发送 `0xC5 0x22` 和 `0xC5 0x30`，包含启动等待；不是可在中断里调用的轻量操作。
-- `chassis_move(x,y,z)` 计算位置误差、P 控制、限幅、速度斜坡及到位状态；由 `SetMotorVoltageAndDirection()` 实际下发轮速。
+- `chassis_move(x,y,z)` 计算位置误差、P 控制、限幅、速度斜坡及到位状态；由 `SetMotorVoltageAndDirection()` 实际下发轮速。误差定义为 `目标 - 当前`（`devx`=前后、`devy`=左右），必须与 ops.c 的置零正向坐标成对，否则位置环变正反馈；两条麦轮公式已于 2026-09-16 按实车修正为同约定（chassis_move 的 speed[1]/speed[2] 交叉项已对调）。
 - `MecanumControl_GotoOPS()` 封装计算与输出，输入 mm/deg；OPS 超过 200ms 未更新时停车。调试层会在离线或到位后取消 GOTO。
 - `MecanumControl_MoveVelocity(vxRpm,vyRpm,vzRpm)` 的输入是 RPM 形式的速度分量，不是 m/s 或 rad/s。
 - 实际位置控制是 P 控制；`SetPid` / `SetYawPid` 的兼容名称不代表完整 PID，修改前查看实现。不要自动重新加入 `mecanum_pid.c`。
@@ -171,11 +293,12 @@ HAL 毫秒时基由 TIM7 中断和 `HAL_TIM_PeriodElapsedCallback()` 维护；RT
 - 下行命令为 ASCII，每行以 CR 或 LF 结束，命令不区分大小写。参数表 `s_params` 和解析入口 `Debug_ParseLine()` 位于 `debug_usart.c`。
 - 遥测为 **24 个小端 float32 + `00 00 80 7F`**，共 100 字节，标准 VOFA+ JustFloat，没有额外 `55 AA` 帧头。
 - 通道 0..11 是底盘位姿、误差、参数和首轮目标速度；12..23 是 DM ID、反馈和目标参数。完整映射查看 `DebugUsart_Send()` 及调试手册。
+- 对外坐标约定：+X=左右轴（车左+）、+Y=前后轴（车前+）、+Z=逆时针为正，置零与否符号一致；固件内部变量仍是 `pos_x`=前后、`pos_y`=左右，X/Y 只在遥测打包（ch0/ch1、ch3/ch4、ch6/ch7）、`MANUAL`/`GOTO`/`OPSOFFSET` 解析和 `KPX`/`KPY` 参数表指针四处各交换一次。改动任一处都要核对其他三处并同步 Qt `core.py`（CSV 列名 `pos_x/pos_y/devx/devy` 未随显示名改动）。
 - 固件不提供普通文本 ACK；不要把打印文本混入同一遥测流。
-- `PING` 建议每 200ms 发送；固件超过 1s 没收到完整命令行时停止活动的 GOTO/DM 调试动作。两版上位机当前均由 GUI 主循环产生心跳。
+- `PING` 建议每 200ms 发送；固件超过 1s 没收到完整命令行时停止活动的 GOTO/DM 调试动作。上位机由 GUI 主循环产生心跳。
 - `STOP` 取消 GOTO、停车并失能 DM；`ZERO` 先取消定位移动并停车，再置本地 X/Y 原点。
 - `WHEELEN`/`WHEELOFF` 只切换四轮锁轴，不改变 DM 和 28/35；失能期间拒绝 GOTO/MANUAL/ZDT，需显式重新使能。无锁轴状态回读。锁轴切换每周期最后执行；**失能后任何路径都不得再向 UART4 发速度帧**，因为 ZDT_X42S 速度命令会重新使能锁轴，停车只能走 `MecanumControl_ClearTarget()` / `Debug_ChassisStop()`。
-- 修改帧格式、通道或命令范围时，同时核对固件、原版 `ilhc_debugger.py`、Qt `core.py/main.py` 和中文手册。两版上位机并未共用同一个协议模块。
+- 修改帧格式、通道或命令范围时，同时核对固件、Qt `core.py/main.py`、`Hardware/debug_usart.h` 和中文手册。原 Tkinter 上位机（`ilhc_debugger.py`）已在 2026-09-16 的提交中删除，协议只由 Qt `core.py` 镜像，不要再引用它。
 
 ## 6. 构建与验证
 
@@ -192,11 +315,10 @@ EIDE 与 Keil 共用源文件，但维护各自清单。当前 EIDE 配置名为
 从工程根目录运行上位机无 GUI 自检：
 
 ```powershell
-py -3 HostTools\ILHC_Debugger\ilhc_debugger.py --selftest
 py -3 HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py --selftest
 ```
 
-原版需要 NumPy、Matplotlib，实串口需要 pyserial；Qt 完整运行依赖见其 `requirements.txt`，`--selftest` 在加载 Qt 界面前执行。可使用各版本的 `--simulate` 查看无硬件演示。
+Qt 完整运行依赖见其 `requirements.txt`，`--selftest` 在加载 Qt 界面前执行，可用 `--simulate` 查看无硬件演示。注意 `core.selftest()` 末尾的中文与 `✔` 输出在默认 cp936 控制台会抛 `UnicodeEncodeError` 并以非 0 退出，验证时先设 `PYTHONIOENCODING=utf-8`。
 
 按变更范围验证：固件改动编译；协议改动验证两版解析/模拟器；文档改动检查路径和描述即可。上位机模拟器不能证明 MCU 调度、CAN 应答或真实机械运动正确。报告时区分静态检查、编译、自检和实机验证，不能沿用旧构建结果声称本次验证成功。
 
@@ -230,9 +352,9 @@ py -3 HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py --selftest
 
 历史移植来源记录在对应驱动头文件及 `Hardware/README.md`。外部 OPS、张大头手册和开源物流车代码不属于本仓库构建输入；需要再次核对协议时先确认参考文件的实际位置和版本。
 
-2026-09-10 手动底盘更新：MANUAL=vx,vy,w，每轴整数±300 RPM，独立350ms续期，PING不续期；串口中断存请求，任务服务调用MoveVelocity；与GOTO互斥，STOP/ZERO取消。Qt底盘页按住运行、松开/失焦/切页停车，含方向反向开关；地址俯视左前1右前2左后3右后4。协议说明见调试手册。
+2026-09-10 手动底盘更新：MANUAL=vx,vy,w，每轴整数±300 RPM，独立350ms续期，PING不续期；串口中断存请求，任务服务调用MoveVelocity；与GOTO互斥，STOP/ZERO取消。Qt底盘页按住运行、松开/失焦/切页停车，含方向反向开关；地址俯视左前1右前2左后3右后4。协议说明见调试手册。（已由 2026-09-16 坐标统一更新：MANUAL=X(左右),Y(前后),W，见上）
 
-2026-09-10 OPS偏心更新：F407 ops.c默认rx=-50mm/ry=+60mm（车后50左60），GetPosition在ZERO反号之前按航向去除偏心旋转位移；原始GetAbsolutePosition不变，ZERO同时保存yaw。OPSOFFSET=x,y（±500mm）成对调参，任务停车取消手动/GOTO后应用并置零；RAM参数，Qt可保存/加载电脑JSON，无Flash持久化和参数回读。24通道不变，发送遥测前GetPose刷新补偿位置。测试Tests/hardware/test_ops_offset.py。
+2026-09-10 OPS偏心更新：F407 ops.c默认rx=-50mm/ry=+60mm（车后50左60），GetPosition在ZERO反号之前按航向去除偏心旋转位移；原始GetAbsolutePosition不变，ZERO同时保存yaw。OPSOFFSET=x,y（±500mm）成对调参，任务停车取消手动/GOTO后应用并置零；RAM参数，Qt可保存/加载电脑JSON，无Flash持久化和参数回读。24通道不变，发送遥测前GetPose刷新补偿位置。测试Tests/hardware/test_ops_offset.py。（已由 2026-09-16 坐标统一更新：置零不再反号，OPSOFFSET=X(左右),Y(前后)，见上）
 
 2026-09-10：debug_usart.c新增ZDT=addr,rpm,seconds单轮测试，地址1~4、±300RPM、1~5秒。任务状态机停止四轮→使能指定轮→等待100ms→运行→FE98停止；不依赖PING续期，测试中忽略MANUAL/GOTO/ZDT，STOP/ZERO/OPSOFFSET取消。24通道遥测不变，无电机ACK。
 

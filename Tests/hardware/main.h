@@ -10,7 +10,7 @@ typedef struct {uint32_t StdId, ExtId, IDE, RTR, DLC, TransmitGlobalTime;} CAN_T
 typedef CAN_TxHeaderTypeDef CAN_RxHeaderTypeDef;
 typedef struct {uint32_t FilterIdHigh, FilterIdLow, FilterMaskIdHigh, FilterMaskIdLow,
 FilterFIFOAssignment, FilterBank, FilterMode, FilterScale, FilterActivation, SlaveStartFilterBank;} CAN_FilterTypeDef;
-#define CAN1 ((void *)1)
+#define CAN2 ((void *)2)
 #define CAN_ID_STD 0U
 #define CAN_ID_EXT 4U
 #define CAN_RTR_DATA 0U
@@ -21,7 +21,7 @@ FilterFIFOAssignment, FilterBank, FilterMode, FilterScale, FilterActivation, Sla
 #define CAN_IT_RX_FIFO0_MSG_PENDING 1U
 #define CAN_RX_FIFO0 0U
 #define HAL_CAN_STATE_LISTENING 2
-extern CAN_HandleTypeDef hcan1;
+extern CAN_HandleTypeDef hcan2;
 extern uint32_t test_primask;
 static inline uint32_t __get_PRIMASK(void) {return test_primask;}
 static inline void __disable_irq(void) {test_primask=1;}

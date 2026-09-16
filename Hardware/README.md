@@ -90,6 +90,8 @@ SoftSPI_OLED_Refresh();
   - 上行帧：0x5C | float x | float y | float z | CRC8（14 字节）
   - 下行命令：0xC5 0x22（初始化）、0xC5 0x30（启动）
   - 使用：OPS_Init() 初始化；OPS_GetPosition(&x, &y, &z) 读取新坐标
+  - 内部轴序：x=前后、y=左右（车向前 x 增大、车向左 y 增大），z 为航向角，逆时针为正；
+    置零前后符号一致，不再反号。对外协议按 X=左右、Y=前后，交换只在 debug_usart.c 边界做一次
   - 坐标清零：OPS_ZeroCoordinates() 以当前位置为原点，OPS_ClearZero() 恢复绝对坐标，OPS_SetOrigin(x, y) 手动设零点
 
 ## 底盘移动控制
@@ -100,10 +102,16 @@ SoftSPI_OLED_Refresh();
   - 支持使能、失能、立即停止、速度模式控制
 - mecanum_control.c / mecanum_control.h：麦克纳姆轮底盘控制
   - O 型麦轮四轮速度解算
-  - 速度模式连续移动：MecanumControl_MoveVelocity(vx, vy, vz)
-  - OPS 全局定位 GOTO：MecanumControl_GotoOPS(x, y, yaw, maxRpm)
-  - 参考开源底盘：chassis_move(x, y, z) + SetMotorVoltageAndDirection(SpeedTarget[0..3])
-  - 通过 OPS_GetPosition() 读取定位反馈，P 比例控制 + 斜坡限制 + 到位判断
+  - 速度模式连续移动：MecanumControl_MoveVelocity(vxRpm, vyRpm, vzRpm)，参数顺序为
+    (前后, 左右, 旋转)；协议 `MANUAL=X(左右),Y(前后),W` 在解析边界交换一次
+  - OPS 全局定位 GOTO：MecanumControl_GotoOPS(x, y, yaw, maxRpm)，x=前后、y=左右（内部车体系）；
+    协议 `GOTO=X(左右),Y(前后),Z` 在解析边界交换一次
+  - 参考开源底盘：chassis_move(x, y, z) + SetMotorVoltageAndDirection(SpeedTarget[0..3])，
+    形参按内部顺序 x=前后、y=左右
+  - 通过 OPS_GetPosition() 读取定位反馈，P 比例控制 + 斜坡限制 + 到位判断；误差定义为
+    `目标 - 当前`，与 ops.c 置零后的物理正向坐标配套（两者必须成对，否则位置环为正反馈）
+  - 24 通道遥测在打包处交换为 ch0/ch1=X(左右)/Y(前后)、ch3/ch4、ch6/ch7；两条麦轮公式已于
+    2026-09-16 按实车修正为同约定（原 chassis_move 的轴通道互换会让 GOTO 前进变横移）
   - OPS 原始 m/rad 在底盘层统一转换为 mm/deg，定位数据超过 200ms 未更新自动停车
   - 四轮锁轴：MecanumControl_Enable() 使能并保持位置（内部等待 100ms）、
     MecanumControl_Disable() 失能不锁轴（不等待）、MecanumControl_Stop() 停车并下发
@@ -118,6 +126,9 @@ SoftSPI_OLED_Refresh();
   - TX：DMA 发送 VOFA+ JustFloat 数据帧
   - RX：DMA 空闲中断接收 ASCII 命令
   - 命令示例：KPX=3.0、KPY=3.0、KPZ=10.0、XVMAX=1600、ZVMAX=750、STOP、ZERO
+  - 轴归属：KPX 写左右轴增益（内部 mKpy）、KPY 写前后轴增益（内部 mKpx），范围仍 0~50
+  - MANUAL=X(左右),Y(前后),W、GOTO=X(左右),Y(前后),Z、OPSOFFSET=X(左右偏移),Y(前后偏移)，
+    三者均在解析边界交换一次；遥测 ch0=X(左右)、ch1=Y(前后)
   - 四轮锁轴命令：WHEELEN（使能/锁轴）、WHEELOFF（失能/不锁轴），失能期间拒绝
     GOTO/MANUAL/ZDT；锁轴切换排在每周期最后，失能后所有停车路径只清目标不发速度帧
     （Debug_ChassisStop），见调试指令手册

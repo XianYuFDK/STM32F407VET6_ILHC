@@ -61,7 +61,7 @@ extern UART_HandleTypeDef huart1;
 extern DMA_HandleTypeDef hdma_usart2_rx;
 extern UART_HandleTypeDef huart2;
 extern UART_HandleTypeDef huart4;
-extern CAN_HandleTypeDef hcan1;
+extern CAN_HandleTypeDef hcan2;
 extern TIM_HandleTypeDef htim7;
 
 /* USER CODE BEGIN EV */
@@ -249,11 +249,11 @@ void UART4_IRQHandler(void)
 
 
 /**
-  * @brief CAN1 接收 FIFO0 中断处理函数
+  * @brief CAN2 接收 FIFO0 中断处理函数
   */
-void CAN1_RX0_IRQHandler(void)
+void CAN2_RX0_IRQHandler(void)
 {
-  HAL_CAN_IRQHandler(&hcan1);
+  HAL_CAN_IRQHandler(&hcan2);
 }
 
 

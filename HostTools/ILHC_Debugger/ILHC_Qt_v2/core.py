@@ -57,6 +57,13 @@ TELEMETRY_TIMEOUT_S = 1.00                       # 遥测超时红色阈值
 URGENT_COMMANDS = {"STOP", "DMSTOP", "DMOFF", "S28CANCEL", "S35CANCEL"}
 APP_NAME = "ILHC 调试上位机"
 
+# 固件在 CAN 启动失败或 ZDT 文字调试时会进入文字模式并停止 24 通道遥测，
+# 只有收到 VOFA 才恢复。连接瞬间的那次 VOFA 可能落在固件启动空窗里丢失，
+# 因此这里在收不到遥测时自动补发，避免"板子复位后串口再也收不到数据"。
+VOFA_RETRY_GAP_S = 1.5      # 超过该秒数没有可解析帧就补发一次 VOFA
+VOFA_MAX_RETRIES = 6        # 每次中断最多补发次数；收到任意一帧后重新计数
+FIRMWARE_TEXT_MAX = 160     # 单行固件文本长度上限
+
 # ======================================================================
 # 通道定义（与 debug_usart.c 中 data[0..23] 严格一致）
 #   (下标, 键名, 显示名, 单位, 分组)
@@ -67,14 +74,14 @@ G_DM_FB = 2            # DM 电机反馈
 G_DM_CMD = 3           # DM 电机目标
 
 CHANNELS = [
-    (0,  "pos_x",        "OPS X 坐标",   "mm",   G_CHASSIS_POS),
-    (1,  "pos_y",        "OPS Y 坐标",   "mm",   G_CHASSIS_POS),
+    (0,  "pos_x",        "OPS X 坐标（左右）", "mm",   G_CHASSIS_POS),
+    (1,  "pos_y",        "OPS Y 坐标（前后）", "mm",   G_CHASSIS_POS),
     (2,  "zangle",       "航向角",       "°",    G_CHASSIS_POS),
-    (3,  "devx",         "X 轴误差",     "",     G_CHASSIS_POS),
-    (4,  "devy",         "Y 轴误差",     "",     G_CHASSIS_POS),
+    (3,  "devx",         "X 轴误差（左右）", "",  G_CHASSIS_POS),
+    (4,  "devy",         "Y 轴误差（前后）", "",  G_CHASSIS_POS),
     (5,  "devz",         "航向误差",     "",     G_CHASSIS_POS),
-    (6,  "mKpx",         "X 轴 P",       "",     G_CHASSIS_PID),
-    (7,  "mKpy",         "Y 轴 P",       "",     G_CHASSIS_PID),
+    (6,  "mKpx",         "X 轴 P（左右）", "",   G_CHASSIS_PID),
+    (7,  "mKpy",         "Y 轴 P（前后）", "",   G_CHASSIS_PID),
     (8,  "mKpz",         "航向 P",       "",     G_CHASSIS_PID),
     (9,  "XYVmax",       "XY 限幅",      "",     G_CHASSIS_PID),
     (10, "ZVmax",        "Z 限幅",       "",     G_CHASSIS_PID),
@@ -116,8 +123,8 @@ DM_STATUS = {
 # 底盘可调参数（与 debug_usart.c 参数表一致）：
 #   (命令, 显示名, 最小, 最大, 默认, 回读通道下标或 None)
 CHASSIS_PARAMS = [
-    ("KPX",   "X 轴 P 系数",   0.0, 50.0,   2.3,  6),
-    ("KPY",   "Y 轴 P 系数",   0.0, 50.0,   2.3,  7),
+    ("KPX",   "X 轴 P 系数（左右）",   0.0, 50.0,   2.3,  6),
+    ("KPY",   "Y 轴 P 系数（前后）",   0.0, 50.0,   2.3,  7),
     ("KPZ",   "航向 P 系数",   0.0, 50.0,   9.0,  8),
     ("XVMAX", "X/Y 速度限幅",  0.0, 3000.0, 1600.0, 9),
     ("ZVMAX", "航向速度限幅",  0.0, 3000.0, 750.0, 10),
@@ -156,7 +163,8 @@ ZONE_CENTER = {1: (2250.0, 2250.0), 2: (2250.0, 150.0)}
 
 
 def layout_to_field(x, y):
-    """旋转后屏幕坐标：启停区1中心为零，屏幕左为+X，上为+Y。"""
+    """旋转后屏幕坐标：启停区1中心为零，屏幕左为+X、上为+Y，与协议轴序一致
+    （X=左右轴、Y=前后轴）。"""
     return 2250.0 - y, 2250.0 - x
 
 
@@ -215,6 +223,40 @@ class FrameParser:
         self.bytes_in = 0
         self.err_bytes = 0
         self.synced = False
+        self._carry = bytearray()
+        self._text_lines = []
+        self._seen_text = []
+
+    def _scan_text(self, data):
+        """从字节流里拾取可读 ASCII 行（固件的文字应答/错误行）。
+
+        固件切到文字模式后只发 ASCII 应答且都以 CRLF 结尾，而 JustFloat 遥测
+        几乎不会出现"连续可读字符 + 换行"，因此按"可读字节累积、遇换行成行、
+        遇二进制字节清空候选"提取即可。这样 CAN 启动失败之类的报错能在界面
+        直接看到，而不是被解析器静默丢弃。
+        """
+        for b in data:
+            if 32 <= b < 127 or b in (10, 13):
+                self._carry.append(b)
+            else:
+                del self._carry[:]          # 二进制字节：当前候选行作废
+        while True:
+            i = self._carry.find(b"\n")
+            if i < 0:
+                break
+            raw = bytes(self._carry[:i])
+            del self._carry[:i + 1]
+            line = raw.replace(b"\r", b"").strip().decode("ascii", "ignore")
+            if len(line) >= 6 and any(c.isalpha() for c in line) and line not in self._seen_text:
+                self._seen_text.append(line)
+                del self._seen_text[:-32]
+                self._text_lines.append(line[:FIRMWARE_TEXT_MAX])
+
+    def take_text(self):
+        """取出累积的固件文字行（取走后清空）。"""
+        lines = self._text_lines
+        self._text_lines = []
+        return lines
 
     def _accept(self, payload):
         values = struct.unpack("<%df" % FRAME_FLOATS, bytes(payload))
@@ -225,6 +267,7 @@ class FrameParser:
         """输入任意长度字节流，返回解析出的 float 元组列表。"""
         self.buf += data
         self.bytes_in += len(data)
+        self._scan_text(data)
         frames = []
 
         while True:
@@ -322,12 +365,14 @@ class RingBuffer:
 # 串口工作线程：收（解析遥测）+ 发（ASCII 命令）
 # ======================================================================
 class SerialWorker(threading.Thread):
-    def __init__(self, port, baud, frame_q, line_q, urgent_q=None, err_cb=None):
+    def __init__(self, port, baud, frame_q, line_q, urgent_q=None, err_cb=None, text_q=None):
         super().__init__(daemon=True)
         self.port, self.baud = port, baud
         self.frame_q, self.line_q = frame_q, line_q
         self.urgent_q = urgent_q if urgent_q is not None else queue.Queue()
         self.err_cb = err_cb
+        # 固件文字应答与上位机提示都走这个队列，界面只做显示。
+        self.text_q = text_q
         self.parser = FrameParser()
         self.stop_flag = False
         self.ser = None
@@ -335,6 +380,8 @@ class SerialWorker(threading.Thread):
         self.last_frame_monotonic = 0.0
         self.opened_monotonic = 0.0
         self._write_lock = threading.Lock()
+        self._vofa_last = 0.0
+        self._vofa_tries = 0
 
     def _write_line(self, line):
         if not self.ser or not self.ser.is_open:
@@ -350,6 +397,44 @@ class SerialWorker(threading.Thread):
             return q.get_nowait()
         except queue.Empty:
             return None
+
+    def _note(self, msg):
+        """向上位机界面发一条提示（不弹窗、不中断串口）。"""
+        if self.text_q is None:
+            return
+        try:
+            self.text_q.put_nowait(msg)
+        except queue.Full:
+            pass
+
+    def _flush_firmware_text(self):
+        for line in self.parser.take_text():
+            self._note("固件文本: " + line)
+
+    def _maybe_resend_vofa(self):
+        """遥测中断时自动补发 VOFA。
+
+        固件在 CAN 启动失败或 ZDT 文字调试后处于文字模式，只发文字应答不发
+        24 通道遥测；板子在上位机已连接时复位，连接瞬间那次 VOFA 就丢了。
+        这里按 VOFA_RETRY_GAP_S 补发，覆盖固件 OPS_Init 约 1.3 秒的启动空窗。
+        """
+        if self._vofa_tries >= VOFA_MAX_RETRIES:
+            return
+        now = time.monotonic()
+        last = self.last_frame_monotonic or self.opened_monotonic
+        if not last or (now - last) < VOFA_RETRY_GAP_S:
+            return
+        if (now - self._vofa_last) < VOFA_RETRY_GAP_S:
+            return
+        self._vofa_last = now
+        self._vofa_tries += 1
+        try:
+            if not self._write_line("VOFA"):
+                return
+        except Exception:
+            return
+        self._note("上位机: %.1fs 未收到遥测，已补发 VOFA 恢复波形（第 %d/%d 次）"
+                   % (now - last, self._vofa_tries, VOFA_MAX_RETRIES))
 
     def request_stop(self, safe=True):
         """请求工作线程退出；真实串口断开前 best-effort 主动停车/失能。"""
@@ -382,6 +467,7 @@ class SerialWorker(threading.Thread):
             # 固件可能停留在ZDT文字模式；连接后只恢复遥测，不触发运动。
             if not self.stop_flag:
                 self._write_line("VOFA")
+                self._vofa_last = time.monotonic()
             while not self.stop_flag:
                 # 急停/失能命令优先于读数据和普通参数命令。
                 while True:
@@ -396,7 +482,12 @@ class SerialWorker(threading.Thread):
                     now = time.monotonic()
                     for f in self.parser.feed(data):
                         self.last_frame_monotonic = now
+                        self._vofa_tries = 0        # 收到遥测即重置补发预算
                         self._push((now, f))
+                    self._flush_firmware_text()
+
+                # 文字模式或板子复位后自动补发 VOFA，避免永久收不到遥测。
+                self._maybe_resend_vofa()
 
                 # 读完后再次检查急停，读取引入的额外等待最多约10ms。
                 while True:
@@ -441,9 +532,10 @@ class SerialWorker(threading.Thread):
 # ======================================================================
 # 模拟器：复刻 debug_usart.c 的命令解析 / 参数回读行为（无硬件演示用）
 # ======================================================================
-def ops_offset_command(x_mm, y_mm):
-    """安装偏移：车前为正X、车左为正Y；成对发送毫米参数。"""
-    values = (float(x_mm), float(y_mm))
+def ops_offset_command(left_mm, forward_mm):
+    """安装偏移协议命令：X=左右安装偏移(左+ / 右−)、Y=前后安装偏移(前+ / 后−)，单位mm。
+    例如 OPSOFFSET=60.0,-50.0 表示 OPS 装在车左60mm、车后50mm。"""
+    values = (float(left_mm), float(forward_mm))
     if any(not math.isfinite(v) or abs(v) > 500 for v in values):
         raise ValueError("安装偏移必须在 -500..500 mm 内")
     return "OPSOFFSET=%.1f,%.1f" % values
@@ -471,7 +563,7 @@ class Simulator(threading.Thread):
         self.hold = None        # (x, y) 固定点位；None = 演示巡航
         self.goto = None        # (x, y, z) 目标
         self.zval = 0.0         # 当前航向（deg）
-        self.ops_offset = (-50.0, 60.0)
+        self.ops_offset = (50.0, 60.0)   # 内部(前后,左右)：车后50→+50、车左60→+60
         self.ops_reference_yaw = 0.0
         self.manual = None
         self.manual_tick = 0.0
@@ -517,11 +609,12 @@ class Simulator(threading.Thread):
                     number = p.lstrip("+-")
                     if p[:2] in ("++", "--", "+-", "-+") or number.count(".") > 1 or not number.replace(".", "").isascii() or not number.replace(".", "").isdigit():
                         return
-                x, y = map(float, parts)
-                ops_offset_command(x, y)
+                left, forward = map(float, parts)      # 协议 X=车左, Y=车头
+                ops_offset_command(left, forward)
             except (ValueError, OverflowError):
                 return
-            self.ops_offset = (x, y)
+            # 与固件内部(前后, 左右)顺序一致，且 +前后 指向车尾故取反，供偏心补偿换算使用。
+            self.ops_offset = (-forward, left)
             self.manual = self.goto = None
             self.hold = (0.0, 0.0)
             self.ops_reference_yaw = self.zval
@@ -622,7 +715,10 @@ class Simulator(threading.Thread):
             if time.monotonic() - self.manual_tick > 0.350:
                 self.manual = None
             else:
-                vx, vy, wz = self.manual
+                # 协议顺序 MANUAL=X(车左),Y(车头),W；hold 用内部(前后, 左右)，
+                # 与固件 MoveVelocity(-v[1], v[0], v[2]) 一致：交换后只把前后轴取反。
+                left_rpm, forward_rpm, wz = self.manual
+                vx, vy = -forward_rpm, left_rpm
                 angle = math.radians(self.zval)
                 px, py = self.hold
                 # 演示换算，不代表实车轮径、轮距标定结果。
@@ -632,7 +728,9 @@ class Simulator(threading.Thread):
         n = lambda a=1.0: random.gauss(0, a)     # noqa: E731
         if self.goto is not None and self.hold is not None:
             # GOTO 定位模式：以 500mm/s 限速驶向目标，航向最短路径逼近
-            tx, ty, tz = self.goto
+            # 协议顺序 GOTO=X(车左),Y(车头),Z；与固件 s_goto_x=-v[1]、s_goto_y=v[0] 一致。
+            left_t, forward_t, tz = self.goto
+            tx, ty = -forward_t, left_t
             px, py = self.hold
             ddx, ddy = tx - px, ty - py
             dist = math.hypot(ddx, ddy)
@@ -692,11 +790,14 @@ class Simulator(threading.Thread):
         if self.hold is not None:
             angle, ref = math.radians(self.zval), math.radians(self.ops_reference_yaw)
             dc, ds = math.cos(angle) - math.cos(ref), math.sin(angle) - math.sin(ref)
-            ex, ey = -50.0 - self.ops_offset[0], 60.0 - self.ops_offset[1]
+            # 真实安装：车后50mm、车左60mm → 内部(前后,左右)=(+50,+60)（+前后 指向车尾）
+            ex, ey = 50.0 - self.ops_offset[0], 60.0 - self.ops_offset[1]
             pos_x -= dc * ex - ds * ey
             pos_y -= ds * ex + dc * ey
+        # 打包顺序镜像 debug_usart.c：ch0=X=车左(=pos_y)、ch1=Y=车头(=-pos_x)，
+        # ch3/ch4 同步；ch6/ch7 打包"KPX/KPY 所写入的那个量"，对应 data[6]=mKpy、data[7]=mKpx。
         return (
-            pos_x, pos_y, zangle, devx, devy, devz,
+            pos_y, -pos_x, zangle, devy, -devx, devz,
             self.kpx, self.kpy, self.kpz, self.xyvmax, self.zvmax, spd0,
             float(self.dm_id), self.fb_pos, self.fb_vel, self.fb_tor,
             float(self.fb_status), self.fb_tmos, self.fb_trotor,

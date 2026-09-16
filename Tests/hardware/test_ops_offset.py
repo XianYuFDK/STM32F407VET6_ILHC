@@ -50,7 +50,13 @@ int main(void) {
   OPS_CopyPosition(&x,&y,&z,1);near(x,s_ops.frame.x);near(y,s_ops.frame.y);
  }
  pose(0,0,0); OPS_ZeroCoordinates();
- pose(1.5707963268f,0.2f,-0.1f); OPS_CopyPosition(&x,&y,&z,0);near(x,-0.2f);near(y,0.1f);
+ /* 置零后为物理正向：中心向前0.2m、向右0.1m 得到 x=+0.2、y=-0.1（原实现为反号）。 */
+ pose(1.5707963268f,0.2f,-0.1f); OPS_CopyPosition(&x,&y,&z,0);near(x,0.2f);near(y,-0.1f);
+ /* 符号不再随ZERO状态翻转：同一物理位移在置零与未置零两种状态下数值一致。 */
+ pose(0,0.3f,0.2f); OPS_CopyPosition(&x,&y,&z,0);near(x,0.3f);near(y,0.2f);
+ OPS_ClearZero();
+ pose(0,0.3f,0.2f); OPS_CopyPosition(&x,&y,&z,0);near(x,0.3f);near(y,0.2f);
+ pose(0,0,0); OPS_ZeroCoordinates();
  /* 非零角度处ZERO，继续原地转动中心仍为零。 */
  pose(1.5707963268f,0,0); OPS_ZeroCoordinates();
  pose(3.1415926536f,0,0); OPS_CopyPosition(&x,&y,&z,0);near(x,0);near(y,0);

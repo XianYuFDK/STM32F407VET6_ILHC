@@ -5,7 +5,7 @@
 #include <stdio.h>
 #include <string.h>
 
-CAN_HandleTypeDef hcan1 = {CAN1, HAL_CAN_STATE_LISTENING};
+CAN_HandleTypeDef hcan2 = {CAN2, HAL_CAN_STATE_LISTENING};
 uint32_t test_primask;
 static uint32_t free_slots=3, sent;
 static uint8_t bytes[3][8];
@@ -22,7 +22,7 @@ HAL_StatusTypeDef HAL_CAN_ActivateNotification(CAN_HandleTypeDef *h,uint32_t n){
 HAL_StatusTypeDef HAL_CAN_Start(CAN_HandleTypeDef *h){h->State=HAL_CAN_STATE_LISTENING;return HAL_OK;}
 HAL_StatusTypeDef HAL_CAN_GetRxMessage(CAN_HandleTypeDef *h,uint32_t f,CAN_RxHeaderTypeDef *r,uint8_t *d)
 {(void)h;(void)f;(void)r;(void)d;return HAL_ERROR;}
-static void reset_bus(void){free_slots=3;sent=0;test_primask=0;hcan1.State=HAL_CAN_STATE_LISTENING;}
+static void reset_bus(void){free_slots=3;sent=0;test_primask=0;hcan2.State=HAL_CAN_STATE_LISTENING;}
 static unsigned pixel(unsigned x,unsigned y){return (SoftSPI_OLED_GRAM[x][y/8]>>(y%8))&1;}
 int main(void)
 {
@@ -36,7 +36,7 @@ int main(void)
     assert(headers[0].DLC==8 && test_primask==0);
     reset_bus();free_slots=1;
     assert(Motor_AbsPosition(0,MOTOR35_CAN_ID,1,1)==HAL_BUSY && sent==0);
-    reset_bus();hcan1.State=0;
+    reset_bus();hcan2.State=0;
     assert(Motor_AbsPosition(0,MOTOR35_CAN_ID,1,1)==HAL_ERROR && sent==0);
     reset_bus();test_primask=1;
     assert(Motor_Homing(MOTOR28_CAN_ID)==HAL_OK && test_primask==1);

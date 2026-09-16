@@ -614,6 +614,9 @@ class MainWindow(QMainWindow):
         self.frame_q = queue.Queue(maxsize=4000)
         self.line_q = core.CommandQueue()
         self.urgent_q = queue.Queue()
+        # 固件文字应答/错误与上位机提示（如补发 VOFA）都显示到日志，
+        # 否则固件在文字模式下报的 CAN 失败等信息会被解析器静默丢弃。
+        self.fw_text_q = queue.Queue(maxsize=200)
         self.worker = None
         self.sim = None
         self.recorder = None
@@ -836,8 +839,8 @@ class MainWindow(QMainWindow):
         cards = QGridLayout()
         cards.setSpacing(10)
         self.cards = {
-            "x": StatCard("OPS X", "—", "mm"),
-            "y": StatCard("OPS Y", "—", "mm"),
+            "x": StatCard("OPS X 左右", "—", "mm"),
+            "y": StatCard("OPS Y 前后", "—", "mm"),
             "yaw": StatCard("航向角", "—", "°"),
             "dm_pos": StatCard("DM 位置", "—", "rad"),
             "dm_vel": StatCard("DM 速度", "—", "rad/s"),
@@ -862,8 +865,8 @@ class MainWindow(QMainWindow):
         self.dash_ops_plot.showGrid(x=True, y=True, alpha=0.2)
         self.dash_ops_plot.getPlotItem().hideButtons()
         self.dash_ops_plot.getPlotItem().setMenuEnabled(False)
-        self.dash_x = self.dash_ops_plot.plot(pen=pg.mkPen(core.COLORS[0], width=1.7), name="X")
-        self.dash_y = self.dash_ops_plot.plot(pen=pg.mkPen(core.COLORS[1], width=1.7), name="Y")
+        self.dash_x = self.dash_ops_plot.plot(pen=pg.mkPen(core.COLORS[0], width=1.7), name="X 左右")
+        self.dash_y = self.dash_ops_plot.plot(pen=pg.mkPen(core.COLORS[1], width=1.7), name="Y 前后")
         ol.addWidget(self.dash_ops_plot, 1)
         mid.addWidget(ops_frame, 2)
 
@@ -1139,9 +1142,12 @@ class MainWindow(QMainWindow):
         self.ops_offset_status = QLabel("默认：后50 / 左60 mm。应用会停车并重新置零；调参只写RAM，断电恢复默认。")
         self.ops_offset_status.setWordWrap(True)
         cg.addWidget(self.ops_offset_status, 3, 0, 1, 4)
-        self.ops_drift = QLabel("补偿后位置：等待遥测；置零后原地旋转，观察X/Y是否接近0。")
+        self.ops_drift = QLabel("补偿后位置：等待遥测；置零后原地旋转，观察 X(左右)/Y(前后) 是否接近0。")
         self.ops_drift.setWordWrap(True)
         cg.addWidget(self.ops_drift, 4, 0, 1, 4)
+        self.ops_offset_hint = QLabel("下发顺序：OPSOFFSET=X(左右偏移),Y(前后偏移)；左60/后50 对应 OPSOFFSET=60.0,-50.0。")
+        self.ops_offset_hint.setWordWrap(True)
+        cg.addWidget(self.ops_offset_hint, 5, 0, 1, 4)
         bl.addWidget(compensation)
         self.manual_vector = None
         self.manual_timer = QTimer(self)
@@ -1195,8 +1201,10 @@ class MainWindow(QMainWindow):
         self.manual_invert = []
         for i, label in enumerate(("前后反向", "左右反向", "旋转反向")):
             check = QCheckBox(label)
-            # 实车确认W会后退：默认反转前后分量，左右与旋转保持原设置。
-            check.setChecked(i == 0)
+            # 2026-09-16：固件已在协议边界统一做 180° 旋转（车头方向反了已修正），
+            # 「按W后退」的根因消失，因此三个方向反向开关全部默认关闭；
+            # 它们只作为键盘手动这一路的兜底手段保留。
+            check.setChecked(False)
             check.toggled.connect(self._manual_stop)
             self.manual_invert.append(check)
             grid.addWidget(check, 8, i)
@@ -1218,7 +1226,9 @@ class MainWindow(QMainWindow):
             return
         self._manual_stop()
         self.send_line("STOP")
-        command = core.ops_offset_command(self.ops_offset_x.value(), self.ops_offset_y.value())
+        # 协议 OPSOFFSET=X(左右偏移),Y(前后偏移)；界面两个 spinbox 仍是(前后, 左右)，
+        # 因此这里按 ops_offset_command 的协议参数顺序传入。
+        command = core.ops_offset_command(self.ops_offset_y.value(), self.ops_offset_x.value())
         self.send_line(command)
         self.ops_offset_status.setText("已请求：%s；固件停车并置零。无参数回读，请通过旋转遥测验证。" % command)
 
@@ -1232,6 +1242,7 @@ class MainWindow(QMainWindow):
         if not path:
             return
         try:
+            # 文件键沿用界面语义：x_mm=前后偏移、y_mm=左右偏移（与协议顺序相反，加载时交换）。
             Path(path).write_text(json.dumps({"version": 1, "x_mm": self.ops_offset_x.value(),
                                              "y_mm": self.ops_offset_y.value()}, ensure_ascii=False, indent=2), encoding="utf-8")
             self.ops_offset_status.setText("已保存到电脑；不代表已写入单片机Flash。")
@@ -1246,10 +1257,11 @@ class MainWindow(QMainWindow):
             data = json.loads(Path(path).read_text(encoding="utf-8"))
             if data["version"] != 1:
                 raise ValueError("不支持的参数文件版本")
-            x, y = float(data["x_mm"]), float(data["y_mm"])
-            core.ops_offset_command(x, y)
-            self.ops_offset_x.setValue(x)
-            self.ops_offset_y.setValue(y)
+            forward_mm = float(data["x_mm"])      # 文件键 x_mm 表示前后偏移（界面顺序）
+            left_mm = float(data["y_mm"])         # 文件键 y_mm 表示左右偏移
+            core.ops_offset_command(left_mm, forward_mm)
+            self.ops_offset_x.setValue(forward_mm)
+            self.ops_offset_y.setValue(left_mm)
             self.ops_offset_status.setText("已加载；点击应用才下发，不会自动启动车辆。")
         except (OSError, ValueError, KeyError, TypeError) as exc:
             self.ops_offset_status.setText("加载失败：%s" % exc)
@@ -1345,7 +1357,10 @@ class MainWindow(QMainWindow):
     def _manual_tick(self):
         if self.manual_vector is not None:
             # 原子替换旧速度目标，不被参数积压饿死，也不积累过期方向。
-            self.line_q.put("MANUAL=%d,%d,%d" % self.manual_vector)
+            # manual_vector 保持(前后, 左右, 旋转)物理顺序（反向开关与状态文本都按此下标），
+            # 只在发协议时交换成 MANUAL=X(左右),Y(前后),W。
+            forward, left, turn = self.manual_vector
+            self.line_q.put("MANUAL=%d,%d,%d" % (left, forward, turn))
 
     def _manual_stop(self):
         if hasattr(self, "keyboard_enabled"):
@@ -1561,6 +1576,7 @@ class MainWindow(QMainWindow):
             self.worker = core.SerialWorker(
                 port, baud, self.frame_q, self.line_q, self.urgent_q,
                 err_cb=lambda msg: self.bridge.workerError.emit(msg),
+                text_q=self.fw_text_q,
             )
             self.worker.start()
             self.connect_btn.setText("断开")
@@ -1687,6 +1703,14 @@ class MainWindow(QMainWindow):
         except queue.Empty:
             pass
         self.fps_count += got
+        # 固件文字应答（如 CAN 启动失败）与上位机提示，转成日志而非静默丢弃。
+        for _ in range(10):
+            try:
+                text = self.fw_text_q.get_nowait()
+            except queue.Empty:
+                break
+            tag = "warn" if any(k in text.upper() for k in ("ERR", "FAIL", "错误", "失败")) else "info"
+            self.log(text, tag)
 
     def _render_ui(self):
         v = self.latest
@@ -1720,12 +1744,12 @@ class MainWindow(QMainWindow):
             self.health_dm.setText("● DM：%s" % text)
             self.footer_dm.setText("DM[%d] %s" % (int(v[12]), text))
 
-            self.ops_drift.setText("中心位置：X %.1f / Y %.1f mm ｜距零点 %.1f mm ｜航向 %.1f°" % (v[0], v[1], math.hypot(v[0], v[1]), v[2]))
+            self.ops_drift.setText("中心位置：X 左右 %.1f / Y 前后 %.1f mm ｜距零点 %.1f mm ｜航向 %.1f°" % (v[0], v[1], math.hypot(v[0], v[1]), v[2]))
             fx, fy = self._ops_to_field(v[0], v[1])
             self.map_view.set_pose(fx, fy, self.map_theta + v[2])
             ux, uy = core.layout_to_field(fx, fy)
             heading = (270.0 - self.map_theta - v[2]) % 360.0
-            self.map_position.setText("场地 X=%.1f mm   Y=%.1f mm   航向=%.1f°（0°左 / 90°上）" % (ux, uy, heading))
+            self.map_position.setText("场地 X(左)=%.1f mm   Y(前)=%.1f mm   航向=%.1f°（0°左 / 90°上）" % (ux, uy, heading))
 
         # 仅绘制当前页；键盘控制页不复制整段波形、也不重建隐藏地图轨迹。
         page = self.stack.currentIndex()
@@ -1774,8 +1798,9 @@ class MainWindow(QMainWindow):
         y = d[::stride, 1]
         th = math.radians(self.map_theta)
         c, s = math.cos(th), math.sin(th)
-        fx, fy = core.field_to_layout(self.map_ox - s * x - c * y,
-                                      self.map_oy - c * x + s * y)
+        # 与 _ops_to_field 同一变换的向量化副本：协议 X=左右、Y=前后。
+        fx, fy = core.field_to_layout(self.map_ox + c * x + s * y,
+                                      self.map_oy - s * x + c * y)
         self.map_view.set_trail(fx, fy)
 
     def _status_tick(self):
@@ -1924,16 +1949,17 @@ class MainWindow(QMainWindow):
     def _ops_to_field(self, x: float, y: float):
         th = math.radians(self.map_theta)
         c, s = math.cos(th), math.sin(th)
-        # 场地X向左，OPS沿用固件坐标；反射只发生在显示坐标转换中。
-        return core.field_to_layout(self.map_ox - s * x - c * y,
-                                    self.map_oy - c * x + s * y)
+        # 协议遥测 x=X=左右、y=Y=前后，与场地坐标(+X向左、+Y向上)轴序一致，
+        # 因此这里只做一次绕 map_theta 的旋转，不再交换或取反。
+        return core.field_to_layout(self.map_ox + c * x + s * y,
+                                    self.map_oy - s * x + c * y)
 
     def _field_to_ops(self, fx: float, fy: float):
         th = math.radians(self.map_theta)
         c, s = math.cos(th), math.sin(th)
         ux, uy = core.layout_to_field(fx, fy)
-        dx, dy = self.map_oy - uy, self.map_ox - ux
-        return c * dx + s * dy, -s * dx + c * dy
+        px, py = ux - self.map_ox, uy - self.map_oy
+        return c * px - s * py, s * px + c * py
 
     def _set_start_zone(self):
         zone = int(self.zone_combo.currentData())

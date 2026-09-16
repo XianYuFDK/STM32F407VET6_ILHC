@@ -208,9 +208,11 @@ void chassis_move(int x, int y, int z)
   /* 刷新 OPS 当前坐标 */
   MecanumControl_UpdatePose();
 
-  /* 当前坐标 - 目标坐标 */
-  devx = pos_x - (float)x;
-  devy = pos_y - (float)y;
+  /* 目标坐标 - 当前坐标：与ops.c的物理正向坐标配套，构成负反馈。
+   * （原为 当前-目标，配合已删除的ZERO反号；去掉反号后必须同步反转误差定义，
+   *  否则位置环变为正反馈。两种写法在置零状态下逐周期产生的轮速完全一致。） */
+  devx = (float)x - pos_x;
+  devy = (float)y - pos_y;
 
   /* 最短航向误差，统一到 [-180, 180] */
   devz = (float)z - zangle;
@@ -237,10 +239,13 @@ void chassis_move(int x, int y, int z)
   vz = mKpz * devz;
   numerical_limit(&vz, ZVmax, 0.0f, 5.0f);
 
-  /* 参考工程麦轮公式 */
+  /* 麦轮正解：与 MecanumControl_MoveVelocity 保持同一约定（vx=前后、vy=左右）。
+   * 实车证据：原公式把车体"前后"(vx1+vx2)与"左右"(vy1-vy2)两个分量送进了相反的槽位，
+   * MANUAL 方向正常而 GOTO=0,1000,0（向前1米）却横移。speed[0]/speed[3] 对两个分量
+   * 对称，无需改动；只对调 speed[1]/speed[2] 的交叉项即等效于 MoveVelocity 的四式。 */
   speed[0] = (int)-(vy1 - vy2 + vx1 + vx2 + vz);
-  speed[1] = (int) (vy1 - vy2 - vx1 - vx2 - vz);
-  speed[2] = (int)-(vy1 - vy2 - vx1 - vx2 + vz);
+  speed[1] = (int) (vx1 + vx2 - vy1 + vy2 - vz);
+  speed[2] = (int)-(vx1 + vx2 - vy1 + vy2 + vz);
   speed[3] = (int) (vy1 - vy2 + vx1 + vx2 - vz);
 
   /* 速度斜坡限制 */

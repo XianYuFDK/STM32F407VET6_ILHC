@@ -101,7 +101,7 @@ int main(void)
   MX_GPIO_Init();
   MX_DMA_Init();
   MX_USART1_UART_Init();
-  MX_CAN1_Init();
+  MX_CAN2_Init();
   MX_TIM1_Init();
   MX_TIM6_Init();
   MX_USART2_UART_Init();
@@ -115,13 +115,13 @@ int main(void)
   SoftSPI_OLED_ShowString(44U, 24U, (uint8_t *)"READY", 16U, 1U);
   SoftSPI_OLED_Refresh();
   /* CAN为可选调试外设：启动失败只停用CAN，不阻断USART1、OPS和任务启动。 */
-  if (CAN_Start(&hcan1) != HAL_OK)
+  if (CAN_Start(&hcan2) != HAL_OK)
   {
     /* 保留HAL错误码用于排查；关闭CAN中断并锁定错误状态。
      * 所有CAN发送统一在HCan_Submit检查LISTENING，错误状态下不会提交帧。
      * DebugUsart_Init会排队报告错误；本次启动不自动重试CAN。 */
-    hcan1.Instance->IER = 0U;
-    hcan1.State = HAL_CAN_STATE_ERROR;
+    hcan2.Instance->IER = 0U;
+    hcan2.State = HAL_CAN_STATE_ERROR;
   }
 
   /* OPS 定位模块初始化（USART2 空闲中断 + DMA 接收） */

@@ -6,8 +6,12 @@
  *          - VOFA+ JustFloat 数据帧：N*float + 0x00 0x00 0x80 0x7F
  *          - DMA 空闲接收 ASCII 命令：KPX=3.0、XVMAX=1600、STOP、ZERO
  *                            以及 DM 电机：DMID/DMEN/DMOFF/DMMODE/DMPOS 等
- *          - GOTO=x,y,z：上位机点击场地地图下发 OPS 全局定位移动目标，
- *            本任务每 20ms 周期执行一步 MecanumControl_GotoOPS，STOP 取消
+ *          - 坐标约定（对外统一）：+X=小车左方、+Y=小车正前方、+Z=逆时针为正；
+ *            X为左右轴、Y为前后轴。遥测、MANUAL、GOTO、OPSOFFSET 全部按此顺序。
+ *            底盘内部仍沿用 pos_x=前后、pos_y=左右，只在边界处交换一次。
+ *          - GOTO=x,y,z：上位机点击场地地图下发 OPS 全局定位移动目标（x=左右、
+ *            y=前后、z=航向角），本任务每 20ms 周期执行一步 MecanumControl_GotoOPS，
+ *            STOP 取消
  *          - WHEELEN/WHEELOFF：底盘四轮统一锁轴/释放，失能期间拒绝运动命令；
  *            失能后停车只清目标（MecanumControl_ClearTarget），绝不再发速度帧，
  *            否则ZDT_X42S会重新使能锁轴，表现为"失能了还是锁"
@@ -46,7 +50,7 @@
 #define DEBUG_HOST_TIMEOUT_MS   1000U
 #define DEBUG_OPS_TIMEOUT_MS    200U
 
-/* 可调参数表 */
+/* 可调参数项：名称 -> 变量指针 + 允许范围 */
 typedef struct
 {
   const char *name;
@@ -55,10 +59,14 @@ typedef struct
   float       max;
 } DebugParam_t;
 
+/* 可调参数表
+ * 命名与对外坐标约定一致：X=左右轴、Y=前后轴，因此 KPX 指向左右轴增益 mKpy，
+ * KPY 指向前后的 mKpx。内部变量名与解算公式不变，只在此处做一次映射；
+ * 遥测 data[6]/data[7] 同步按 mKpy/mKpx 打包，保证"写入的"与"回读的"是同一个量。 */
 static const DebugParam_t s_params[] =
 {
-  {"KPX",   &mKpx,   0.0f,   50.0f},
-  {"KPY",   &mKpy,   0.0f,   50.0f},
+  {"KPX",   &mKpy,   0.0f,   50.0f},
+  {"KPY",   &mKpx,   0.0f,   50.0f},
   {"KPZ",   &mKpz,   0.0f,   50.0f},
   {"XVMAX", &XYVmax, 0.0f,   3000.0f},
   {"ZVMAX", &ZVmax,  0.0f,   3000.0f},
@@ -625,7 +633,10 @@ static void Debug_ServiceManual(void)
     return;
   }
   if (v[0] == 0 && v[1] == 0 && v[2] == 0) MecanumControl_Stop();
-  else MecanumControl_MoveVelocity(v[0], v[1], v[2]);
+  /* 协议 MANUAL=X,Y,W 为 X=左右速度(+车左)、Y=前后速度(+车头)、W=旋转(+逆时针)。
+   * 内部 MoveVelocity 形参是(前后, 左右, 旋转)，而内部 +前后 指向车尾（+左右 与车左同向），
+   * 因此交换后只把前后轴取反。 */
+  else MecanumControl_MoveVelocity(-v[1], v[0], v[2]);
 }
 
 /* 任务上下文执行四轮使能/失能：先取消运动并停车，再发UART4阻塞帧。
@@ -743,15 +754,16 @@ static uint8_t Debug_ParseOffset(const char *s, float *v)
 
 /* CAN不可用时直接拒绝CAN电机命令，避免产生待执行请求。
  * 仅拦截DM、S28、S35命令；ZDT、STOP及串口其他功能保持可用。
- * 回复复用现有队列，由任务DMA发送，中断中不阻塞发送。 */
+ * 回复复用现有队列，由任务DMA发送，中断中不阻塞发送。
+ * 这里**不再**切文字模式：CAN 故障不应连带关掉 24 通道遥测，
+ * 否则上位机波形整体消失，且必须靠补发 VOFA 才能恢复。 */
 static uint8_t Debug_RejectCanCommand(const char *line)
 {
-  if (hcan1.State != HAL_CAN_STATE_LISTENING &&
+  if (hcan2.State != HAL_CAN_STATE_LISTENING &&
       (Debug_StrCaseCmpN(line, "DM", 2U) == 0U ||
        Debug_StrCaseCmpN(line, "S28", 3U) == 0U ||
        Debug_StrCaseCmpN(line, "S35", 3U) == 0U))
   {
-    s_zdt_text_mode = 1U;
     Debug_ZdtAck(9U);
     return 1U;
   }
@@ -812,7 +824,11 @@ static void Debug_ParseLine(char *line)
     float v[2];
     if (Debug_ParseOffset(line + 10U, v))
     {
-      s_offset_x = v[0]; s_offset_y = v[1];
+      /* 协议 OPSOFFSET=X,Y 为 X=左右安装偏移(+车左)、Y=前后安装偏移(+车头)，
+       * 例如 OPSOFFSET=60,-50 表示 OPS 装在车左60mm、车后50mm；
+       * OPS_SetMountOffset 形参是内部(前后, 左右)，+前后 指向车尾，
+       * 因此交换后只把前后轴取反。 */
+      s_offset_x = -v[1]; s_offset_y = v[0];
       s_offset_req = 1U;
     }
     return;
@@ -903,8 +919,11 @@ static void Debug_ParseLine(char *line)
       if (v[1] > 3000.0f)  { v[1] = 3000.0f; }
 
       s_manual_active = 0U;
-      s_goto_x = v[0];
-      s_goto_y = v[1];
+      /* 协议 GOTO=X,Y,Z 为 X=场地左右(+车左)、Y=场地前后(+车头)；
+       * 内部 s_goto_x/s_goto_y 是(前后, 左右)，其中 +前后 指向车尾，
+       * 因此交换后只把前后轴取反。 */
+      s_goto_x = -v[1];
+      s_goto_y = v[0];
       /* 目标航向未给出时保持当前航向 */
       s_goto_z = (n >= 3U) ? v[2] : zangle;
       s_goto_active = 1U;
@@ -1021,10 +1040,11 @@ void DebugUsart_Init(void)
   s_host_last_tick = HAL_GetTick();
 
   /* CAN启动失败仍继续启用串口RX；提示排队等待DMA空闲，不阻塞控制任务。
-   * 默认切换文字模式避免VOFA二进制淹没报错；用户发送VOFA可恢复波形。 */
-  if (hcan1.State != HAL_CAN_STATE_LISTENING)
+   * 这里**不再**置 s_zdt_text_mode：旧实现让 CAN 失败顺带关掉整个 24 通道遥测
+   * （只有收到 VOFA 才恢复），上位机表现为"连接后一直没有数据、之后串口卡死"。
+   * 报错和遥测可以并存，因此只排队报错，不动遥测开关。 */
+  if (hcan2.State != HAL_CAN_STATE_LISTENING)
   {
-    s_zdt_text_mode = 1U;
     Debug_ZdtAck(8U);
   }
 
@@ -1097,7 +1117,7 @@ void DebugUsart_Send(void)
     float x_mm, y_mm;
     primask = __get_PRIMASK();
     __disable_irq();
-    x_mm = s_offset_x; y_mm = s_offset_y;
+    x_mm = s_offset_x; y_mm = s_offset_y;   /* s_offset_*=前后/左右，与SetMountOffset形参一致 */
     s_offset_req = 0U;
     s_manual_active = s_goto_active = 0U;
     if (primask == 0U) __enable_irq();
@@ -1261,14 +1281,18 @@ void DebugUsart_Send(void)
 
   /* 手动旋转/静止调试同样刷新补偿后位置，不依赖GOTO运行。 */
   MecanumControl_GetPose(&pos_x, &pos_y, &zangle);
-  data[0]  = pos_x;
-  data[1]  = pos_y;
+  /* 对外坐标：ch0=X=左右轴、ch1=Y=前后轴、ch2=Z=航向角，均为物理正向
+   * （车左/+、车头/+、逆时针/+）。实车实测：内部 pos_x 指向车尾、pos_y 指向车左
+   * （按 W 才是车头、按 A 才是车左），因此 0/1、3/4、6/7 交换，且**只有前后轴取反**
+   * （左右轴与内部同向）；通道总数与帧格式不变。 */
+  data[0]  = pos_y;
+  data[1]  = -pos_x;
   data[2]  = zangle;
-  data[3]  = devx;
-  data[4]  = devy;
+  data[3]  = devy;
+  data[4]  = -devx;
   data[5]  = devz;
-  data[6]  = mKpx;
-  data[7]  = mKpy;
+  data[6]  = mKpy;
+  data[7]  = mKpx;
   data[8]  = mKpz;
   data[9]  = XYVmax;
   data[10] = ZVmax;
