@@ -151,6 +151,12 @@ static void ZDT_X42S_RxComplete(UART_HandleTypeDef *uart)
     for (i = 0U; i < 3U; ++i) s_rx_window[i] = s_rx_window[i + 1U];
     s_rx_count = 3U;
   }
+  if (s_rx_count >= 4U)
+  {
+    /* 防御：窗口索引越界保护。正常流程由"满窗搬移 + 接收成功清零"维持
+     * s_rx_count ∈ {0,1,2,3}，这里再兜底一次，任何异常路径都不会写越界。 */
+    s_rx_count = 0U;
+  }
   s_rx_window[s_rx_count++] = s_rx_byte;
   if (s_rx_count == 4U && s_rx_window[0] != 0U &&
       (s_rx_window[1] == 0xF3U || s_rx_window[1] == 0xF6U || s_rx_window[1] == 0xFEU) &&

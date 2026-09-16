@@ -22,18 +22,22 @@ prelude = r'''
 #include <math.h>
 #include <stdio.h>
 static struct {struct {float x,y,z;} frame; unsigned valid_count; float origin_x,origin_y; uint8_t zero_enabled;} s_ops;
-static float s_mount_x_mm=-50, s_mount_y_mm=60, s_reference_yaw, s_origin_yaw;
+static float s_mount_x_mm=50, s_mount_y_mm=60, s_reference_yaw, s_origin_yaw;
 static uint8_t s_new_flag;
 static unsigned mask;
 static unsigned __get_PRIMASK(void) {return mask;}
 static void __disable_irq(void) {mask=1;}
 static void __enable_irq(void) {mask=0;}
 static void near(float a,float b) {assert(fabsf(a-b)<0.00001f);}
-/* 合成偏心点轨迹，中心平移(tx,ty)，偏移实际为后50/左60mm。 */
+/* 合成偏心点轨迹：参数 (tx,ty) 是**内部/对外坐标**下的车体中心。
+ * 传感器装在"车后50mm、车左60mm" ⇒ 在 OPS **原始帧**（+x=车尾、+y=车右，右手系）
+ * 里 m_raw=(+0.05,-0.06)（左 = -y_raw，实测左移 y_raw 变小）。
+ * 绕中心旋转时 原始帧坐标 = 中心_raw + R(Δθ)·m_raw，中心_raw=(tx,-ty)（y 反号）。
+ * 固件补偿用标准 CCW 矩阵并在输出端把 y 取反，二者必须同约定，否则测不出符号错误。 */
 static void pose(float angle,float tx,float ty) {
  float dc=cosf(angle)-cosf(s_reference_yaw), ds=sinf(angle)-sinf(s_reference_yaw);
- s_ops.frame.x=tx+dc*(-0.05f)-ds*0.06f;
- s_ops.frame.y=ty+ds*(-0.05f)+dc*0.06f;
+ s_ops.frame.x=tx+dc*0.05f+ds*0.06f;
+ s_ops.frame.y=-ty+ds*0.05f-dc*0.06f;
  s_ops.frame.z=angle; s_ops.valid_count=1; s_new_flag=1;
 }
 '''
@@ -47,7 +51,7 @@ int main(void) {
  assert(!OPS_SetMountOffset(NAN,60)); assert(!OPS_SetMountOffset(-50,INFINITY));
  for(i=0;i<5;++i) {
   pose(angles[i],0,0); OPS_CopyPosition(&x,&y,&z,0); near(x,0);near(y,0);
-  OPS_CopyPosition(&x,&y,&z,1);near(x,s_ops.frame.x);near(y,s_ops.frame.y);
+  OPS_CopyPosition(&x,&y,&z,1);near(x,s_ops.frame.x);near(y,-s_ops.frame.y);
  }
  pose(0,0,0); OPS_ZeroCoordinates();
  /* 置零后为物理正向：中心向前0.2m、向右0.1m 得到 x=+0.2、y=-0.1（原实现为反号）。 */
@@ -62,11 +66,11 @@ int main(void) {
  pose(3.1415926536f,0,0); OPS_CopyPosition(&x,&y,&z,0);near(x,0);near(y,0);
  assert(OPS_SetMountOffset(0,0));
  pose(1.5707963268f,0,0); OPS_CopyPosition(&x,&y,&z,0);assert(hypotf(x,y)>0.1f);
- mask=1; assert(OPS_SetMountOffset(-50,60)); assert(mask==1);
+ mask=1; assert(OPS_SetMountOffset(50,60)); assert(mask==1);
  OPS_CopyPosition(&x,&y,&z,0);near(x,0);near(y,0);assert(mask==1);
  mask=0; OPS_ClearZero(); s_reference_yaw=0.7f;
  pose(2.0f,0.2f,-0.1f);OPS_CopyPosition(&x,&y,&z,0);near(x,0.2f);near(y,-0.1f);
- s_ops.valid_count=0; assert(OPS_SetMountOffset(-50,60)); assert(mask==0);
+ s_ops.valid_count=0; assert(OPS_SetMountOffset(50,60)); assert(mask==0);
  puts("OPS offset: rotation / translation / ZERO / raw / nonzero reference / validation passed");
  return 0;
 }

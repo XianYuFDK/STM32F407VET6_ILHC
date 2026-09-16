@@ -1199,7 +1199,7 @@ class MainWindow(QMainWindow):
         grid.addWidget(self.manual_status, 6, 0, 1, 4)
         grid.addWidget(QLabel("俯视，车头朝上：左前 1 ｜右前 2 ｜左后 3 ｜右后 4"), 7, 0, 1, 4)
         self.manual_invert = []
-        for i, label in enumerate(("前后反向", "左右反向", "旋转反向")):
+        for i, label in enumerate(("左右反向", "前后反向", "旋转反向")):
             check = QCheckBox(label)
             # 2026-09-16：固件已在协议边界统一做 180° 旋转（车头方向反了已修正），
             # 「按W后退」的根因消失，因此三个方向反向开关全部默认关闭；
@@ -1267,6 +1267,9 @@ class MainWindow(QMainWindow):
             self.ops_offset_status.setText("加载失败：%s" % exc)
 
     def _manual_start(self, vector, raw=False):
+        """vector 统一为**协议顺序** (左右X, 前后Y, 旋转W)，与 MANUAL=X,Y,W 完全一致：
+        X>0=车左、Y>0=车头、W>0=逆时针。发送时不再做任何交换——
+        坐标变换只在固件适配层做一次（见 firmware debug_usart.c 的适配层注释）。"""
         if self.worker is None and self.sim is None:
             self.log("请先连接串口或开启模拟", "warn")
             return
@@ -1282,7 +1285,7 @@ class MainWindow(QMainWindow):
         self._manual_tick()
         if not self.manual_timer.isActive():
             self.manual_timer.start()
-        self.manual_status.setText("手动运行：前后 %d / 左右 %d / 旋转 %d RPM · 松开停车" % vector)
+        self.manual_status.setText("手动运行：左右 %d / 前后 %d / 旋转 %d RPM · 松开停车" % vector)
 
     def _keyboard_toggle(self):
         if self.keyboard_enabled:
@@ -1323,7 +1326,8 @@ class MainWindow(QMainWindow):
         scale = 0.3 if Qt.Key_Shift in keys else 1.0
         # 斜向平移归一化，避免两个轴同时按下时总速度增加sqrt(2)。
         speed = self.manual_speed.value() * scale / max(1.0, math.hypot(forward, left))
-        self._manual_start((round(forward * speed), round(left * speed),
+        # 元组顺序 = 协议顺序 (左右X, 前后Y, 旋转W)
+        self._manual_start((round(left * speed), round(forward * speed),
                             round(turn * self.manual_turn.value() * scale)), True)
 
     def eventFilter(self, watched, event):
@@ -1357,9 +1361,9 @@ class MainWindow(QMainWindow):
     def _manual_tick(self):
         if self.manual_vector is not None:
             # 原子替换旧速度目标，不被参数积压饿死，也不积累过期方向。
-            # manual_vector 保持(前后, 左右, 旋转)物理顺序（反向开关与状态文本都按此下标），
-            # 只在发协议时交换成 MANUAL=X(左右),Y(前后),W。
-            forward, left, turn = self.manual_vector
+            # manual_vector 已是协议顺序 (左右X, 前后Y, 旋转W)，直接原样下发，
+            # 这里不再做任何交换（上下位机各换一次 = 方向又变回去，历史踩过）。
+            left, forward, turn = self.manual_vector
             self.line_q.put("MANUAL=%d,%d,%d" % (left, forward, turn))
 
     def _manual_stop(self):
@@ -1981,6 +1985,19 @@ class MainWindow(QMainWindow):
         return 270.0 - float(field_yaw) - self.map_theta
 
     def _goto_field(self, fx: float, fy: float, yaw_override=None):
+        """场地坐标下发 GOTO。
+
+        约定（与界面上"启停区为原点、无负坐标"一致）：
+        - 场地坐标原点 = 所选启停区（用「在所选区校准 OPS 零点」把 OPS 零点对到该区）；
+        - 场地坐标恒为 0..FIELD 的非负值，**GOTO 不允许负坐标/越界**，越界直接拒绝；
+        - 遥测/调参通道仍显示机器人相对坐标，小车跑出启停区出现负值属正常（用于调参）。
+        """
+        if not (0.0 <= fx <= self.map_view.FIELD and 0.0 <= fy <= self.map_view.FIELD):
+            self.map_status.setText("拒绝 GOTO：目标(%.0f, %.0f) 超出场地范围 0..%.0f"
+                                    % (fx, fy, self.map_view.FIELD))
+            self.log("GOTO 拒绝：场地坐标越界(%.0f, %.0f)，场地为 0..%.0f 无负坐标"
+                     % (fx, fy, self.map_view.FIELD), "warn")
+            return
         if self.worker is None and self.sim is None:
             self.log("未连接，导航未发送", "warn")
             return

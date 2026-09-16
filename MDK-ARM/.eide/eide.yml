@@ -225,7 +225,7 @@ targets:
           vendor: ST
         otherCmds: ""
         proType: 1
-        speed: 8000
+        speed: 10000
       STLink:
         address: "0x8000000"
         bin: ""

@@ -146,17 +146,24 @@ int main(void) {
   Debug_ParseLine(line);
   assert(s_stop_req == 1U);
 
+  /* 适配层反向映射：内部(-2000,1000) -> 用户 X=+1000(左)、Y=+2000(前) */
+  {
+    float ux = 0.0f, uy = 0.0f;
+    Debug_InternalToUser(-2000.0f, 1000.0f, &ux, &uy);
+    assert(ux == 1000.0f && uy == 2000.0f);
+  }
+
   puts("ParseLine X/Y boundary mapping passed:");
-  puts("  GOTO=X(left),Y(front) -> internal x=back, y=right (swap + 180deg)");
-  puts("  OPSOFFSET=X(left),Y(front) -> internal x=back, y=right (swap + 180deg)");
-  puts("  MANUAL stored in protocol order; KPX->mKpy(left-right), KPY->mKpx(forward-back)");
+  puts("  GOTO=X(left),Y(front) -> internal forward=-Y, lateral=+X  (adapter layer)");
+  puts("  OPSOFFSET=X(left),Y(front) -> internal forward=-Y, lateral=+X (adapter layer)");
+  puts("  MANUAL passed through adapter: forward=-Y, lateral=+X; KPX->mKpy, KPY->mKpx");
   return 0;
 }
 '''
 
 names = ["Debug_StrCaseCmp", "Debug_StrCaseCmpN", "Debug_ParseFloat", "Debug_ParseFloatList",
          "Debug_ParseManual", "Debug_WheelReady", "Debug_ParseOffset", "Debug_SetParam",
-         "Debug_ParseLine"]
+         "Debug_UserToInternal", "Debug_InternalToUser", "Debug_ParseLine"]
 typedef = block("typedef struct\n{\n  const char *name;", "} DebugParam_t;")
 table = block("static const DebugParam_t s_params[] =", "\n};")
 code = prelude + typedef + "\n" + table + "\n" + "\n".join(function(n) for n in names) + checks

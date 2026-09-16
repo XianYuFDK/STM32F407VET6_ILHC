@@ -8,9 +8,11 @@
  *          - 发送 2 字节初始化/启动命令：0xC5 0x22 / 0xC5 0x30
  *          - CRC8 使用 DJI RM CRC8_CRC16.c 中的查表算法，与 ops9-main 兼容
  *          - 坐标清零采用“本地零点偏移”方式，与 ops9-main 底盘标定一致：
- *              清零后 X = 零点X - OPS绝对X + 偏心旋转位移X
- *              清零后 Y = 零点Y - OPS绝对Y + 偏心旋转位移Y
+ *              清零后 X = OPS绝对X - 零点X - 偏心旋转位移X
+ *              清零后 Y = OPS绝对Y - 零点Y - 偏心旋转位移Y
  *              Z 为航向角，不清零
+ *            偏心旋转位移把"OPS 安装点"换算回"车体旋转中心"，见 OPS_CopyPosition()
+ *            里的矩阵推导（内部 x=前后且正指向车尾、y=左右且正指向车左）。
  *
  * 使用方法：
  *     OPS_Init();                    // 在 MX_USART2_UART_Init() 之后调用
@@ -28,8 +30,14 @@
 /* ---------------------------- 私有变量 ---------------------------- */
 static uint8_t             s_rx_buf[OPS_FRAME_LEN];  /* DMA 接收缓冲区        */
 static OPS_Data_t          s_ops;                    /* 解析结果              */
-/* 车体坐标：前+X、左+Y；OPS测量交点相对底盘中心。单位mm。 */
-static float s_mount_x_mm = -50.0f;
+/* OPS 光学中心相对底盘中心的安装偏移，单位 mm，用**内部车体轴**表示：
+ *   s_mount_x_mm : 沿内部 x 轴（前后轴，**+ 指向车尾**）—— +50 = 装在中心后方 50mm
+ *   s_mount_y_mm : 沿内部 y 轴（左右轴，+ 与车左同向）—— +60 = 装在中心左侧 60mm
+ * 默认值即实车安装：车后 50mm、车左 60mm。
+ * 上位机协议用对外坐标下发（OPSOFFSET=X左右(+左),Y前后(+车头)），例如实际装在
+ * 车左60/车后50 时下发 OPSOFFSET=60,-50，经 debug_usart.c 适配层换算成本处 (50,60)。
+ * 注意：该默认值必须与 OPS_CopyPosition() 里的偏心补偿矩阵配套，见那里的推导。 */
+static float s_mount_x_mm = 50.0f;
 static float s_mount_y_mm = 60.0f;
 static float s_reference_yaw; /* 首个有效帧航向，建立未清零坐标参考 */
 static float s_origin_yaw;    /* ZERO时航向，与原始零点成对保存 */
@@ -139,15 +147,28 @@ static uint8_t OPS_CopyPosition(float *x, float *y, float *z, uint8_t absolute)
     zero = s_ops.zero_enabled;
     valid = (s_ops.valid_count != 0U);
     ref = zero ? s_origin_yaw : s_reference_yaw;
-    rx = s_mount_x_mm * 0.001f; ry = s_mount_y_mm * 0.001f;
+    /* 实车实测（2026-09-17）：车**左移**时 OPS 原始 y 变小，而本工程约定"左 = +X"，
+     * 因此 OPS 原始 y 轴与"车左"**反号**（原始帧右手系：+x=车尾、+y=车右）。
+     * 处理：内部/对外 y = -原始 y；偏心补偿在原始帧里做，安装偏移的 y 分量
+     * 也要按原始帧取号（s_mount_y_mm 仍约定 + = 车左）。 */
+    rx =  s_mount_x_mm * 0.001f;   /* + = 车后（沿 +x_raw） */
+    ry = -s_mount_y_mm * 0.001f;   /* +y_raw = 车右，而 s_mount_y_mm 约定 + = 车左 ⇒ 取反 */
     is_new = s_new_flag;
     s_new_flag = 0U;
     if (primask == 0U) __enable_irq();
     *z = yaw;
-    *x = px; *y = py;
+    *x = px; *y = -py;             /* x 同向；y 反号 ⇒ 左移时输出增大 */
     /* 原始绝对接口保持线缆数据，避免补偿叠加。 */
     if (!absolute && valid)
     {
+      /* 安装偏心补偿：把"OPS 测到的点"换算回"车体旋转中心"。
+       * 传感器刚性固定在车体上，其相对中心的位置随车体一起旋转：
+       *     传感器原始帧坐标 = 中心 + R(Δθ)·m_raw
+       * 原始帧是**右手系**（+x=车尾、+y=车右），因此 R 用标准 CCW 矩阵即可；
+       * m_raw = (rx, ry) 为该偏移在原始帧里的分量（见上面取号）。
+       * 数值自检（传感器装车后50/车左60 ⇒ m_raw=(+0.05,-0.06)，Δθ=+90°）：
+       *     R(90°)·m_raw=(+0.06,+0.05)，减去 m_raw ⇒ 需减掉 (+0.01,+0.11)，
+       *     与下面公式一致 ⇒ 原地旋转时补偿后的中心保持不变（不画圆）。 */
       float dc = cosf(yaw) - cosf(ref);
       float ds = sinf(yaw) - sinf(ref);
       float dx = dc * rx - ds * ry;
@@ -159,12 +180,12 @@ static uint8_t OPS_CopyPosition(float *x, float *y, float *z, uint8_t absolute)
          * 只在置零状态下才是负反馈；去掉反号后由 chassis_move 的
          * devx=tgt-cur 保证方向一致，轮速指令逐周期不变。 */
         *x = px - ox - dx;
-        *y = py - oy - dy;
+        *y = -(py - oy - dy);    /* 输出端 y 取反：原始帧(+车右) → 内部/对外(+车左) */
       }
       else
       {
         *x = px - dx;
-        *y = py - dy;
+        *y = -(py - dy);         /* 同上；符号不随是否置零变化 */
       }
     }
   }
@@ -205,7 +226,7 @@ void OPS_Start(void)
 void OPS_Init(void)
 {
   memset(&s_ops, 0, sizeof(s_ops));
-  s_mount_x_mm = -50.0f;
+  s_mount_x_mm = 50.0f;
   s_mount_y_mm = 60.0f;
   s_reference_yaw = s_origin_yaw = 0.0f;
   s_ops.status = OPS_STATUS_IDLE;

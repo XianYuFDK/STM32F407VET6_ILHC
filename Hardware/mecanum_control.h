@@ -48,20 +48,25 @@ extern float devz;
 
 /* ---------------------------- 数据类型 ---------------------------- */
 
-/* 车体坐标系速度 */
+/* 车体坐标系速度（**内部**定义，实车标定）
+ * 注意：内部 +x 指向**车尾**、+y 与**车左**同向、+z 为逆时针；
+ * 对外协议(上位机/Qt/比赛)的 +X=车左、+Y=车头、+Z=逆时针 由
+ * debug_usart.c 的 Debug_UserToInternal()/Debug_InternalToUser() 转换，
+ * 不要直接拿这里的符号对外使用（早期注释写"x 正数前进"与实车相反，已更正）。 */
 typedef struct
 {
-  float x;     /* 前后速度：正数前进，单位 RPM */
-  float y;     /* 左右速度：正数左移，单位 RPM */
-  float z;     /* 旋转速度：正数逆时针，单位 RPM */
+  float x;     /* 内部前后轴：正数 → 车尾方向（与对外 +Y(车头) 反号），单位 RPM */
+  float y;     /* 内部左右轴：正数 → 车左方向（与对外 +X 同号），单位 RPM */
+  float z;     /* 旋转速度：正数 → 逆时针(自顶向下看)，与对外一致，单位 RPM */
 } MecanumSpeed_t;
 
-/* 全局位姿 */
+/* 全局位姿（**内部**定义：x=前后(正指向车尾)、y=左右(正=车左)、yaw=deg 逆时针正）。
+ * 对外遥测 ch0/ch1 与 GOTO/OPSOFFSET 入参都经适配层转换，见 debug_usart.c。 */
 typedef struct
 {
-  float x;     /* 全局 X，单位 mm */
-  float y;     /* 全局 Y，单位 mm */
-  float yaw;   /* 航向角，单位 deg */
+  float x;     /* 内部前后坐标，单位 mm */
+  float y;     /* 内部左右坐标，单位 mm */
+  float yaw;   /* 航向角，单位 deg，逆时针为正，范围 [-180,180] */
 } MecanumPose_t;
 
 /* --------------------------- 对外接口 ----------------------------- */
@@ -69,6 +74,7 @@ typedef struct
 /* 与参考工程一致的接口 */
 void SpeedTarget_stop(void);
 void SetMotorVoltageAndDirection(int MotorSpeed1, int MotorSpeed2, int MotorSpeed3, int MotorSpeed4);
+void Mecanum_NormalizeWheelSpeed(int speed[4], int limit);
 void numerical_limit(float *value, float max, float min, float dead_zone);
 void chassis_move(int x, int y, int z);
 void chassis_turn(int z);

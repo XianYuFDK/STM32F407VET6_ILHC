@@ -180,8 +180,9 @@ class DebuggerTests(unittest.TestCase):
     def test_keyboard_combinations_release_and_slow(self):
         w = self.window
         w._keyboard_toggle()
+        # manual_vector 为协议顺序 (左右X, 前后Y, 旋转W)
         self.keyboard_event(main.Qt.Key_W)
-        self.assertEqual(w.manual_vector, (60, 0, 0))
+        self.assertEqual(w.manual_vector, (0, 60, 0))
         self.keyboard_event(main.Qt.Key_A)
         self.assertEqual(w.manual_vector, (42, 42, 0))
         self.keyboard_event(main.Qt.Key_Q)
@@ -189,7 +190,7 @@ class DebuggerTests(unittest.TestCase):
         self.keyboard_event(main.Qt.Key_Shift)
         self.assertEqual(w.manual_vector, (13, 13, 9))
         self.keyboard_event(main.Qt.Key_A, False)
-        self.assertEqual(w.manual_vector, (18, 0, 9))
+        self.assertEqual(w.manual_vector, (0, 18, 9))
         self.keyboard_event(main.Qt.Key_W, False)
         self.keyboard_event(main.Qt.Key_Q, False)
         self.assertIsNone(w.manual_vector)
@@ -201,35 +202,36 @@ class DebuggerTests(unittest.TestCase):
         """车头方向反了已在固件协议边界统一修正，三个反向开关默认全部关闭。"""
         w = self.window
         self.assertFalse(self.forward_invert_default)
-        self.assertFalse(w.manual_invert[1].isChecked())
-        self.assertFalse(w.manual_invert[2].isChecked())
+        self.assertFalse(w.manual_invert[0].isChecked())   # 0=左右反向
+        self.assertFalse(w.manual_invert[1].isChecked())   # 1=前后反向
+        self.assertFalse(w.manual_invert[2].isChecked())   # 2=旋转反向
         w._keyboard_toggle()
         self.keyboard_event(main.Qt.Key_W)
-        self.assertEqual(w.manual_vector, (60, 0, 0))      # W = +Y = 车头
+        self.assertEqual(w.manual_vector, (0, 60, 0))      # W = +Y = 车头
         self.keyboard_event(main.Qt.Key_W, False)
         self.keyboard_event(main.Qt.Key_S)
-        self.assertEqual(w.manual_vector, (-60, 0, 0))     # S = -Y = 车尾
+        self.assertEqual(w.manual_vector, (0, -60, 0))     # S = -Y = 车尾
         self.keyboard_event(main.Qt.Key_S, False)
         self.keyboard_event(main.Qt.Key_A)
-        self.assertEqual(w.manual_vector, (0, 60, 0))      # A = +X = 车左
+        self.assertEqual(w.manual_vector, (60, 0, 0))      # A = +X = 车左
         self.keyboard_event(main.Qt.Key_A, False)
         # 兜底开关仍在：切换复选框会先停车并退出键盘遥控，需重新接管
-        w.manual_invert[1].setChecked(True)
+        w.manual_invert[0].setChecked(True)                # 勾"左右反向"
         self.assertIsNone(w.manual_vector)
         w._keyboard_toggle()
         self.keyboard_event(main.Qt.Key_A)
-        self.assertEqual(w.manual_vector, (0, -60, 0))
+        self.assertEqual(w.manual_vector, (-60, 0, 0))
 
     def test_keyboard_opposites_space_repeat_and_escape(self):
         w = self.window
         w._keyboard_toggle()
         self.keyboard_event(main.Qt.Key_W)
         self.keyboard_event(main.Qt.Key_W, False, repeat=True)
-        self.assertEqual(w.manual_vector, (60, 0, 0))
+        self.assertEqual(w.manual_vector, (0, 60, 0))      # (左右, 前后, 旋转)
         self.keyboard_event(main.Qt.Key_S)
         self.assertIsNone(w.manual_vector)
         self.keyboard_event(main.Qt.Key_S, False)
-        self.assertEqual(w.manual_vector, (60, 0, 0))
+        self.assertEqual(w.manual_vector, (0, 60, 0))
         self.keyboard_event(main.Qt.Key_Space)
         self.keyboard_event(main.Qt.Key_W, repeat=True)
         self.assertIsNone(w.manual_vector)
@@ -286,7 +288,8 @@ class DebuggerTests(unittest.TestCase):
 
     def test_manual_hold_release_and_page_exit(self):
         w = self.window
-        w._manual_start((1, 0, 1))
+        # _manual_start 的入参已是协议顺序 (左右X, 前后Y, 旋转W)
+        w._manual_start((0, 1, 1))
         self.assertEqual(w.line_q.get_nowait(), "MANUAL=0,60,30")
         w._manual_tick()
         w._manual_stop()
@@ -297,7 +300,7 @@ class DebuggerTests(unittest.TestCase):
         self.assertEqual(w.urgent_q.get_nowait(), "STOP")
         w._manual_tick()
         self.assertTrue(w.line_q.empty())
-        w._manual_start((-1, 0, -1))
+        w._manual_start((0, -1, -1))
         w._select_page(0)
         self.assertIsNone(w.manual_vector)
         self.assertTrue(w.line_q.empty())
@@ -306,10 +309,10 @@ class DebuggerTests(unittest.TestCase):
         w = self.window
         w.line_q.put("KPX=2")
         w.line_q.put("KPY=3")
-        w._manual_start((1, 0, 0))
+        w._manual_start((0, 1, 0))          # 前进
         for _ in range(20):
             w._manual_tick()
-        w._manual_start((0, 1, 0))
+        w._manual_start((1, 0, 0))          # 左移
         self.assertEqual(w.manual_timer.interval(), 50)
         self.assertEqual(w.line_q.qsize(), 3)
         self.assertEqual(w.line_q.get_nowait(), "MANUAL=60,0,0")

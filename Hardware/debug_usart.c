@@ -8,7 +8,8 @@
  *                            以及 DM 电机：DMID/DMEN/DMOFF/DMMODE/DMPOS 等
  *          - 坐标约定（对外统一）：+X=小车左方、+Y=小车正前方、+Z=逆时针为正；
  *            X为左右轴、Y为前后轴。遥测、MANUAL、GOTO、OPSOFFSET 全部按此顺序。
- *            底盘内部仍沿用 pos_x=前后、pos_y=左右，只在边界处交换一次。
+ *            底盘内部沿用 pos_x=前后、pos_y=左右；内外转换集中在下面的两个适配
+ *            函数（Debug_UserToInternal / Debug_InternalToUser）里，别处禁止再换。
  *          - GOTO=x,y,z：上位机点击场地地图下发 OPS 全局定位移动目标（x=左右、
  *            y=前后、z=航向角），本任务每 20ms 周期执行一步 MecanumControl_GotoOPS，
  *            STOP 取消
@@ -74,6 +75,40 @@ static const DebugParam_t s_params[] =
   {"ZVMIN", &ZVmin,  0.0f,   100.0f},
 };
 
+/* ====================== 坐标适配层（全工程唯一转换点） ======================
+ * 对外（上位机 / 串口协议 / 比赛场地地图）统一约定：
+ *   X  : 左右轴， +X = 车左        -X = 车右
+ *   Y  : 前后轴， +Y = 车头方向    -Y = 车尾方向
+ *   Z/W: 航向角， + = 自顶向下看逆时针(CCW)   - = 顺时针(CW)
+ *   MANUAL=X,Y,W 与 GOTO=X,Y,Z 的 X/Y/Z 含义同上。
+ *
+ * 底盘内部（Hardware/mecanum_control.c、Hardware/ops.c，本次不改动其公式）：
+ *   pos_x / devx / MoveVelocity 第1形参 : 前后轴，但 **+ 指向车尾**（与对外 +Y 反号）
+ *   pos_y / devy / MoveVelocity 第2形参 : 左右轴， + 与车左 **同向**
+ *   zangle : 航向角(单位:度)，+ = 逆时针（与对外一致）
+ *
+ * 所以 对外 ↔ 内部 = 交换"左右/前后"两轴，并且**只把前后轴取反**
+ * （几何上等价于沿车体左右轴做一次镜像，不是 180° 旋转）。
+ * 实车标定依据：键盘 W 要车头、A 要车左，只有按此映射才同时成立；
+ * 若两轴都取反（180° 旋转）实测 A/D 会反；若都不取反则 W/S 会反。
+ *
+ * >>> 全工程只有下面两个函数做坐标变换，其它文件/层级一律不得再交换 X/Y，
+ *     否则会出现二次交换（底层换一次、Qt 再换一次 = 方向又变回去）。 <<<
+ */
+static void Debug_UserToInternal(float user_x_left, float user_y_forward,
+                                 float *internal_forward, float *internal_lateral)
+{
+  if (internal_forward != NULL) { *internal_forward = -user_y_forward; }  /* 用户+Y(前) → 内部前后为负 */
+  if (internal_lateral != NULL) { *internal_lateral =  user_x_left;    }  /* 左右同向(+左) */
+}
+
+static void Debug_InternalToUser(float internal_forward, float internal_lateral,
+                                 float *user_x_left, float *user_y_forward)
+{
+  if (user_x_left    != NULL) { *user_x_left    =  internal_lateral;   }  /* 内部左右即用户+X */
+  if (user_y_forward != NULL) { *user_y_forward = -internal_forward;   }  /* 内部前后取反才是用户+Y */
+}
+
 /* --------------------------- 私有变量 ------------------------------ */
 static uint8_t s_rx[DEBUG_RX_SIZE];
 static uint8_t s_line[DEBUG_LINE_SIZE];
@@ -123,6 +158,10 @@ static volatile uint8_t s_ack_read, s_ack_write;
 static uint8_t s_ack_queue[16];
 static uint8_t s_ack_frames[16][4];
 static uint8_t s_zdt_watch;
+/* 单轮测试期间"期望的应答"：必须同时匹配 地址 + 功能码，状态码单独判读。
+ * 只比地址是不够的：Stop(0xFE)/Enable(0xF3) 的回包同样是 4 字节且尾字节 0x6B，
+ * 之前发过的命令的迟到回包会被当成速度(0xF6)命令的成功应答。 */
+static uint8_t s_zdt_watch_cmd;
 static uint32_t s_zdt_watch_tick;
 static const char * const s_ack_text[] = {
   "ACK ZDT ACCEPTED\r\n",
@@ -135,7 +174,8 @@ static const char * const s_ack_text[] = {
   NULL, /* 事件7用于原始电机回包，不索引文本。 */
   "ERR CAN START FAILED; CAN DISABLED; USART1 AVAILABLE\r\n",
   "ERR CAN DISABLED; DM/S28/S35 REJECTED\r\n",
-  "ERR WHEEL DISABLED; WHEELEN FIRST\r\n"
+  "ERR WHEEL DISABLED; WHEELEN FIRST\r\n",
+  "ERR ZDT REPLY STATUS != 0x02 (SEE RAW FRAME)\r\n"
 };
 
 static void Debug_ZdtAck(uint8_t event)
@@ -160,7 +200,21 @@ static void Debug_ServiceZdtReplies(void)
   ZDT_X42S_ServiceRx();
   while (ZDT_X42S_PopReply(frame))
   {
-    if (s_zdt_watch && frame[0] == s_zdt_addr) s_zdt_watch = 0U;
+    /* 只在"地址 + 期望功能码"都匹配时才认定本次测试收到了有效回包；
+     * 状态码 0x02 才是命令正确应答，非 0x02（如 0xE2/0xEE 参数或保护错误）
+     * 只报错、不当成功。原始 4 字节仍然照常打印，便于人工核对。 */
+    if (s_zdt_watch && (frame[0] == s_zdt_addr) && (frame[1] == s_zdt_watch_cmd))
+    {
+      if (frame[2] == 0x02U)
+      {
+        s_zdt_watch = 0U;
+      }
+      else
+      {
+        s_zdt_watch = 0U;
+        Debug_ZdtAck(11U);
+      }
+    }
     if (!s_zdt_text_mode) continue;
     {
       uint32_t mask = __get_PRIMASK();
@@ -609,6 +663,19 @@ static void Debug_ChassisStop(void)
   }
 }
 
+/* 结束单轮测试：被测轮发专用停止帧(0xFE 0x98)，四轮再统一恢复。
+ * 测试开始时被测轮以外是 Disable（释放锁轴），必须在结束时把它们恢复成
+ * "0 转速 + 锁轴"，否则固件以为 s_wheel_enabled=1 而实际有三个轮子是自由状态；
+ * 速度帧本身即重新使能锁轴，所以这里走 Debug_ChassisStop 即可（失能状态下
+ * 它只清目标，不会反把轮子锁上）。 */
+static void Debug_ZdtTestFinish(void)
+{
+  ZDT_X42S_Stop(s_zdt_addr);
+  Debug_ChassisStop();
+  s_zdt_active = 0U;
+  s_zdt_watch = 0U;
+}
+
 static void Debug_ServiceManual(void)
 {
   int16_t v[3];
@@ -634,9 +701,13 @@ static void Debug_ServiceManual(void)
   }
   if (v[0] == 0 && v[1] == 0 && v[2] == 0) MecanumControl_Stop();
   /* 协议 MANUAL=X,Y,W 为 X=左右速度(+车左)、Y=前后速度(+车头)、W=旋转(+逆时针)。
-   * 内部 MoveVelocity 形参是(前后, 左右, 旋转)，而内部 +前后 指向车尾（+左右 与车左同向），
-   * 因此交换后只把前后轴取反。 */
-  else MecanumControl_MoveVelocity(-v[1], v[0], v[2]);
+   * 经适配层转到内部(前后, 左右, 旋转)：变换只发生在 Debug_UserToInternal() 里。 */
+  else
+  {
+    float fwd, lat;
+    Debug_UserToInternal((float)v[0], (float)v[1], &fwd, &lat);
+    MecanumControl_MoveVelocity(fwd, lat, (float)v[2]);
+  }
 }
 
 /* 任务上下文执行四轮使能/失能：先取消运动并停车，再发UART4阻塞帧。
@@ -692,8 +763,11 @@ static void Debug_ServiceZdt(void)
   if (mask == 0U) __enable_irq();
   if (cancel)
   {
-    if (s_zdt_active) ZDT_X42S_Stop(s_zdt_addr);
-    if (s_zdt_active || request) Debug_ZdtAck(5U);
+    /* 先记住"当时是否在跑测试"，再收尾：Debug_ZdtTestFinish 会清 s_zdt_active，
+     * 顺序写反会把 CANCELLED 应答吞掉。 */
+    uint8_t was_active = s_zdt_active;
+    if (was_active) Debug_ZdtTestFinish();
+    if (was_active || request) Debug_ZdtAck(5U);
     s_zdt_active = 0U;
     s_zdt_watch = 0U;
     return;
@@ -704,12 +778,23 @@ static void Debug_ServiceZdt(void)
     /* 测试前丢弃旧回包，防止把启动时应答误认为此次测试回复。 */
     while (ZDT_X42S_PopReply(old_reply)) { }
     s_zdt_watch = 1U;
+    s_zdt_watch_cmd = 0xF6U;   /* 本次测试只认速度帧(0xF6)的回包，见 Debug_ServiceZdtReplies */
     s_zdt_watch_tick = HAL_GetTick();
-    for (addr = 1U; addr <= 4U; ++addr) ZDT_X42S_Stop(addr);
+    /* 单轮测试的机械前提：被测轮以外**失能**（释放锁轴），而不是 Stop。
+     * Stop 只是速度归零，在驱动器的 Hold 配置下轮子仍被锁住，会给悬空单轮
+     * 测试带来额外机械阻力（相邻轮拖拽、电流偏大）。被测轮则先 Stop 复位内部
+     * 状态，再 Enable，之后才真正受速度命令控制。
+     * 测试结束/取消时用 MecanumControl_Stop() 把四轮恢复成"0 转速 + 锁轴"，
+     * 与固件内部 s_wheel_enabled=1 的状态保持一致（速度帧本身即重新使能锁轴）。 */
+    for (addr = 1U; addr <= 4U; ++addr)
+    {
+      if (addr == (uint8_t)args[0]) { ZDT_X42S_Stop(addr); }
+      else                          { ZDT_X42S_Disable(addr); }
+    }
     s_zdt_addr = (uint8_t)args[0];
     s_zdt_rpm = args[1];
     s_zdt_duration = (uint32_t)args[2] * 1000U;
-    if (s_zdt_rpm == 0) { s_zdt_active = 0U; Debug_ZdtAck(4U); return; }
+    if (s_zdt_rpm == 0) { Debug_ZdtTestFinish(); Debug_ZdtAck(4U); return; }
     ZDT_X42S_Enable(s_zdt_addr);
     s_zdt_tick = HAL_GetTick();
   }
@@ -723,8 +808,7 @@ static void Debug_ServiceZdt(void)
   }
   else if (s_zdt_active == 2U && (uint32_t)(HAL_GetTick() - s_zdt_tick) >= s_zdt_duration)
   {
-    ZDT_X42S_Stop(s_zdt_addr);
-    s_zdt_active = 0U;
+    Debug_ZdtTestFinish();
     Debug_ZdtAck(4U);
   }
 }
@@ -825,10 +909,14 @@ static void Debug_ParseLine(char *line)
     if (Debug_ParseOffset(line + 10U, v))
     {
       /* 协议 OPSOFFSET=X,Y 为 X=左右安装偏移(+车左)、Y=前后安装偏移(+车头)，
-       * 例如 OPSOFFSET=60,-50 表示 OPS 装在车左60mm、车后50mm；
-       * OPS_SetMountOffset 形参是内部(前后, 左右)，+前后 指向车尾，
-       * 因此交换后只把前后轴取反。 */
-      s_offset_x = -v[1]; s_offset_y = v[0];
+       * 例如 OPSOFFSET=60,-50 表示 OPS 装在车左60mm、车后50mm。
+       * OPS_SetMountOffset 形参是内部(前后, 左右)，经适配层转换后暂存，
+       * 由 DebugUsart_Send 在任务上下文里下发（中断内不做耗时操作）。 */
+      {
+        float fwd, lat;
+        Debug_UserToInternal(v[0], v[1], &fwd, &lat);
+        s_offset_x = fwd; s_offset_y = lat;
+      }
       s_offset_req = 1U;
     }
     return;
@@ -919,11 +1007,16 @@ static void Debug_ParseLine(char *line)
       if (v[1] > 3000.0f)  { v[1] = 3000.0f; }
 
       s_manual_active = 0U;
-      /* 协议 GOTO=X,Y,Z 为 X=场地左右(+车左)、Y=场地前后(+车头)；
-       * 内部 s_goto_x/s_goto_y 是(前后, 左右)，其中 +前后 指向车尾，
-       * 因此交换后只把前后轴取反。 */
-      s_goto_x = -v[1];
-      s_goto_y = v[0];
+      /* 协议 GOTO=X,Y,Z 为**场地(世界)坐标**：X=场地左右(+车左)、Y=场地前后(+车头)，
+       * 单位 mm，超出 ±3000 已在上方钳位；z 省略时保持当前航向。
+       * 内部 s_goto_x/s_goto_y 是(前后, 左右)车体轴，经适配层转换；
+       * 世界→车体的旋转由 MecanumControl_GotoOPS 内部完成。 */
+      {
+        float fwd, lat;
+        Debug_UserToInternal(v[0], v[1], &fwd, &lat);
+        s_goto_x = fwd;
+        s_goto_y = lat;
+      }
       /* 目标航向未给出时保持当前航向 */
       s_goto_z = (n >= 3U) ? v[2] : zangle;
       s_goto_active = 1U;
@@ -1060,6 +1153,8 @@ void DebugUsart_Init(void)
 void DebugUsart_Send(void)
 {
   float data[DEBUG_VOFA_CHANNELS];
+  float user_x, user_y;      /* 适配层输出：用户坐标 X=左右(+左)、Y=前后(+车头) */
+  float err_x, err_y;        /* 适配层输出：用户坐标下的位置误差 */
   DmJ4310Feedback_t dmFb;
   uint32_t i;
   uint32_t len;
@@ -1282,14 +1377,17 @@ void DebugUsart_Send(void)
   /* 手动旋转/静止调试同样刷新补偿后位置，不依赖GOTO运行。 */
   MecanumControl_GetPose(&pos_x, &pos_y, &zangle);
   /* 对外坐标：ch0=X=左右轴、ch1=Y=前后轴、ch2=Z=航向角，均为物理正向
-   * （车左/+、车头/+、逆时针/+）。实车实测：内部 pos_x 指向车尾、pos_y 指向车左
-   * （按 W 才是车头、按 A 才是车左），因此 0/1、3/4、6/7 交换，且**只有前后轴取反**
-   * （左右轴与内部同向）；通道总数与帧格式不变。 */
-  data[0]  = pos_y;
-  data[1]  = -pos_x;
+   * （车左/+、车头/+、逆时针/+）。
+   * 内部 pose 经 Debug_InternalToUser() 转到对外坐标 —— 变换只发生在那一个函数里；
+   * ch6/ch7 是 KPX/KPY 的回读（左右/前后增益），与参数表映射保持一致；
+   * 通道总数与帧格式不变。 */
+  Debug_InternalToUser(pos_x, pos_y, &user_x, &user_y);
+  Debug_InternalToUser(devx, devy, &err_x, &err_y);
+  data[0]  = user_x;
+  data[1]  = user_y;
   data[2]  = zangle;
-  data[3]  = devy;
-  data[4]  = -devx;
+  data[3]  = err_x;
+  data[4]  = err_y;
   data[5]  = devz;
   data[6]  = mKpy;
   data[7]  = mKpx;

@@ -790,10 +790,13 @@ class Simulator(threading.Thread):
         if self.hold is not None:
             angle, ref = math.radians(self.zval), math.radians(self.ops_reference_yaw)
             dc, ds = math.cos(angle) - math.cos(ref), math.sin(angle) - math.sin(ref)
-            # 真实安装：车后50mm、车左60mm → 内部(前后,左右)=(+50,+60)（+前后 指向车尾）
-            ex, ey = 50.0 - self.ops_offset[0], 60.0 - self.ops_offset[1]
+            # 与 firmware ops.c 同一模型：OPS 原始帧是右手系(+x=车尾、+y=车右)，
+            # 真实安装"车后50、车左60" ⇒ 原始帧偏移 m_raw=(+50,-60)，
+            # 补偿用标准 CCW 矩阵，最后把 y 翻回内部(+车左)：pos_* 是内部坐标。
+            ex = 50.0 - self.ops_offset[0]
+            ey = -(60.0 - self.ops_offset[1])
             pos_x -= dc * ex - ds * ey
-            pos_y -= ds * ex + dc * ey
+            pos_y -= -(ds * ex + dc * ey)
         # 打包顺序镜像 debug_usart.c：ch0=X=车左(=pos_y)、ch1=Y=车头(=-pos_x)，
         # ch3/ch4 同步；ch6/ch7 打包"KPX/KPY 所写入的那个量"，对应 data[6]=mKpy、data[7]=mKpx。
         return (

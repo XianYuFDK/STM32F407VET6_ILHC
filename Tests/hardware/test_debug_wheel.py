@@ -169,9 +169,11 @@ assert "MecanumControl_ClearTarget();" in manual
 arr = source[source.index("static const char * const s_ack_text[] = {"):]
 arr = arr[:arr.index("};")]
 elements = re.findall(r'NULL|"(?:[^"\\]|\\.)*"', arr)
-assert len(elements) == 11, elements
+assert len(elements) == 12, elements
 assert elements[7] == "NULL", elements
 assert "ERR WHEEL DISABLED" in elements[10], elements[10]
+# 事件11：单轮测试收到的回包状态码不是 0x02（参数/保护错误）时必须报错而不是当成功。
+assert "ERR ZDT REPLY STATUS" in elements[11], elements[11]
 
 # 驱动层：头文件声明ClearTarget，Stop拆分为"清目标 + 下发速度0帧"。
 assert "void MecanumControl_ClearTarget(void);" in mecanum_h

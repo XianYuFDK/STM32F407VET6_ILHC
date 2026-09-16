@@ -111,6 +111,54 @@ void SpeedTarget_stop(void)
 }
 
 /**
+ * @brief  四轮转速整体同比限幅（麦克纳姆必须整体缩放，禁止单轮硬裁剪）
+ * @param  speed 四轮目标速度数组，单位 RPM，正负表示方向；就地修改
+ * @param  limit 单轮允许的最大绝对值，单位 RPM
+ *
+ * @note   为什么不能对每轮单独裁剪：斜行、旋转或两者叠加时四轮目标值不相等，
+ *         若各自硬截断到上限，四轮比例被破坏，合成的运动方向会偏离期望
+ *         （典型表现：高速斜行时车头被"拽"向某一侧、原地旋转叠加平移时打滑）。
+ *         正确做法是按 max|speed| 求一个公共系数 scale，四轮同乘，比例与方向不变。
+ *         全程用 float 运算：整数除法会把 scale 截断成 0，导致"限幅后反而停车"。
+ *
+ *         量级说明：车体两轴分量在 numerical_limit 里是被"分别"限幅的
+ *         （vx1/vx2/vy1/vy2 各自 ≤ XYVmax），因此 VX=vx1+vx2、VY=vy1-vy2
+ *         最大可到 2*XYVmax，四轮最大约 (4*XYVmax + ZVmax)*0.238 ≈ 1701 RPM
+ *         （默认 1600/750），超过 ZDT 单轮上限时就必须整体缩放。
+ */
+void Mecanum_NormalizeWheelSpeed(int speed[4], int limit)
+{
+  float max_abs = 0.0f;
+  float scale;
+  uint8_t i;
+
+  if ((speed == NULL) || (limit <= 0))
+  {
+    return;
+  }
+
+  for (i = 0U; i < 4U; ++i)
+  {
+    float mag = (speed[i] < 0) ? -(float)speed[i] : (float)speed[i];
+    if (mag > max_abs)
+    {
+      max_abs = mag;
+    }
+  }
+
+  if (max_abs <= (float)limit)
+  {
+    return;                       /* 未超限：原样下发，不做任何缩放 */
+  }
+
+  scale = (float)limit / max_abs; /* float 除法，不会被截成 0 */
+  for (i = 0U; i < 4U; ++i)
+  {
+    speed[i] = (int)((float)speed[i] * scale);
+  }
+}
+
+/**
  * @brief  向四个 ZDT_X42S 电机下发速度命令
  * @param  MotorSpeed1~4 四轮目标速度，正负表示方向
  */
@@ -126,6 +174,10 @@ void SetMotorVoltageAndDirection(int MotorSpeed1, int MotorSpeed2,
   motor_speed[1] = MotorSpeed2;
   motor_speed[2] = MotorSpeed3;
   motor_speed[3] = MotorSpeed4;
+
+  /* 下发前做一次整体同比限幅：超出 ZDT 单轮上限时四轮同乘一个系数，
+     绝不能让驱动层(ZDT_X42S_SpeedAcc)对单轮硬裁剪——那会破坏四轮比例。 */
+  Mecanum_NormalizeWheelSpeed(motor_speed, (int)ZDT_X42S_MAX_RPM);
 
   for (i = 0U; i < 4U; ++i)
   {
@@ -225,7 +277,19 @@ void chassis_move(int x, int y, int z)
     devz += 360.0f;
   }
 
-  /* 按当前航向角把全局误差旋转到车体坐标系 */
+  /* ---------------- 世界坐标误差 → 车体坐标系（按当前航向角旋转）----------------
+   * θ = zangle（度→弧度），误差取的是**世界/场地坐标**误差 devx/devy。
+   * 本工程约定：θ 逆时针为正、内部 x 轴=前后、内部 y 轴=左右，因此车体分量满足
+   *
+   *   VX(前后) =  cosθ * (mKpx*devx) + sinθ * (mKpy*devy)
+   *   VY(左右) = -sinθ * (mKpx*devx) + cosθ * (mKpy*devy)
+   *
+   * 即 [VX;VY]^T = R(-θ) · diag(mKpx,mKpy) · [devx;devy]^T，R(-θ)=[[c,s],[-s,c]]，
+   * 与"麦轮要的是车体 forward/lateral，而不是直接把 world 误差当车体速度"一致。
+   * 注意：P 增益乘在旋转之前；当 mKpx == mKpy（默认 2.3）时等价于"先旋转再按轴加增益"，
+   * 两轴增益不同时方向会有偏差，调参时尽量让 KPX/KPY 保持接近。
+   * 各分量在旋转后由 numerical_limit 分别限幅（不是按轮限幅），
+   * 四轮转速的整体同比限幅在 SetMotorVoltageAndDirection 里统一做。 */
   vy1 = cosf(zangle * 3.1415926f / 180.0f) * mKpy * devy;
   vx2 = sinf(zangle * 3.1415926f / 180.0f) * mKpy * devy;
   numerical_limit(&vy1, XYVmax, XYVmin, 5.0f);
@@ -236,6 +300,7 @@ void chassis_move(int x, int y, int z)
   numerical_limit(&vy2, XYVmax, XYVmin, 5.0f);
   numerical_limit(&vx1, XYVmax, XYVmin, 5.0f);
 
+  /* 航向环不参与旋转：devz 已在上面 wrap 到 [-180,180]，直接 P 控制。 */
   vz = mKpz * devz;
   numerical_limit(&vz, ZVmax, 0.0f, 5.0f);
 
@@ -402,10 +467,13 @@ void MecanumControl_Stop(void)
 }
 
 /**
- * @brief  车体坐标系直接速度移动
- * @param  vxRpm 前后速度，RPM
- * @param  vyRpm 左右速度，RPM
- * @param  vzRpm 旋转速度，RPM
+ * @brief  车体坐标系直接速度移动（MANUAL 手动、ZDT 单轮测试走这条路）
+ * @param  vxRpm 内部前后轴速度，RPM：**正数 → 车尾方向**（≠ 对外 +Y(车头)）
+ * @param  vyRpm 内部左右轴速度，RPM：正数 → 车左方向（与对外 +X 同号）
+ * @param  vzRpm 旋转速度，RPM：正数 → 逆时针（与对外一致）
+ * @note   形参符号是**内部**约定，由 debug_usart.c 的适配层负责与
+ *         对外 MANUAL=X(车左),Y(车头),W(逆时针) 互转，本函数不做坐标变换。
+ *         四轮结果在 SetMotorVoltageAndDirection 里做整体同比限幅后下发。
  */
 void MecanumControl_MoveVelocity(float vxRpm, float vyRpm, float vzRpm)
 {

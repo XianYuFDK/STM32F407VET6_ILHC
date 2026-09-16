@@ -13,10 +13,12 @@ code=r"""
 static uint8_t s_zdt_req,s_zdt_active,s_zdt_addr,s_stop_req,s_zero_req,s_offset_req;
 static uint8_t s_wheel_req;
 static int16_t s_zdt_args[3],s_zdt_rpm;
-static uint8_t s_zdt_watch;
+static uint8_t s_zdt_watch, s_zdt_watch_cmd;
 static uint32_t s_zdt_watch_tick;
 static uint8_t ZDT_X42S_PopReply(uint8_t *p){(void)p;return 0;}
 static uint32_t s_zdt_tick,s_zdt_duration,tick,stops,enables,speeds,last_addr,last_dir;
+static uint32_t disables,cstops,cclears;
+static uint8_t s_wheel_enabled=1;
 static void Debug_ZdtAck(uint8_t event){(void)event;}
 static uint32_t __get_PRIMASK(void){return 0;}
 static void __disable_irq(void){}
@@ -24,26 +26,33 @@ static void __enable_irq(void){}
 static uint32_t HAL_GetTick(void){return tick;}
 static void ZDT_X42S_Stop(uint8_t a){stops++;last_addr=a;}
 static void ZDT_X42S_Enable(uint8_t a){enables++;last_addr=a;}
+static void ZDT_X42S_Disable(uint8_t a){disables++;last_addr=a;}
+static void MecanumControl_Stop(void){cstops++;}
+static void MecanumControl_ClearTarget(void){cclears++;}
 static void ZDT_X42S_SpeedAcc(uint8_t a,uint8_t d,uint16_t r,uint8_t c)
 {speeds++;last_addr=a;last_dir=d;assert(r==50 && c==100);}
-"""+extract("Debug_ParseManual")+extract("Debug_ServiceZdt")+r"""
+"""+extract("Debug_WheelReady")+extract("Debug_ChassisStop")+extract("Debug_ZdtTestFinish")+extract("Debug_ParseManual")+extract("Debug_ServiceZdt")+r"""
 int main(void){
  int16_t v[3];
  assert(Debug_ParseManual("3,-50,2",v)&&v[0]==3&&v[1]==-50&&v[2]==2);
  assert(!Debug_ParseManual("3,301,2",v)); assert(!Debug_ParseManual("3,50,2x",v));
+ /* 单轮测试：被测轮(3)发 Stop，其余三轮 Disable（释放锁轴，避免 Hold 阻力）；
+    回包只认 0xF6 速度帧，且状态码须为 0x02。 */
  s_zdt_args[0]=3;s_zdt_args[1]=-50;s_zdt_args[2]=2;s_zdt_req=1;
- Debug_ServiceZdt();assert(stops==4&&enables==1&&speeds==0);
+ Debug_ServiceZdt();assert(stops==1&&disables==3&&enables==1&&speeds==0);
+ assert(s_zdt_watch==1&&s_zdt_watch_cmd==0xF6);
  tick=99;Debug_ServiceZdt();assert(speeds==0);
  tick=100;Debug_ServiceZdt();assert(speeds==1&&last_addr==3&&last_dir==1);
- tick=2099;Debug_ServiceZdt();assert(stops==4);
- tick=2100;Debug_ServiceZdt();assert(stops==5&&last_addr==3&&!s_zdt_active);
+ tick=2099;Debug_ServiceZdt();assert(stops==1);
+ /* 到期结束：被测轮Stop + 四轮恢复(速度0帧=重新锁轴)，与s_wheel_enabled=1一致 */
+ tick=2100;Debug_ServiceZdt();assert(stops==2&&cstops==1&&last_addr==3&&!s_zdt_active);
  s_zdt_args[0]=4;s_zdt_req=1;Debug_ServiceZdt();assert(enables==2);
  s_stop_req=1;Debug_ServiceZdt();assert(!s_zdt_active&&last_addr==4&&speeds==1);
  s_zdt_req=1;Debug_ServiceZdt();assert(!s_zdt_req&&enables==2);
  /* 四轮使能切换与STOP一样取消运行中的测试，且不重新使能轮子 */
  s_stop_req=0;s_wheel_req=0;
  s_zdt_args[0]=2;s_zdt_args[1]=50;s_zdt_args[2]=1;s_zdt_req=1;
- tick=3000;Debug_ServiceZdt();assert(s_zdt_active==1&&enables==3&&stops==14);
+ tick=3000;Debug_ServiceZdt();assert(s_zdt_active==1&&enables==3&&stops==5);
  tick=3100;Debug_ServiceZdt();assert(speeds==2&&s_zdt_active==2);
  s_wheel_req=2;Debug_ServiceZdt();assert(!s_zdt_active&&speeds==2&&enables==3);
  return 0;

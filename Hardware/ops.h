@@ -80,7 +80,11 @@ uint8_t OPS_IsNew(void);                                  /* 是否有新数据 
 void    OPS_ClearNew(void);                               /* 清除新数据标志                       */
 uint8_t OPS_IsOnline(uint32_t timeout_ms);                 /* 定位数据是否在超时时间内更新         */
 
-/* 安装偏移：前+X、左+Y，mm，±500；有效帧存在时同时重新置零。 */
+/* 安装偏移，单位 mm，±500，用**内部车体轴**表示：
+ *   x_mm : 前后轴，+ 指向车尾（+50 = 装在中心后方 50mm）
+ *   y_mm : 左右轴，+ 与车左同向（+60 = 装在中心左侧 60mm）
+ * 对外协议 OPSOFFSET=X(左右,+左),Y(前后,+车头) 由 debug_usart.c 适配层换算后调用本函数。
+ * 有效帧存在时同时以当前位置重新置零。 */
 uint8_t OPS_SetMountOffset(float x_mm, float y_mm);
 
 void OPS_ZeroCoordinates(void);                            /* 以当前 OPS 坐标作为零点               */
