@@ -117,9 +117,9 @@ void StartDefaultTask(void *argument)
   /* USER CODE BEGIN StartDefaultTask */
   /* Infinite loop */
   /* 调用 OPS 全局定位移动示例（当前串口输出结构建议每20ms调用）：
-     chassis_move(目标前后, 目标左右, 目标航向角);   // 形参顺序为内部(前后, 左右)
+     chassis_move(目标X左右, 目标Y前后, 目标航向角);   // 统一坐标
      SetMotorVoltageAndDirection(SpeedTarget[0], SpeedTarget[1], SpeedTarget[2], SpeedTarget[3]);
-     对外协议 GOTO=X(左右),Y(前后),Z 由 debug_usart.c 交换后传入。
+     对外协议 GOTO=X,Y,Z 原序传入，X/Y 的 cm 先换算为 mm 再进入位置环。
   */
   for(;;)
   {

@@ -9,10 +9,11 @@
  *          - chassis_move() 使用 OPS 全局定位反馈做位置环
  *          - SetMotorVoltageAndDirection() 负责实际下发 UART4 指令
  *
- *          坐标约定：
- *          - pos_x / pos_y：OPS 全局坐标，单位 mm
- *          - zangle：OPS 航向角，单位 deg
- *          - chassis_move(x, y, z)：目标全局坐标/航向角
+ *          统一坐标约定（内外一致）：
+ *          - pos_x：左右坐标，+ 为车左
+ *          - pos_y：前后坐标，+ 为车头
+ *          - zangle：航向角，+ 为逆时针
+ *          - chassis_move(x, y, z)：目标 X=左右、Y=前后，单位 mm
  ******************************************************************************
  */
 #ifndef __MECANUM_CONTROL_H__
@@ -29,7 +30,8 @@ extern "C" {
 /* 四轮目标速度，供底盘任务/输出任务使用 */
 extern int SpeedTarget[4];
 
-/* OPS 当前全局坐标（由 chassis_move 内部从 OPS 驱动刷新） */
+/* OPS 当前全局坐标（由 chassis_move 内部从 OPS 驱动刷新）
+ * pos_x: +X=车左；pos_y: +Y=车头；单位 mm */
 extern float pos_x;
 extern float pos_y;
 extern float zangle;
@@ -48,24 +50,20 @@ extern float devz;
 
 /* ---------------------------- 数据类型 ---------------------------- */
 
-/* 车体坐标系速度（**内部**定义，实车标定）
- * 注意：内部 +x 指向**车尾**、+y 与**车左**同向、+z 为逆时针；
- * 对外协议(上位机/Qt/比赛)的 +X=车左、+Y=车头、+Z=逆时针 由
- * debug_usart.c 的 Debug_UserToInternal()/Debug_InternalToUser() 转换，
- * 不要直接拿这里的符号对外使用（早期注释写"x 正数前进"与实车相反，已更正）。 */
+/* 车体坐标系速度（内部与对外同约定）：
+ * +x 指向车左、+y 指向车头、+z 为逆时针。 */
 typedef struct
 {
-  float x;     /* 内部前后轴：正数 → 车尾方向（与对外 +Y(车头) 反号），单位 RPM */
-  float y;     /* 内部左右轴：正数 → 车左方向（与对外 +X 同号），单位 RPM */
-  float z;     /* 旋转速度：正数 → 逆时针(自顶向下看)，与对外一致，单位 RPM */
+  float x;     /* 左右速度：正数 → 车左，单位 RPM */
+  float y;     /* 前后速度：正数 → 车头，单位 RPM */
+  float z;     /* 旋转速度：正数 → 逆时针，单位 RPM */
 } MecanumSpeed_t;
 
-/* 全局位姿（**内部**定义：x=前后(正指向车尾)、y=左右(正=车左)、yaw=deg 逆时针正）。
- * 对外遥测 ch0/ch1 与 GOTO/OPSOFFSET 入参都经适配层转换，见 debug_usart.c。 */
+/* 全局位姿（内部与对外同约定：x=左右(+左)、y=前后(+前)、yaw=deg 逆时针正）。 */
 typedef struct
 {
-  float x;     /* 内部前后坐标，单位 mm */
-  float y;     /* 内部左右坐标，单位 mm */
+  float x;     /* X=左右坐标，+车左，单位 mm */
+  float y;     /* Y=前后坐标，+车头，单位 mm */
   float yaw;   /* 航向角，单位 deg，逆时针为正，范围 [-180,180] */
 } MecanumPose_t;
 

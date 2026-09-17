@@ -9,9 +9,9 @@
  *
  *          VOFA+ 使用方式：
  *          - 数据协议选择 JustFloat
- *          - 坐标约定（对外统一）：+X=小车左方、+Y=小车正前方、+Z=逆时针为正；
- *            X为左右轴、Y为前后轴。24通道遥测、MANUAL、GOTO、OPSOFFSET 全部按此顺序，
- *            底盘内部仍沿用 pos_x=前后、pos_y=左右，只在边界处交换一次。
+ *          - 统一坐标约定：+X=车左、+Y=车头、+Z=逆时针；
+ *            24通道遥测、MANUAL、GOTO、OPSOFFSET 与底盘内部全部按此顺序。
+ *            遥测 ch0/ch1/ch3/ch4 与 GOTO 的 X/Y 使用 cm（1位小数）；底盘内部用 mm。
  *          - 串口终端发送：KPX=3.0（左右轴P）/ KPY=3.0（前后轴P）/ KPZ=10.0
  *                          XVMAX=1600 / ZVMAX=750
  *                          STOP / ZERO

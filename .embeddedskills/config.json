@@ -1,0 +1,20 @@
+{
+  "serial": {
+    "port": "COM9",
+    "baudrate": 115200,
+    "bytesize": 8,
+    "parity": "none",
+    "stopbits": 1,
+    "encoding": "utf-8"
+  },
+  "eide": {
+    "project": "MDK-ARM",
+    "config": "STM32F407VET6_ILHC",
+    "log_dir": ".embeddedskills/build"
+  },
+  "keil": {
+    "project": "MDK-ARM/STM32F407VET6_ILHC.uvprojx",
+    "target": "STM32F407VET6_ILHC",
+    "log_dir": ".embeddedskills/build"
+  }
+}

@@ -86,13 +86,22 @@ SoftSPI_OLED_Refresh();
 ## OPS 定位驱动
 
 - ops.c / ops.h：OPS 全局定位模块接收与解析驱动
-  - USART2 + 空闲中断 + DMA（DMA1_Stream5 / Ch4）
-  - 上行帧：0x5C | float x | float y | float z | CRC8（14 字节）
-  - 下行命令：0xC5 0x22（初始化）、0xC5 0x30（启动）
-  - 使用：OPS_Init() 初始化；OPS_GetPosition(&x, &y, &z) 读取新坐标
-  - 内部轴序：x=前后、y=左右（车向前 x 增大、车向左 y 增大），z 为航向角，逆时针为正；
-    置零前后符号一致，不再反号。对外协议按 X=左右、Y=前后，交换只在 debug_usart.c 边界做一次
-  - 坐标清零：OPS_ZeroCoordinates() 以当前位置为原点，OPS_ClearZero() 恢复绝对坐标，OPS_SetOrigin(x, y) 手动设零点
+  - USART2 + 空闲中断 + DMA（DMA1_Stream5 / Ch4），64 字节流式解析缓冲
+  - 上行 V1：0x5C | float x | float y | float z | CRC8（14 字节，兼容旧 OPS）
+  - 上行 V2：0x5D | ver=1 | len=28 | flags | seq | session_id | timestamp |
+    float x/y/z | CRC16，小端；要求 POS_VALID/IMU_ONLINE/ENC_VALID 同时有效
+  - 下行命令：0xC5 0x22（复位）；兼容旧 OPS 先发 0xC5 0x30，
+    再发 0xC5 0x32 选择新协议方向 2，避免方向命令生效后坐标轴翻转
+  - 使用：OPS_Init() 初始化；OPS_GetPosition(&x, &y, &z) 读取新坐标；
+    OPS_IsOnline() 判断位姿是否在超时窗口内；
+    OPS_ConsumeSessionChanged() 读取 V2 复位/重连事件
+  - session_id 运行期变化时，任务层取消旧 GOTO；接收端自动把新会话首帧
+    重设为本地零点参考，避免 OPS 复位后沿用旧原点
+  - USART2 错误回调只置恢复请求，默认任务通过 OPS_ServiceRx() 重挂 DMA
+  - 统一轴序：X=左右（+车左）、Y=前后（+车头）、Z 逆时针为正；内部与协议同序同号，
+    不再做 X/Y 交换或取反。OPS 原始帧 `+x_raw=车右、+y_raw=车头` 只在 ops.c 内映射为
+    `X=-x_raw、Y=+y_raw`
+  - 坐标清零：OPS_ZeroCoordinates() 以当前位置和航向为原点，OPS_ClearZero() 恢复绝对 X/Y/Z，OPS_SetOrigin(x, y) 手动设 X/Y 零点并归零航向
 
 ## 底盘移动控制
 
@@ -103,16 +112,22 @@ SoftSPI_OLED_Refresh();
 - mecanum_control.c / mecanum_control.h：麦克纳姆轮底盘控制
   - O 型麦轮四轮速度解算
   - 速度模式连续移动：MecanumControl_MoveVelocity(vxRpm, vyRpm, vzRpm)，参数顺序为
-    (前后, 左右, 旋转)；协议 `MANUAL=X(左右),Y(前后),W` 在解析边界交换一次
-  - OPS 全局定位 GOTO：MecanumControl_GotoOPS(x, y, yaw, maxRpm)，x=前后、y=左右（内部车体系）；
-    协议 `GOTO=X(左右),Y(前后),Z` 在解析边界交换一次
+    (X=左右, Y=前后, Z=旋转)；协议 `MANUAL=X,Y,W` 原序传入，不交换、不取反。
+    实车轮序为俯视左前1、右前2、左后3、右后4；麦轮矩阵保持 O 型逻辑轮速公式，
+    SetMotorVoltageAndDirection() 只把逻辑轮速正号转 CW、负号转 CCW，不再额外翻转
+    2/4 号电机。W 的最终下发图案为 `[+ - + -]`，A 左移为 `[- - + +]`
+  - OPS 全局定位 GOTO：MecanumControl_GotoOPS(x, y, yaw, maxRpm)，x=X=左右、y=Y=前后；
+    协议 `GOTO=X,Y,Z` 原序传入
   - 参考开源底盘：chassis_move(x, y, z) + SetMotorVoltageAndDirection(SpeedTarget[0..3])，
-    形参按内部顺序 x=前后、y=左右
+    形参按统一顺序 x=X=左右、y=Y=前后
   - 通过 OPS_GetPosition() 读取定位反馈，P 比例控制 + 斜坡限制 + 到位判断；误差定义为
     `目标 - 当前`，与 ops.c 置零后的物理正向坐标配套（两者必须成对，否则位置环为正反馈）
-  - 24 通道遥测在打包处交换为 ch0/ch1=X(左右)/Y(前后)、ch3/ch4、ch6/ch7；两条麦轮公式已于
-    2026-09-16 按实车修正为同约定（原 chassis_move 的轴通道互换会让 GOTO 前进变横移）
-  - OPS 原始 m/rad 在底盘层统一转换为 mm/deg，定位数据超过 200ms 未更新自动停车
+  - 世界坐标误差先旋转到车体坐标，再分别应用 `mKpx`（X 左右）和 `mKpy`（Y 前后），
+    避免车辆有航向角时两轴 P 增益串扰
+  - 24 通道遥测直接输出 ch0/ch1=X(左右)/Y(前后)、ch3/ch4、ch6/ch7；位置和误差对外
+    以 cm 输出（1 位小数），麦轮混控与 ZDT 方向映射保持上一版逻辑
+  - OPS 原始 m/rad 在底盘层统一转换为 mm/deg；GOTO 的 cm 在协议边界换算为 mm 后进入位置环，
+    定位数据超过 200ms 未更新自动停车
   - 四轮锁轴：MecanumControl_Enable() 使能并保持位置（内部等待 100ms）、
     MecanumControl_Disable() 失能不锁轴（不等待）、MecanumControl_Stop() 停车并下发
     速度 0 帧、MecanumControl_ClearTarget() 只清目标不发帧
@@ -126,9 +141,10 @@ SoftSPI_OLED_Refresh();
   - TX：DMA 发送 VOFA+ JustFloat 数据帧
   - RX：DMA 空闲中断接收 ASCII 命令
   - 命令示例：KPX=3.0、KPY=3.0、KPZ=10.0、XVMAX=1600、ZVMAX=750、STOP、ZERO
-  - 轴归属：KPX 写左右轴增益（内部 mKpy）、KPY 写前后轴增益（内部 mKpx），范围仍 0~50
-  - MANUAL=X(左右),Y(前后),W、GOTO=X(左右),Y(前后),Z、OPSOFFSET=X(左右偏移),Y(前后偏移)，
-    三者均在解析边界交换一次；遥测 ch0=X(左右)、ch1=Y(前后)
+  - 轴归属：KPX 写 mKpx（X 左右）、KPY 写 mKpy（Y 前后），范围仍 0~50
+  - MANUAL=X,Y,W、GOTO=X,Y,Z、OPSOFFSET=X(左右偏移),Y(前后偏移)，
+    三者均按统一坐标直接使用；GOTO 的 X/Y 与遥测 ch0/ch1、ch3/ch4 使用 cm（1 位小数），
+    OPSOFFSET 仍使用 mm
   - 四轮锁轴命令：WHEELEN（使能/锁轴）、WHEELOFF（失能/不锁轴），失能期间拒绝
     GOTO/MANUAL/ZDT；锁轴切换排在每周期最后，失能后所有停车路径只清目标不发速度帧
     （Debug_ChassisStop），见调试指令手册

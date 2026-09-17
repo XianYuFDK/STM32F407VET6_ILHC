@@ -10,6 +10,11 @@ uint32_t test_primask;
 static uint32_t free_slots=3, sent;
 static uint8_t bytes[3][8];
 static CAN_TxHeaderTypeDef headers[3];
+static uint32_t rx_calls;
+static HAL_StatusTypeDef rx_status = HAL_ERROR;
+static CAN_RxHeaderTypeDef rx_header;
+static uint8_t rx_data[8];
+extern void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan);
 uint32_t HAL_GetTick(void){return 1234;}
 uint32_t HAL_CAN_GetTxMailboxesFreeLevel(CAN_HandleTypeDef *h){(void)h;return free_slots;}
 HAL_StatusTypeDef HAL_CAN_AddTxMessage(CAN_HandleTypeDef *h,CAN_TxHeaderTypeDef *t,uint8_t *d,uint32_t *m)
@@ -21,7 +26,16 @@ HAL_StatusTypeDef HAL_CAN_ConfigFilter(CAN_HandleTypeDef *h,CAN_FilterTypeDef *f
 HAL_StatusTypeDef HAL_CAN_ActivateNotification(CAN_HandleTypeDef *h,uint32_t n){(void)h;(void)n;return HAL_OK;}
 HAL_StatusTypeDef HAL_CAN_Start(CAN_HandleTypeDef *h){h->State=HAL_CAN_STATE_LISTENING;return HAL_OK;}
 HAL_StatusTypeDef HAL_CAN_GetRxMessage(CAN_HandleTypeDef *h,uint32_t f,CAN_RxHeaderTypeDef *r,uint8_t *d)
-{(void)h;(void)f;(void)r;(void)d;return HAL_ERROR;}
+{
+    (void)h;(void)f;
+    rx_calls++;
+    if (rx_status == HAL_OK)
+    {
+        *r = rx_header;
+        memcpy(d, rx_data, sizeof(rx_data));
+    }
+    return rx_status;
+}
 static void reset_bus(void){free_slots=3;sent=0;test_primask=0;hcan2.State=HAL_CAN_STATE_LISTENING;}
 static unsigned pixel(unsigned x,unsigned y){return (SoftSPI_OLED_GRAM[x][y/8]>>(y%8))&1;}
 int main(void)
@@ -29,6 +43,26 @@ int main(void)
     const uint8_t expected[16]={0xFD,0,0xAF,0xFF,0xAF,0xFF,3,0xE8,0xFD,0,0,3,0xE8,1,0,0x6B};
     uint8_t short_data[4]={0x9A,2,0,0x6B}, picture=0xFF;
     Stepper2835Reply_t reply;
+    CAN_HandleTypeDef not_can2 = {(void *)1, HAL_CAN_STATE_LISTENING};
+
+    memset(&rx_header, 0, sizeof(rx_header));
+    memset(rx_data, 0x5A, sizeof(rx_data));
+    rx_header.StdId = 0x123U;
+    rx_header.IDE = CAN_ID_STD;
+    rx_header.RTR = CAN_RTR_DATA;
+    rx_header.DLC = 8U;
+    HCan_ClearRxFlag();
+    rx_calls = 0U;
+    rx_status = HAL_OK;
+    HAL_CAN_RxFifo0MsgPendingCallback(&hcan2);
+    assert(rx_calls == 1U && hcanRxFlag == 1U);
+    assert(hcanRxFrame.StdId == 0x123U && hcanRxFrame.Data[0] == 0x5A);
+    HCan_ClearRxFlag();
+    rx_calls = 0U;
+    HAL_CAN_RxFifo0MsgPendingCallback(&not_can2);
+    assert(rx_calls == 0U && hcanRxFlag == 0U);
+    rx_status = HAL_ERROR;
+
     reset_bus();
     assert(Motor_AbsPosition(0,MOTOR35_CAN_ID,1000,1000)==HAL_OK);
     assert(sent==2 && headers[0].ExtId==0x300 && headers[1].ExtId==0x301);

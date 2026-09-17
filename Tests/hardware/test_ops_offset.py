@@ -1,11 +1,22 @@
-"""运行真实OPS坐标换算和补偿命令解析，使用合成几何数据，不连接硬件。"""
+"""运行真实 OPS 坐标换算和补偿命令解析，使用统一坐标系合成数据。
+
+OPS 原始帧实测为 +x_raw=车右、+y_raw=车头，因此统一输出：
+    X(车左) = -x_raw
+    Y(车头) = +y_raw
+
+默认安装：OPS 在车体中心左 60mm、后 50mm，即统一坐标 (60,-50) mm。
+"""
 from pathlib import Path
 import re
 import subprocess
 import tempfile
-r = Path(__file__).resolve().parents[2]
-ops = (r / "Hardware/ops.c").read_text(encoding="utf-8")
-debug = (r / "Hardware/debug_usart.c").read_text(encoding="utf-8")
+
+
+root = Path(__file__).resolve().parents[2]
+ops = (root / "Hardware/ops.c").read_text(encoding="utf-8")
+debug = (root / "Hardware/debug_usart.c").read_text(encoding="utf-8")
+
+
 def function(source, name):
     point = re.search(r"^(?:static )?(?:uint8_t|void) " + name + r"\(", source, re.M).start()
     start = source.rfind("\n", 0, point) + 1
@@ -15,71 +26,143 @@ def function(source, name):
         level += (source[end] == "{") - (source[end] == "}")
         end += 1
     return source[start:end]
+
+
 prelude = r'''
 #include <stdint.h>
 #include <stddef.h>
 #include <assert.h>
 #include <math.h>
 #include <stdio.h>
-static struct {struct {float x,y,z;} frame; unsigned valid_count; float origin_x,origin_y; uint8_t zero_enabled;} s_ops;
-static float s_mount_x_mm=50, s_mount_y_mm=60, s_reference_yaw, s_origin_yaw;
+static struct {
+  struct {float x,y,z;} frame;
+  unsigned valid_count;
+  uint8_t pose_valid;
+  float origin_x,origin_y;
+  uint8_t zero_enabled;
+} s_ops;
+static float s_mount_x_mm=60.0f, s_mount_y_mm=-50.0f;
+static float s_reference_yaw, s_origin_yaw;
 static uint8_t s_new_flag;
 static unsigned mask;
 static unsigned __get_PRIMASK(void) {return mask;}
 static void __disable_irq(void) {mask=1;}
 static void __enable_irq(void) {mask=0;}
-static void near(float a,float b) {assert(fabsf(a-b)<0.00001f);}
-/* 合成偏心点轨迹：参数 (tx,ty) 是**内部/对外坐标**下的车体中心。
- * 传感器装在"车后50mm、车左60mm" ⇒ 在 OPS **原始帧**（+x=车尾、+y=车右，右手系）
- * 里 m_raw=(+0.05,-0.06)（左 = -y_raw，实测左移 y_raw 变小）。
- * 绕中心旋转时 原始帧坐标 = 中心_raw + R(Δθ)·m_raw，中心_raw=(tx,-ty)（y 反号）。
- * 固件补偿用标准 CCW 矩阵并在输出端把 y 取反，二者必须同约定，否则测不出符号错误。 */
+static void near(float a,float b) {
+  if (fabsf(a-b)>=0.00001f) printf("near mismatch: got %.8f expected %.8f\n",a,b);
+  assert(fabsf(a-b)<0.00001f);
+}
+
+/* 合成物理位姿 (tx,ty)：中心 X=左、Y=前，单位 m。
+ * 安装偏移在原始帧里 rx=-0.06、ry=-0.05：
+ *   原始 x=车右、原始 y=车头，所以左60/后50 对应 (-0.06,-0.05)。
+ * 传感器原始坐标 = 中心原始坐标 + R(angle)*r_raw，
+ * 其中中心原始坐标 = (-tx,ty)。 */
 static void pose(float angle,float tx,float ty) {
- float dc=cosf(angle)-cosf(s_reference_yaw), ds=sinf(angle)-sinf(s_reference_yaw);
- s_ops.frame.x=tx+dc*0.05f+ds*0.06f;
- s_ops.frame.y=-ty+ds*0.05f-dc*0.06f;
- s_ops.frame.z=angle; s_ops.valid_count=1; s_new_flag=1;
+  float c=cosf(angle), s=sinf(angle);
+  s_ops.frame.x=-tx - 0.06f*c + 0.05f*s;
+  s_ops.frame.y= ty - 0.06f*s - 0.05f*c;
+  s_ops.frame.z=angle;
+  s_ops.valid_count=1;
+  s_ops.pose_valid=1;
+  s_new_flag=1;
 }
 '''
+
+
 checks = r'''
 int main(void) {
- float x,y,z,v[2]; unsigned i;
- float angles[]={0,1.5707963268f,3.1415926536f,6.2831853072f,-1.5707963268f};
- const char *bad[]={"-501,60","-50,501","nan,60","-50,60x","-50,60,0","-50,","1e2,60","--50,60"};
- assert(Debug_ParseOffset("-50.5,+60.2",v)); near(v[0],-50.5f); near(v[1],60.2f);
- for(i=0;i<sizeof(bad)/sizeof(bad[0]);++i) assert(!Debug_ParseOffset(bad[i],v));
- assert(!OPS_SetMountOffset(NAN,60)); assert(!OPS_SetMountOffset(-50,INFINITY));
- for(i=0;i<5;++i) {
-  pose(angles[i],0,0); OPS_CopyPosition(&x,&y,&z,0); near(x,0);near(y,0);
-  OPS_CopyPosition(&x,&y,&z,1);near(x,s_ops.frame.x);near(y,-s_ops.frame.y);
- }
- pose(0,0,0); OPS_ZeroCoordinates();
- /* 置零后为物理正向：中心向前0.2m、向右0.1m 得到 x=+0.2、y=-0.1（原实现为反号）。 */
- pose(1.5707963268f,0.2f,-0.1f); OPS_CopyPosition(&x,&y,&z,0);near(x,0.2f);near(y,-0.1f);
- /* 符号不再随ZERO状态翻转：同一物理位移在置零与未置零两种状态下数值一致。 */
- pose(0,0.3f,0.2f); OPS_CopyPosition(&x,&y,&z,0);near(x,0.3f);near(y,0.2f);
- OPS_ClearZero();
- pose(0,0.3f,0.2f); OPS_CopyPosition(&x,&y,&z,0);near(x,0.3f);near(y,0.2f);
- pose(0,0,0); OPS_ZeroCoordinates();
- /* 非零角度处ZERO，继续原地转动中心仍为零。 */
- pose(1.5707963268f,0,0); OPS_ZeroCoordinates();
- pose(3.1415926536f,0,0); OPS_CopyPosition(&x,&y,&z,0);near(x,0);near(y,0);
- assert(OPS_SetMountOffset(0,0));
- pose(1.5707963268f,0,0); OPS_CopyPosition(&x,&y,&z,0);assert(hypotf(x,y)>0.1f);
- mask=1; assert(OPS_SetMountOffset(50,60)); assert(mask==1);
- OPS_CopyPosition(&x,&y,&z,0);near(x,0);near(y,0);assert(mask==1);
- mask=0; OPS_ClearZero(); s_reference_yaw=0.7f;
- pose(2.0f,0.2f,-0.1f);OPS_CopyPosition(&x,&y,&z,0);near(x,0.2f);near(y,-0.1f);
- s_ops.valid_count=0; assert(OPS_SetMountOffset(50,60)); assert(mask==0);
- puts("OPS offset: rotation / translation / ZERO / raw / nonzero reference / validation passed");
- return 0;
+  float x,y,z,v[2];
+  unsigned i;
+  const float pi2=1.5707963268f, pi=3.1415926536f;
+  const char *bad[]={"-501,60","-50,501","nan,60","-50,60x","-50,60,0","-50,","1e2,60","--50,60"};
+
+  assert(Debug_ParseOffset("60,-50",v));
+  near(v[0],60.0f); near(v[1],-50.0f);
+  for(i=0;i<sizeof(bad)/sizeof(bad[0]);++i) assert(!Debug_ParseOffset(bad[i],v));
+  assert(!OPS_SetMountOffset(NAN,60));
+  assert(!OPS_SetMountOffset(60,INFINITY));
+  assert(!OPS_SetMountOffset(501,-50));
+
+  /* 绝对接口仍然只做原始帧到统一坐标的映射，不叠加补偿。 */
+  {
+    const float angles[]={0,pi2,pi,2*pi,-pi2};
+    for(i=0;i<5;++i) {
+      pose(angles[i],0,0);
+      OPS_CopyPosition(&x,&y,&z,1);
+      near(x,-s_ops.frame.x);
+      near(y,s_ops.frame.y);
+      near(z,angles[i]);
+    }
+  }
+
+  /* 置零后，纯平移与“平移+旋转”都返回同一个物理中心位移。 */
+  pose(0,0,0);
+  OPS_ZeroCoordinates();
+  pose(pi2,0.2f,-0.1f);
+  OPS_CopyPosition(&x,&y,&z,0);
+  near(x,0.2f); near(y,-0.1f); near(z,pi2);
+  pose(pi2,0,0);
+  OPS_CopyPosition(&x,&y,&z,0);
+  near(x,0); near(y,0);
+  /* 实车验收方向：向前只增加 Y；向左只增加 X。 */
+  pose(0,0,0.1f);
+  OPS_CopyPosition(&x,&y,&z,0);
+  near(x,0); near(y,0.1f);
+  pose(0,0.1f,0);
+  OPS_CopyPosition(&x,&y,&z,0);
+  near(x,0.1f); near(y,0);
+
+  /* 非零参考航向下置零，继续原地旋转仍保持中心为零。 */
+  pose(pi2,0,0);
+  OPS_ZeroCoordinates();
+  pose(pi,0,0);
+  OPS_CopyPosition(&x,&y,&z,0);
+  near(x,0); near(y,0); near(z,pi2);
+
+  /* 配置错误为0时，旋转会留下安装半径对应的残差；配置正确后消失。 */
+  assert(OPS_SetMountOffset(0,0));
+  pose(pi + pi2,0,0);
+  OPS_CopyPosition(&x,&y,&z,0);
+  near(x,0.11f); near(y,0.01f);
+  assert(hypotf(x,y) > 0.110f);
+  assert(OPS_SetMountOffset(60,-50));
+  pose(pi,0,0);
+  OPS_CopyPosition(&x,&y,&z,0);
+  near(x,0); near(y,0);
+
+  /* 临界区保护：原中断状态为1时必须保持。 */
+  mask=1;
+  assert(OPS_SetMountOffset(60,-50));
+  assert(mask==1);
+  OPS_CopyPosition(&x,&y,&z,0);
+  near(x,0); near(y,0);
+  assert(mask==1);
+  mask=0;
+
+  /* 无有效位姿时仍保存配置，但不建立新的置零基准。 */
+  s_ops.valid_count=0;
+  assert(OPS_SetMountOffset(0,0));
+  near(s_mount_x_mm,0.0f);
+  near(s_mount_y_mm,0.0f);
+
+  puts("Unified OPS coordinate/offset/zero/raw/validation tests passed");
+  return 0;
 }
 '''
+
+
 names = ["OPS_CopyPosition", "OPS_ZeroCoordinates", "OPS_ClearZero", "OPS_SetMountOffset"]
-code=prelude+"\n".join(function(ops,n) for n in names)+function(debug,"Debug_ParseFloat")+function(debug,"Debug_ParseOffset")+checks
+code = (prelude
+        + "\n".join(function(ops, name) for name in names)
+        + function(debug, "Debug_ParseFloat")
+        + function(debug, "Debug_ParseOffset")
+        + checks)
+
 with tempfile.TemporaryDirectory(prefix="ilhc_ops_offset_") as directory:
-    folder=Path(directory)
-    src,exe=folder/"test.c",folder/"test.exe"
-    src.write_text(code,encoding="utf-8")
-    subprocess.run(["gcc","-std=c99","-Wall","-Wextra","-Werror",str(src),"-lm","-o",str(exe)],check=True)
-    subprocess.run([str(exe)],check=True)
+    folder = Path(directory)
+    src, exe = folder / "test.c", folder / "test.exe"
+    src.write_text(code, encoding="utf-8")
+    subprocess.run(["gcc", "-std=c99", "-Wall", "-Wextra", "-Werror", str(src),
+                    "-lm", "-o", str(exe)], check=True)
+    subprocess.run([str(exe)], check=True)

@@ -21,9 +21,9 @@ class DebuggerTests(unittest.TestCase):
 
     def setUp(self):
         self.window = main.MainWindow(argparse.Namespace(port=None, baud=115200, simulate=False))
-        self.forward_invert_default = self.window.manual_invert[0].isChecked()
+        self.forward_invert_default = self.window.manual_invert[1].isChecked()
         # 原协议测试使用未反转基线，实车默认方向另行验证。
-        self.window.manual_invert[0].setChecked(False)
+        self.window.manual_invert[1].setChecked(False)
         # 使用未启动的模拟器作为离线命令接收端，测试不会打开串口。
         self.window.sim = core.Simulator(queue.Queue(), queue.Queue())
 
@@ -35,9 +35,9 @@ class DebuggerTests(unittest.TestCase):
         self.assertEqual(core.layout_to_field(2150, 2150), (100, 100))
         self.assertEqual(core.layout_to_field(*core.ZONE_CENTER[2]), (2100, 0))
         self.assertEqual(self.window._ops_to_field(0, 0), (2250, 2250))
-        # 场地向上100mm = +Y = 车向前，GOTO 的 Y 分量取 +100。
+        # 内部测试输入为mm：场地向上100mm = 内部 +100mm；协议发送时对应 GOTO Y=10.0cm。
         self.assertEqual(self.window._field_to_ops(2150, 2250), (0, 100))
-        # 场地向左100mm = +X = 车向左，GOTO 的 X 分量取 +100。
+        # 内部测试输入为mm：场地向左100mm = 内部 +100mm；协议发送时对应 GOTO X=10.0cm。
         self.assertEqual(self.window._field_to_ops(*core.field_to_layout(100, 0)), (100, 0))
 
     def test_telemetry_direction_matches_field_axes(self):
@@ -49,15 +49,15 @@ class DebuggerTests(unittest.TestCase):
         w = self.window
         origin = w._ops_to_field(0.0, 0.0)
         self.assertEqual(origin, (2250.0, 2250.0))
-        # 遥测 ch0=X=左右、ch1=Y=前后：前进100mm → 场地Y增大 → screen up = layout_x 减小
+        # 遥测 ch0=X=左右、ch1=Y=前后（cm）：前进10.0cm → 场地Y增大 → screen up = layout_x 减小
         forward = w._ops_to_field(0.0, 100.0)
         self.assertEqual(forward, (origin[0] - 100.0, origin[1]))
-        # 左移100mm → 场地X增大 → screen left = layout_y 减小
+        # 左移10.0cm → 场地X增大 → screen left = layout_y 减小
         left = w._ops_to_field(100.0, 0.0)
         self.assertEqual(left, (origin[0], origin[1] - 100.0))
-        # 点击机器人正前方100mm 必须下发 +Y（GOTO 的 Y=前后）
+        # 点击机器人正前方10.0cm 必须下发 +Y（GOTO 的 Y=前后）
         self.assertEqual(w._field_to_ops(*forward), (0.0, 100.0))
-        # 点击机器人正左方100mm 必须下发 +X（GOTO 的 X=左右）
+        # 点击机器人正左方10.0cm 必须下发 +X（GOTO 的 X=左右）
         self.assertEqual(w._field_to_ops(*left), (100.0, 0.0))
         # 标定角下往返自洽，且前进方向仍是+Y
         for angle in (0, 37, -90, 180):
@@ -82,10 +82,12 @@ class DebuggerTests(unittest.TestCase):
             frame = (140.0, -260.0, 15.0) + (0.0,) * 21
             w.latest = frame
             w.traj_ring.clear()
-            w.traj_ring.append(0.0, (frame[0], frame[1]))
+            w.traj_ring.append(0.0, (frame[0] * core.OPS_CM_TO_MM,
+                                     frame[1] * core.OPS_CM_TO_MM))
             w._render_ui()
             w._update_map_trail()
-            fx, fy = w._ops_to_field(frame[0], frame[1])
+            fx, fy = w._ops_to_field(frame[0] * core.OPS_CM_TO_MM,
+                                     frame[1] * core.OPS_CM_TO_MM)
             icon = w.map_view.car_item.rect().center()
             self.assertAlmostEqual(icon.x(), fx, places=6)
             self.assertAlmostEqual(icon.y(), w.map_view.sy(fy), places=6)
@@ -130,10 +132,10 @@ class DebuggerTests(unittest.TestCase):
     def test_navigation_and_home_share_checks(self):
         self.window.latest = (0.0, 0.0, 0.0) + (0.0,) * 21
         self.window._goto_field(2150, 2250)
-        self.assertEqual(self.window.line_q.get_nowait(), "GOTO=0,100,0")
+        self.assertEqual(self.window.line_q.get_nowait(), "GOTO=0.0,10.0,0.0")
         # 新约定下同一物理位置(左1650/前1650)的遥测为正值，映射到与旧用例相同的layout(600,600)，
         # 因此到启停区1的直线仍穿越中央物料区。
-        self.window.latest = (1650.0, 1650.0, 0.0) + (0.0,) * 21
+        self.window.latest = (165.0, 165.0, 0.0) + (0.0,) * 21
         self.window._goto_home()
         self.assertTrue(self.window.line_q.empty())
 
@@ -163,13 +165,35 @@ class DebuggerTests(unittest.TestCase):
         sim.handle_line("DMEN")
         sim.handle_line("STOP")
         self.assertEqual(sim.dm_active, 0)
-        sim.handle_line("GOTO=1000,1000,0")
+        sim.handle_line("GOTO=100.0,100.0,0.0")
         sim.handle_line("ZERO")
         self.assertIsNone(sim.goto)
         sim.handle_line("S28MOVE=2000,50")
         self.assertEqual(sim.stepper_commands[28], "S28MOVE=2000,50")
         sim.handle_line("S28CANCEL")
         self.assertIsNone(sim.stepper_commands[28])
+
+    def test_simulator_zero_resets_heading_reference(self):
+        sim = self.window.sim
+        sim.zval = 15.0
+        sim.handle_line("ZERO")
+        with patch.object(core.random, "gauss", return_value=0):
+            frame = sim.make_frame(0.0)
+        self.assertAlmostEqual(frame[2], 0.0)
+        sim.zval = 40.0
+        with patch.object(core.random, "gauss", return_value=0):
+            frame = sim.make_frame(0.02)
+        self.assertAlmostEqual(frame[2], 25.0)
+
+    def test_simulator_goto_cm_and_telemetry_cm(self):
+        sim = self.window.sim
+        sim.handle_line("GOTO=10.0,20.0,0.0")
+        self.assertEqual(sim.goto, (100.0, 200.0, 0.0))
+        sim.hold = (100.0, 200.0)           # 统一(X=左, Y=前) mm，正好位于目标
+        with patch.object(core.random, "gauss", return_value=0):
+            frame = sim.make_frame(0.02)
+        self.assertAlmostEqual(frame[0], 10.0)   # ch0=X(左右) cm
+        self.assertAlmostEqual(frame[1], 20.0)   # ch1=Y(前后) cm
 
     def keyboard_event(self, key, pressed=True, repeat=False):
         from PySide6.QtGui import QKeyEvent
@@ -180,7 +204,7 @@ class DebuggerTests(unittest.TestCase):
     def test_keyboard_combinations_release_and_slow(self):
         w = self.window
         w._keyboard_toggle()
-        # manual_vector 为协议顺序 (左右X, 前后Y, 旋转W)
+        # manual_vector 与 MANUAL 同为(X=左右, Y=前后, Z=旋转)。
         self.keyboard_event(main.Qt.Key_W)
         self.assertEqual(w.manual_vector, (0, 60, 0))
         self.keyboard_event(main.Qt.Key_A)
@@ -227,7 +251,7 @@ class DebuggerTests(unittest.TestCase):
         w._keyboard_toggle()
         self.keyboard_event(main.Qt.Key_W)
         self.keyboard_event(main.Qt.Key_W, False, repeat=True)
-        self.assertEqual(w.manual_vector, (0, 60, 0))      # (左右, 前后, 旋转)
+        self.assertEqual(w.manual_vector, (0, 60, 0))
         self.keyboard_event(main.Qt.Key_S)
         self.assertIsNone(w.manual_vector)
         self.keyboard_event(main.Qt.Key_S, False)
@@ -288,7 +312,7 @@ class DebuggerTests(unittest.TestCase):
 
     def test_manual_hold_release_and_page_exit(self):
         w = self.window
-        # _manual_start 的入参已是协议顺序 (左右X, 前后Y, 旋转W)
+        # _manual_start 的入参与 MANUAL 同序：X=左右、Y=前后、Z=旋转。
         w._manual_start((0, 1, 1))
         self.assertEqual(w.line_q.get_nowait(), "MANUAL=0,60,30")
         w._manual_tick()
@@ -415,7 +439,7 @@ class DebuggerTests(unittest.TestCase):
         self.assertEqual(writes, [b"VOFA\n", b"STOP\n", b"MANUAL=60,0,0\n"])
 
     def test_manual_stop_zero_goto_cancel_renewal(self):
-        for cmd in ("STOP", "ZERO", "GOTO=100,100,0"):
+        for cmd in ("STOP", "ZERO", "GOTO=10.0,10.0,0.0"):
             self.window._clear_command_queues()
             self.window._manual_start((1, 0, 0))
             self.window.send_line(cmd)
@@ -425,9 +449,10 @@ class DebuggerTests(unittest.TestCase):
     def test_manual_simulation_timeout_and_invalid(self):
         sim = self.window.sim
         sim.handle_line("ZERO")
-        sim.handle_line("MANUAL=0,60,30")          # 协议 Y=车头=+60 → 内部前后轴取反
+        sim.handle_line("MANUAL=0,60,30")          # Y=车头=+60、Z=逆时针
         sim.make_frame(0)
-        self.assertLess(sim.hold[0], 0)            # 内部 +前后 指向车尾，故向车头运动为负
+        self.assertGreater(sim.hold[1], 0)         # +Y 指向车头
+        self.assertAlmostEqual(sim.hold[0], 0.0)
         self.assertGreater(sim.zval, 0)
         for bad in ("MANUAL=301,0,0", "MANUAL=60,0", "MANUAL=60,0,0,1", "MANUAL=nan,0,0", "MANUAL=1.2,0,0"):
             sim.handle_line(bad)
@@ -444,10 +469,10 @@ class DebuggerTests(unittest.TestCase):
 
     def test_offset_apply_stops_manual_and_sends_pair(self):
         w = self.window
-        self.assertEqual(w.ops_offset_x.value(), -50)
-        self.assertEqual(w.ops_offset_y.value(), 60)
+        self.assertEqual(w.ops_offset_x.value(), 60)
+        self.assertEqual(w.ops_offset_y.value(), -50)
         w._manual_start((0, 0, 1))
-        w.ops_offset_x.setValue(-52.5)
+        w.ops_offset_y.setValue(-52.5)
         w._apply_ops_offset()
         self.assertIsNone(w.manual_vector)
         self.assertEqual(w.line_q.get_nowait(), "OPSOFFSET=60.0,-52.5")
@@ -471,6 +496,18 @@ class DebuggerTests(unittest.TestCase):
             self.assertEqual(w.ops_offset_x.value(), -48.5)
             self.assertIn("加载失败", w.ops_offset_status.text())
 
+    def test_offset_file_v1_migrates_axis_order_once(self):
+        w = self.window
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "offset-v1.json"
+            # v1: x_mm=前后、y_mm=左右。迁移后 X 左右=60、Y 前后=-50。
+            path.write_text('{"version":1,"x_mm":-50,"y_mm":60}', encoding="utf-8")
+            with patch.object(main.QFileDialog, "getOpenFileName", return_value=(str(path), "")):
+                w._load_ops_offset()
+        self.assertEqual(w.ops_offset_x.value(), 60)
+        self.assertEqual(w.ops_offset_y.value(), -50)
+        self.assertIn("迁移", w.ops_offset_status.text())
+
     def test_offset_simulator_residual_and_validation(self):
         sim = self.window.sim
         sim.handle_line("MANUAL=0,0,30")
@@ -480,12 +517,12 @@ class DebuggerTests(unittest.TestCase):
         sim.zval = 90
         with patch.object(core.random, "gauss", return_value=0):
             uncompensated = sim.make_frame(0)
-        # 90° 处偏心位移的分量换位，幅值不变（仍为 sqrt(110^2+10^2)）
-        self.assertAlmostEqual((uncompensated[0]**2 + uncompensated[1]**2)**0.5, 110.4536, places=3)
-        sim.handle_line("OPSOFFSET=60,-50")        # 车左60/车后50 → 内部(+50,+60)
+        # 90° 旋转时，未配置偏移留下与安装半径和参考航向相关的残差。
+        self.assertAlmostEqual((uncompensated[0]**2 + uncompensated[1]**2)**0.5, 11.04536, places=3)
+        sim.handle_line("OPSOFFSET=60,-50")        # 统一坐标 X=左60、Y=前-50
         for bad in ("OPSOFFSET=nan,60", "OPSOFFSET=-501,60", "OPSOFFSET=-50,60,0", "OPSOFFSET=-50,", "OPSOFFSET=1e2,60"):
             sim.handle_line(bad)
-            self.assertEqual(sim.ops_offset, (50, 60))
+            self.assertEqual(sim.ops_offset, (60, -50))
         sim.zval = 180
         with patch.object(core.random, "gauss", return_value=0):
             compensated = sim.make_frame(0.02)
@@ -528,7 +565,7 @@ class DebuggerTests(unittest.TestCase):
         w.send_line("WHEELEN")
         w._goto_field(2150, 2250)
         self.assertEqual(w.line_q.get_nowait(), "WHEELEN")
-        self.assertEqual(w.line_q.get_nowait(), "GOTO=0,100,0")
+        self.assertEqual(w.line_q.get_nowait(), "GOTO=0.0,10.0,0.0")
 
     def test_simulator_wheel_gate_and_freeze(self):
         sim = self.window.sim
@@ -536,7 +573,7 @@ class DebuggerTests(unittest.TestCase):
         sim.handle_line("WHEELOFF")
         self.assertFalse(sim.wheel_enabled)
         sim.handle_line("MANUAL=60,0,30")
-        sim.handle_line("GOTO=100,100,0")
+        sim.handle_line("GOTO=10.0,10.0,0.0")
         self.assertIsNone(sim.manual)
         self.assertIsNone(sim.goto)
         hold = sim.hold

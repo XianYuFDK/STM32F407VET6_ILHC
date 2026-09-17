@@ -1,0 +1,4 @@
+rg: regex parse error:
+    (?:"^(void|uint8_t|uint16_t|uint32_t|int|float|HAL_StatusTypeDef|static)
+    ^
+error: unclosed group

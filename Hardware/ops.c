@@ -4,15 +4,18 @@
  * @brief   OPS 全局定位模块接收/解析驱动（硬件层）
  *
  *          - 使用 USART2 空闲中断 + DMA 接收（DMA1_Stream5 / Channel4）
- *          - 解析 14 字节定位帧：0x5C | float x | float y | float z | CRC8
- *          - 发送 2 字节初始化/启动命令：0xC5 0x22 / 0xC5 0x30
- *          - CRC8 使用 DJI RM CRC8_CRC16.c 中的查表算法，与 ops9-main 兼容
- *          - 坐标清零采用“本地零点偏移”方式，与 ops9-main 底盘标定一致：
- *              清零后 X = OPS绝对X - 零点X - 偏心旋转位移X
- *              清零后 Y = OPS绝对Y - 零点Y - 偏心旋转位移Y
- *              Z 为航向角，不清零
- *            偏心旋转位移把"OPS 安装点"换算回"车体旋转中心"，见 OPS_CopyPosition()
- *            里的矩阵推导（内部 x=前后且正指向车尾、y=左右且正指向车左）。
+ *          - 同时兼容 V1/V2：
+ *              V1 14B：0x5C | float x | float y | float z | CRC8
+ *              V2 28B：0x5D | ver | len | flags | seq | session_id |
+ *                      timestamp_ms | float x/y/z | CRC16
+ *          - 发送 2 字节命令：0xC5 0x22 复位、0xC5 0x30（旧启动兼容）、
+ *            0xC5 0x32（新协议方向 2）
+ *          - CRC8/CRC16 与 ops9-main 工程实现一致
+ *          - 统一坐标约定：+X=车左、+Y=车头、+Z=逆时针。
+ *            坐标清零采用“本地零点偏移”方式，与 ops9-main 底盘标定一致：
+ *              清零后 X/Y = 相对原点位移 - 偏心旋转位移
+ *              Z = 当前航向 - 清零时航向，航向也归零
+ *            偏心旋转位移把"OPS 安装点"换算回"车体旋转中心"，见 OPS_CopyPosition()。
  *
  * 使用方法：
  *     OPS_Init();                    // 在 MX_USART2_UART_Init() 之后调用
@@ -28,17 +31,18 @@
 #include <string.h>
 
 /* ---------------------------- 私有变量 ---------------------------- */
-static uint8_t             s_rx_buf[OPS_FRAME_LEN];  /* DMA 接收缓冲区        */
+static uint8_t             s_rx_buf[OPS_RX_BUFFER_SIZE];   /* DMA 接收缓冲区 */
+static uint8_t             s_parse_buf[OPS_RX_BUFFER_SIZE];/* 流式解析缓冲   */
+static uint16_t            s_parse_len;              /* 解析缓冲有效长度      */
+static volatile uint8_t    s_rx_recover;             /* USART2 错误恢复请求   */
+static uint8_t             s_session_pending;        /* 新会话等待首个有效位姿 */
 static OPS_Data_t          s_ops;                    /* 解析结果              */
-/* OPS 光学中心相对底盘中心的安装偏移，单位 mm，用**内部车体轴**表示：
- *   s_mount_x_mm : 沿内部 x 轴（前后轴，**+ 指向车尾**）—— +50 = 装在中心后方 50mm
- *   s_mount_y_mm : 沿内部 y 轴（左右轴，+ 与车左同向）—— +60 = 装在中心左侧 60mm
- * 默认值即实车安装：车后 50mm、车左 60mm。
- * 上位机协议用对外坐标下发（OPSOFFSET=X左右(+左),Y前后(+车头)），例如实际装在
- * 车左60/车后50 时下发 OPSOFFSET=60,-50，经 debug_usart.c 适配层换算成本处 (50,60)。
- * 注意：该默认值必须与 OPS_CopyPosition() 里的偏心补偿矩阵配套，见那里的推导。 */
-static float s_mount_x_mm = 50.0f;
-static float s_mount_y_mm = 60.0f;
+/* OPS 光学中心相对底盘中心的安装偏移，单位 mm，统一坐标：
+ *   s_mount_x_mm : X=左右，+ 为车左，+60 = 装在中心左侧 60mm
+ *   s_mount_y_mm : Y=前后，+ 为车头，-50 = 装在中心后方 50mm
+ * 默认值即实车安装：车后 50mm、车左 60mm。 */
+static float s_mount_x_mm = 60.0f;
+static float s_mount_y_mm = -50.0f;
 static float s_reference_yaw; /* 首个有效帧航向，建立未清零坐标参考 */
 static float s_origin_yaw;    /* ZERO时航向，与原始零点成对保存 */
 static volatile uint8_t    s_new_flag;               /* 新数据标志            */
@@ -101,6 +105,73 @@ static uint8_t OPS_VerifyCRC8(const uint8_t *buf, uint16_t len)
 }
 
 /**
+ * @brief  计算 CRC16（初值 0xFFFF，反射多项式 0x8408）
+ * @param  data 数据指针
+ * @param  len  数据长度
+ * @retval CRC16 校验值
+ */
+static uint16_t OPS_CalcCRC16(const uint8_t *data, uint32_t len)
+{
+  uint16_t crc = 0xFFFFU;
+  uint8_t bit;
+
+  while (len-- != 0U)
+  {
+    crc ^= (uint16_t)(*data++);
+    for (bit = 0U; bit < 8U; ++bit)
+    {
+      if ((crc & 0x0001U) != 0U)
+      {
+        crc = (uint16_t)((crc >> 1) ^ 0x8408U);
+      }
+      else
+      {
+        crc = (uint16_t)(crc >> 1);
+      }
+    }
+  }
+
+  return crc;
+}
+
+/**
+ * @brief  校验 V2 帧 CRC16（小端存放）
+ * @param  buf 帧缓冲区
+ * @param  len 帧长度（含校验值）
+ * @retval 1 校验通过，0 校验失败
+ */
+static uint8_t OPS_VerifyCRC16(const uint8_t *buf, uint16_t len)
+{
+  uint16_t expected;
+  uint16_t actual;
+
+  if ((buf == NULL) || (len <= 2U))
+  {
+    return 0U;
+  }
+
+  expected = (uint16_t)buf[len - 2U] | ((uint16_t)buf[len - 1U] << 8);
+  actual = OPS_CalcCRC16(buf, (uint32_t)(len - 2U));
+  return (actual == expected) ? 1U : 0U;
+}
+
+/**
+ * @brief  丢弃解析缓冲首字节，用于逐字节重新同步
+ */
+static void OPS_DropFirstByte(void)
+{
+  if (s_parse_len > 1U)
+  {
+    memmove(s_parse_buf, &s_parse_buf[1], (size_t)(s_parse_len - 1U));
+    s_parse_len--;
+  }
+  else
+  {
+    s_parse_len = 0U;
+  }
+}
+
+/**
  * @brief  重新启动 USART2 空闲中断 + DMA 接收
  * @retval HAL 执行状态
  */
@@ -108,11 +179,16 @@ static HAL_StatusTypeDef OPS_RestartReceive(void)
 {
   HAL_StatusTypeDef status;
 
-  status = HAL_UARTEx_ReceiveToIdle_DMA(&huart2, s_rx_buf, OPS_FRAME_LEN);
+  status = HAL_UARTEx_ReceiveToIdle_DMA(&huart2, s_rx_buf, sizeof(s_rx_buf));
   if ((status == HAL_OK) && (huart2.hdmarx != NULL))
   {
-    /* 定长 14 字节帧不需要 7 字节半传输回调 */
+    /* 流式解析不需要半传输回调，避免高帧率时产生额外中断 */
     __HAL_DMA_DISABLE_IT(huart2.hdmarx, DMA_IT_HT);
+    s_rx_recover = 0U;
+  }
+  else if (status != HAL_OK)
+  {
+    s_rx_recover = 1U;
   }
 
   return status;
@@ -138,54 +214,57 @@ static uint8_t OPS_CopyPosition(float *x, float *y, float *z, uint8_t absolute)
 
   /* 只在短临界区快照；三角运算在恢复中断后执行。 */
   {
-    float px, py, yaw, ox, oy, ref, rx, ry;
+    float px, py, yaw, ox, oy, ref, zero_yaw, rx, ry;
     uint8_t zero, valid;
     primask = __get_PRIMASK();
     __disable_irq();
     px = s_ops.frame.x; py = s_ops.frame.y; yaw = s_ops.frame.z;
     ox = s_ops.origin_x; oy = s_ops.origin_y;
+    zero_yaw = s_origin_yaw;
     zero = s_ops.zero_enabled;
-    valid = (s_ops.valid_count != 0U);
+    valid = ((s_ops.pose_valid != 0U) && (s_ops.valid_count != 0U)) ? 1U : 0U;
     ref = zero ? s_origin_yaw : s_reference_yaw;
-    /* 实车实测（2026-09-17）：车**左移**时 OPS 原始 y 变小，而本工程约定"左 = +X"，
-     * 因此 OPS 原始 y 轴与"车左"**反号**（原始帧右手系：+x=车尾、+y=车右）。
-     * 处理：内部/对外 y = -原始 y；偏心补偿在原始帧里做，安装偏移的 y 分量
-     * 也要按原始帧取号（s_mount_y_mm 仍约定 + = 车左）。 */
-    rx =  s_mount_x_mm * 0.001f;   /* + = 车后（沿 +x_raw） */
-    ry = -s_mount_y_mm * 0.001f;   /* +y_raw = 车右，而 s_mount_y_mm 约定 + = 车左 ⇒ 取反 */
+    /* 实车标定：OPS 原始帧 +x_raw=车右、+y_raw=车头。
+     * 统一坐标是 +X=车左、+Y=车头，因此安装偏移换到原始帧：
+     *   +x_raw = 车右 = -X；+y_raw = 车头 = +Y。 */
+    rx = -s_mount_x_mm * 0.001f;
+    ry = s_mount_y_mm * 0.001f;
     is_new = s_new_flag;
     s_new_flag = 0U;
     if (primask == 0U) __enable_irq();
-    *z = yaw;
-    *x = px; *y = -py;             /* x 同向；y 反号 ⇒ 左移时输出增大 */
-    /* 原始绝对接口保持线缆数据，避免补偿叠加。 */
-    if (!absolute && valid)
+    *z = zero ? (yaw - zero_yaw) : yaw;
+    if (zero)
     {
-      /* 安装偏心补偿：把"OPS 测到的点"换算回"车体旋转中心"。
-       * 传感器刚性固定在车体上，其相对中心的位置随车体一起旋转：
-       *     传感器原始帧坐标 = 中心 + R(Δθ)·m_raw
-       * 原始帧是**右手系**（+x=车尾、+y=车右），因此 R 用标准 CCW 矩阵即可；
-       * m_raw = (rx, ry) 为该偏移在原始帧里的分量（见上面取号）。
-       * 数值自检（传感器装车后50/车左60 ⇒ m_raw=(+0.05,-0.06)，Δθ=+90°）：
-       *     R(90°)·m_raw=(+0.06,+0.05)，减去 m_raw ⇒ 需减掉 (+0.01,+0.11)，
-       *     与下面公式一致 ⇒ 原地旋转时补偿后的中心保持不变（不画圆）。 */
+      /* 航向零点同样按本地 ZERO 计算，并归一化到 [-π, π]。 */
+      *z = fmodf(*z, 2.0f * 3.1415926536f);
+      if (*z > 3.1415926536f)       { *z -= 2.0f * 3.1415926536f; }
+      else if (*z < -3.1415926536f) { *z += 2.0f * 3.1415926536f; }
+    }
+    *x = -px; *y = py;           /* 原始帧 → 统一坐标 X=左、Y=前 */
+    if (valid == 0U)
+    {
+      *x = 0.0f;
+      *y = 0.0f;
+      return 0U;
+    }
+    /* 原始绝对接口保持线缆数据，避免补偿叠加。 */
+    if (!absolute)
+    {
+      /* 安装偏心补偿：先在 OPS 原始帧内把安装点换算回车体旋转中心，
+       * 再映射到统一坐标 X=左、Y=前。原始帧为 +x_raw=车右、+y_raw=车头。 */
       float dc = cosf(yaw) - cosf(ref);
       float ds = sinf(yaw) - sinf(ref);
       float dx = dc * rx - ds * ry;
       float dy = ds * rx + dc * ry;
       if (zero)
       {
-        /* 置零后仍为物理正向：车向前→x增大、车向左→y增大，与非置零状态一致。
-         * 原实现为 ox-px 的“ZERO反号”，使符号随是否置零翻转，且位置环
-         * 只在置零状态下才是负反馈；去掉反号后由 chassis_move 的
-         * devx=tgt-cur 保证方向一致，轮速指令逐周期不变。 */
-        *x = px - ox - dx;
-        *y = -(py - oy - dy);    /* 输出端 y 取反：原始帧(+车右) → 内部/对外(+车左) */
+        *x = -(px - ox) + dx;
+        *y =  (py - oy) - dy;
       }
       else
       {
-        *x = px - dx;
-        *y = -(py - dy);         /* 同上；符号不随是否置零变化 */
+        *x = -px + dx;
+        *y =  py - dy;
       }
     }
   }
@@ -215,7 +294,61 @@ HAL_StatusTypeDef OPS_SendCommand(uint8_t cmd)
  */
 void OPS_Start(void)
 {
-  (void)OPS_RestartReceive();
+  s_parse_len = 0U;
+  if (OPS_RestartReceive() != HAL_OK)
+  {
+    s_rx_recover = 1U;
+  }
+  else
+  {
+    s_rx_recover = 0U;
+  }
+}
+
+/**
+ * @brief  默认任务上下文恢复 USART2 接收
+ * @note   错误回调只置位，本函数负责中止残留 DMA、清错误标志并重挂接收。
+ */
+void OPS_ServiceRx(void)
+{
+  if (s_rx_recover == 0U)
+  {
+    return;
+  }
+
+  if ((huart2.hdmarx != NULL) &&
+      (HAL_DMA_GetState(huart2.hdmarx) == HAL_DMA_STATE_ABORT))
+  {
+    return;
+  }
+
+  if (huart2.RxState == HAL_UART_STATE_BUSY_RX)
+  {
+    if (HAL_UART_AbortReceive(&huart2) != HAL_OK)
+    {
+      return;
+    }
+  }
+
+  if ((huart2.hdmarx != NULL) &&
+      (HAL_DMA_GetState(huart2.hdmarx) != HAL_DMA_STATE_READY))
+  {
+    if (HAL_DMA_Abort(huart2.hdmarx) != HAL_OK)
+    {
+      return;
+    }
+  }
+
+  __HAL_UART_CLEAR_PEFLAG(&huart2);
+  s_parse_len = 0U;
+  if (OPS_RestartReceive() != HAL_OK)
+  {
+    s_rx_recover = 1U;
+  }
+  else
+  {
+    s_rx_recover = 0U;
+  }
 }
 
 /**
@@ -226,8 +359,11 @@ void OPS_Start(void)
 void OPS_Init(void)
 {
   memset(&s_ops, 0, sizeof(s_ops));
-  s_mount_x_mm = 50.0f;
-  s_mount_y_mm = 60.0f;
+  s_parse_len = 0U;
+  s_rx_recover = 0U;
+  s_session_pending = 0U;
+  s_mount_x_mm = 60.0f;
+  s_mount_y_mm = -50.0f;
   s_reference_yaw = s_origin_yaw = 0.0f;
   s_ops.status = OPS_STATUS_IDLE;
   s_new_flag  = 0U;
@@ -237,7 +373,11 @@ void OPS_Init(void)
   (void)OPS_SendCommand(OPS_CMD_MODE_INIT);
   /* 0x22 会触发 OPS 控制器复位，等待其重新启动 */
   HAL_Delay(500U);
+  /* 旧 OPS 用 0x30 启动；新 OPS 同时把 0x30 解释为方向 0。
+   * 先兼容旧启动，再显式切回新协议文档中的方向 2，避免坐标轴被 180° 翻转。 */
   (void)OPS_SendCommand(OPS_CMD_MODE_START);
+  HAL_Delay(20U);
+  (void)OPS_SendCommand(OPS_CMD_DIR_2);
 
   /* 启动空闲中断 + DMA 接收 */
   OPS_Start();
@@ -302,7 +442,7 @@ uint8_t OPS_IsOnline(uint32_t timeout_ms)
 {
   uint32_t last_tick = s_ops.last_update_tick;
 
-  if (s_ops.valid_count == 0U)
+  if ((s_ops.pose_valid == 0U) || (s_ops.valid_count == 0U))
   {
     return 0U;
   }
@@ -313,14 +453,14 @@ uint8_t OPS_IsOnline(uint32_t timeout_ms)
 /**
  * @brief  以当前 OPS 位置作为坐标零点
  * @note   必须收到过有效 OPS 帧后调用；清零后：
- *          X/Y为物理正向（前→+X增大、左→+Y增大）并加偏心旋转补偿，
- *          Z保持绝对航向角；是否置零不再改变X/Y的符号方向
+ *          X/Y为统一物理正向（左→+X增大、前→+Y增大）并加偏心旋转补偿，
+ *          Z同时以当前航向为零点（+ 为逆时针）；是否置零不再改变X/Y的符号方向
  */
 void OPS_ZeroCoordinates(void)
 {
   uint32_t primask;
 
-  if (s_ops.valid_count == 0U)
+  if ((s_ops.pose_valid == 0U) || (s_ops.valid_count == 0U))
   {
     return; /* 尚未收到有效数据，不执行清零 */
   }
@@ -347,16 +487,17 @@ void OPS_ClearZero(void)
 
 /**
  * @brief  手动设置 X/Y 坐标零点（用于标定）
- * @param  x 零点对应的绝对 X
- * @param  y 零点对应的绝对 Y
+ * @param  x 零点对应的统一 X（+车左）
+ * @param  y 零点对应的统一 Y（+车头）
+ * @note   同时把当前航向设为 Z 零点。
  */
 void OPS_SetOrigin(float x, float y)
 {
   uint32_t primask = __get_PRIMASK();
 
   __disable_irq();
-  s_ops.origin_x     = x;
-  s_ops.origin_y     = y;
+  s_ops.origin_x     = -x;   /* 统一 X=左 → 原始 x=车右 */
+  s_ops.origin_y     = y;    /* 统一 Y=前 → 原始 y=车头 */
   s_origin_yaw       = s_ops.frame.z;
   s_ops.zero_enabled = 1U;
   if (primask == 0U)
@@ -374,16 +515,277 @@ uint8_t OPS_IsZeroEnabled(void)
   return (s_ops.zero_enabled != 0U) ? 1U : 0U;
 }
 
+/**
+ * @brief  读取并清除 V2 session_id 变化标志
+ * @retval 1 运行期会话发生变化，0 无变化
+ */
+uint8_t OPS_ConsumeSessionChanged(void)
+{
+  uint32_t primask = __get_PRIMASK();
+  uint8_t changed;
+
+  __disable_irq();
+  changed = s_ops.session_changed;
+  s_ops.session_changed = 0U;
+  if (primask == 0U)
+  {
+    __enable_irq();
+  }
+
+  return changed;
+}
+
+/**
+ * @brief  过滤 NaN/Inf 和明显越界值
+ */
+static uint8_t OPS_FrameValuesValid(const OPS_Frame_t *frame)
+{
+  if (frame == NULL)
+  {
+    return 0U;
+  }
+
+  if (!((frame->x == frame->x) && (frame->y == frame->y) && (frame->z == frame->z)))
+  {
+    return 0U;
+  }
+
+  if ((fabsf(frame->x) >= 1000.0f) ||
+      (fabsf(frame->y) >= 1000.0f) ||
+      (fabsf(frame->z) >= 1000000.0f))
+  {
+    return 0U;
+  }
+
+  return 1U;
+}
+
+/**
+ * @brief  发布 CRC 正确的 V1/V2 帧，并处理会话变化
+ * @param  frame      已解析帧
+ * @param  pose_valid 1 表示位姿可用
+ */
+static void OPS_PublishFrame(const OPS_Frame_t *frame, uint8_t pose_valid)
+{
+  uint8_t session_changed = 0U;
+
+  if (frame->header == OPS_FRAME_HEADER_V2)
+  {
+    if (s_ops.session_id != frame->session_id)
+    {
+      if (s_ops.session_id != 0U)
+      {
+        session_changed = 1U;
+      }
+      s_ops.session_id = frame->session_id;
+      s_session_pending = 1U;
+    }
+    s_ops.seq = frame->seq;
+    s_ops.timestamp_ms = frame->timestamp_ms;
+  }
+  else if (s_ops.session_id != 0U)
+  {
+    /* 从 V2 回落到无 session 的 V1 流，按一次会话切换处理。 */
+    s_ops.session_id = 0U;
+    s_session_pending = 1U;
+    session_changed = 1U;
+  }
+
+  s_ops.frame_count++;
+
+  if (pose_valid != 0U)
+  {
+    if ((s_ops.valid_count == 0U) || (s_session_pending != 0U))
+    {
+      s_reference_yaw = frame->z;
+      if (s_session_pending != 0U)
+      {
+        s_ops.origin_x = frame->x;
+        s_ops.origin_y = frame->y;
+        s_origin_yaw = frame->z;
+        s_session_pending = 0U;
+      }
+    }
+
+    memcpy(&s_ops.frame, frame, sizeof(OPS_Frame_t));
+    s_ops.pose_valid = 1U;
+    s_ops.valid_count++;
+    s_ops.last_update_tick = HAL_GetTick();
+    s_ops.status = OPS_STATUS_OK;
+    s_new_flag = 1U;
+  }
+  else
+  {
+    s_ops.pose_valid = 0U;
+    s_ops.status = OPS_STATUS_DATA_ERR;
+  }
+
+  if (session_changed != 0U)
+  {
+    s_ops.session_changed = 1U;
+  }
+}
+
+/**
+ * @brief  从解析缓冲发布 V1 帧
+ */
+static void OPS_PublishV1Frame(void)
+{
+  OPS_Frame_t frame;
+
+  memset(&frame, 0, sizeof(frame));
+  frame.header = OPS_FRAME_HEADER_V1;
+  frame.version = 0U;
+  frame.length = OPS_FRAME_LEN_V1;
+  frame.flags = OPS_FLAG_POS_VALID | OPS_FLAG_IMU_ONLINE | OPS_FLAG_ENC_VALID;
+  memcpy(&frame.x, &s_parse_buf[1], sizeof(frame.x));
+  memcpy(&frame.y, &s_parse_buf[5], sizeof(frame.y));
+  memcpy(&frame.z, &s_parse_buf[9], sizeof(frame.z));
+  frame.checksum = s_parse_buf[13];
+
+  OPS_PublishFrame(&frame, OPS_FrameValuesValid(&frame));
+}
+
+/**
+ * @brief  从解析缓冲发布 V2 帧
+ */
+static void OPS_PublishV2Frame(void)
+{
+  OPS_Frame_t frame;
+  uint8_t required_flags;
+  uint8_t pose_valid;
+
+  memset(&frame, 0, sizeof(frame));
+  frame.header = s_parse_buf[0];
+  frame.version = s_parse_buf[1];
+  frame.length = s_parse_buf[2];
+  frame.flags = s_parse_buf[3];
+  memcpy(&frame.seq, &s_parse_buf[4], sizeof(frame.seq));
+  memcpy(&frame.session_id, &s_parse_buf[6], sizeof(frame.session_id));
+  memcpy(&frame.timestamp_ms, &s_parse_buf[10], sizeof(frame.timestamp_ms));
+  memcpy(&frame.x, &s_parse_buf[14], sizeof(frame.x));
+  memcpy(&frame.y, &s_parse_buf[18], sizeof(frame.y));
+  memcpy(&frame.z, &s_parse_buf[22], sizeof(frame.z));
+  frame.checksum = (uint16_t)s_parse_buf[26] |
+                   (uint16_t)((uint16_t)s_parse_buf[27] << 8);
+
+  required_flags = OPS_FLAG_POS_VALID | OPS_FLAG_IMU_ONLINE | OPS_FLAG_ENC_VALID;
+  pose_valid = (((frame.flags & required_flags) == required_flags) &&
+                (OPS_FrameValuesValid(&frame) != 0U)) ? 1U : 0U;
+
+  OPS_PublishFrame(&frame, pose_valid);
+}
+
+/**
+ * @brief  逐字节解析 OPS 字节流并自动重新同步
+ * @param  byte 新收到的字节
+ */
+static void OPS_ParseByte(uint8_t byte)
+{
+  uint16_t expected;
+  uint8_t header;
+  uint8_t crc_ok;
+
+  if (s_parse_len >= (uint16_t)sizeof(s_parse_buf))
+  {
+    s_ops.format_errors++;
+    s_ops.error_count++;
+    OPS_DropFirstByte();
+  }
+
+  s_parse_buf[s_parse_len++] = byte;
+
+  for (;;)
+  {
+    if (s_parse_len == 0U)
+    {
+      return;
+    }
+
+    header = s_parse_buf[0];
+    if (header == OPS_FRAME_HEADER_V1)
+    {
+      expected = OPS_FRAME_LEN_V1;
+    }
+    else if (header == OPS_FRAME_HEADER_V2)
+    {
+      if (s_parse_len < 3U)
+      {
+        return;
+      }
+      if ((s_parse_buf[1] != OPS_FRAME_VERSION_V2) ||
+          (s_parse_buf[2] != OPS_FRAME_LEN_V2))
+      {
+        s_ops.format_errors++;
+        s_ops.error_count++;
+        s_ops.status = OPS_STATUS_HEADER_ERR;
+        OPS_DropFirstByte();
+        continue;
+      }
+      expected = OPS_FRAME_LEN_V2;
+    }
+    else
+    {
+      s_ops.format_errors++;
+      s_ops.error_count++;
+      s_ops.status = OPS_STATUS_HEADER_ERR;
+      OPS_DropFirstByte();
+      continue;
+    }
+
+    if (s_parse_len < expected)
+    {
+      return;
+    }
+
+    if (header == OPS_FRAME_HEADER_V1)
+    {
+      crc_ok = OPS_VerifyCRC8(s_parse_buf, OPS_FRAME_LEN_V1);
+    }
+    else
+    {
+      crc_ok = OPS_VerifyCRC16(s_parse_buf, OPS_FRAME_LEN_V2);
+    }
+
+    if (crc_ok != 0U)
+    {
+      if (header == OPS_FRAME_HEADER_V1)
+      {
+        OPS_PublishV1Frame();
+      }
+      else
+      {
+        OPS_PublishV2Frame();
+      }
+
+      if (s_parse_len > expected)
+      {
+        memmove(s_parse_buf, &s_parse_buf[expected],
+                (size_t)(s_parse_len - expected));
+      }
+      s_parse_len = (uint16_t)(s_parse_len - expected);
+    }
+    else
+    {
+      s_ops.crc_errors++;
+      s_ops.error_count++;
+      s_ops.status = OPS_STATUS_CRC_ERR;
+      /* 丢首字节继续找下一个帧头，避免噪声后长期错位。 */
+      OPS_DropFirstByte();
+    }
+  }
+}
+
 /* ----------------------- HAL UART RX 事件回调 ----------------------- */
 
 /**
- * @brief  USART2 空闲/接收完成回调，完成 OPS 帧解析
+ * @brief  USART2 空闲/接收完成回调，完成 OPS 字节流解析
  * @param  huart UART 句柄
  * @param  Size  本次接收字节数
  */
 void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
 {
-  OPS_Frame_t frame;
+  uint16_t i;
 
   /* 仅处理 USART2 */
   if (huart->Instance != USART2)
@@ -391,48 +793,33 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
     return;
   }
 
-  /* 长度正确且帧头正确时校验 CRC8 */
-  if ((Size == OPS_FRAME_LEN) && (s_rx_buf[0] == OPS_FRAME_HEADER))
+  if (Size > (uint16_t)sizeof(s_rx_buf))
   {
-    if (OPS_VerifyCRC8(s_rx_buf, OPS_FRAME_LEN) != 0U)
-    {
-      memcpy(&frame, s_rx_buf, sizeof(OPS_Frame_t));
-
-      /* 拒绝 NaN、无穷值和明显越界值，避免异常数据进入运动解算 */
-      if ((frame.x == frame.x) && (frame.y == frame.y) && (frame.z == frame.z) &&
-          (fabsf(frame.x) < 1000.0f) && (fabsf(frame.y) < 1000.0f) &&
-          (fabsf(frame.z) < 1000000.0f))
-      {
-        if (s_ops.valid_count == 0U) s_reference_yaw = frame.z;
-        memcpy(&s_ops.frame, &frame, sizeof(OPS_Frame_t));
-        s_ops.valid_count++;
-        s_ops.last_update_tick = HAL_GetTick();
-        s_ops.status = OPS_STATUS_OK;
-        s_new_flag   = 1U;
-      }
-      else
-      {
-        s_ops.error_count++;
-        s_ops.status = OPS_STATUS_DATA_ERR;
-      }
-    }
-    else
-    {
-      s_ops.error_count++;
-      s_ops.status = OPS_STATUS_CRC_ERR;
-    }
+    Size = (uint16_t)sizeof(s_rx_buf);
   }
-  else
+
+  for (i = 0U; i < Size; ++i)
   {
-    s_ops.error_count++;
-    s_ops.status = OPS_STATUS_HEADER_ERR;
+    OPS_ParseByte(s_rx_buf[i]);
   }
 
   /* 解析完成后重新启动接收 */
   (void)OPS_RestartReceive();
 }
 
-/* 成对更新安装偏移；由任务停车后调用。未写入Flash。 */
+/**
+ * @brief  USART2 HAL 错误回调：中断中只置恢复请求，任务中重挂接收
+ */
+void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart)
+{
+  if (huart->Instance == USART2)
+  {
+    s_ops.error_count++;
+    s_rx_recover = 1U;
+  }
+}
+
+/* 成对更新安装偏移；参数为统一坐标 X=左右(+左)、Y=前后(+前)，由任务停车后调用。未写入Flash。 */
 uint8_t OPS_SetMountOffset(float x_mm, float y_mm)
 {
   uint32_t mask;
@@ -442,7 +829,7 @@ uint8_t OPS_SetMountOffset(float x_mm, float y_mm)
   __disable_irq();
   s_mount_x_mm = x_mm;
   s_mount_y_mm = y_mm;
-  if (s_ops.valid_count != 0U)
+  if ((s_ops.pose_valid != 0U) && (s_ops.valid_count != 0U))
   {
     s_ops.origin_x = s_ops.frame.x;
     s_ops.origin_y = s_ops.frame.y;

@@ -12,6 +12,11 @@
  *          电机：ZDT_X42S Emm 速度模式，UART4，地址 1~4
  *          反馈：OPS 全局定位 OPS_GetPosition()
  *          控制：P 比例控制 + 数值限幅 + 速度斜坡 + 到位判断
+ *
+ *          统一坐标约定（内部、外部相同）：
+ *            +X = 车左、-X = 车右
+ *            +Y = 车头、-Y = 车尾
+ *            +Z = 自顶向下逆时针
  ******************************************************************************
  */
 #include "mecanum_control.h"
@@ -52,7 +57,7 @@ float ZVmin  = 0.0f;
 /* 四轮目标速度，供输出任务使用 */
 int SpeedTarget[4] = {0, 0, 0, 0};
 
-/* OPS 当前全局坐标 */
+/* OPS 当前全局坐标：X=左右(+车左)、Y=前后(+车头)，单位 mm */
 float pos_x = 0.0f;
 float pos_y = 0.0f;
 float zangle = 0.0f;
@@ -202,6 +207,22 @@ void SetMotorVoltageAndDirection(int MotorSpeed1, int MotorSpeed2,
   }
 }
 
+/**
+ * @brief  按统一车体坐标计算四轮逻辑速度
+ * @param  x_left  左右速度，+ 为车左
+ * @param  y_forward 前后速度，+ 为车头
+ * @param  z_ccw   航向速度，+ 为逆时针
+ * @param  speed   输出四轮速度，顺序为左前、右前、左后、右后
+ */
+static void MecanumControl_CalcWheelSpeed(float x_left, float y_forward,
+                                          float z_ccw, int speed[4])
+{
+  speed[0] = (int)( y_forward - x_left - z_ccw);  /* 左前 */
+  speed[1] = (int)(-y_forward - x_left - z_ccw);  /* 右前 */
+  speed[2] = (int)( y_forward + x_left - z_ccw);  /* 左后 */
+  speed[3] = (int)(-y_forward + x_left - z_ccw);  /* 右后 */
+}
+
 /* --------------------------- 数值限幅 ------------------------------ */
 
 /**
@@ -241,18 +262,16 @@ void numerical_limit(float *value, float max, float min, float dead_zone)
 
 /**
  * @brief  底盘 OPS 全局定位移动（P 控制，参考开源底盘）
- * @param  x 目标全局 X，单位 mm
- * @param  y 目标全局 Y，单位 mm
+ * @param  x 目标全局 X，左右轴，+车左，单位 mm
+ * @param  y 目标全局 Y，前后轴，+车头，单位 mm
  * @param  z 目标航向角，单位 deg
  * @note   调用本函数后还需周期调用 SetMotorVoltageAndDirection() 下发
  */
 void chassis_move(int x, int y, int z)
 {
   int speed[4] = {0, 0, 0, 0};
-  float vx1 = 0.0f;
-  float vy1 = 0.0f;
-  float vx2 = 0.0f;
-  float vy2 = 0.0f;
+  float cmd_x = 0.0f;
+  float cmd_y = 0.0f;
   float vz  = 0.0f;
   uint8_t i;
 
@@ -260,58 +279,45 @@ void chassis_move(int x, int y, int z)
   /* 刷新 OPS 当前坐标 */
   MecanumControl_UpdatePose();
 
-  /* 目标坐标 - 当前坐标：与ops.c的物理正向坐标配套，构成负反馈。
-   * （原为 当前-目标，配合已删除的ZERO反号；去掉反号后必须同步反转误差定义，
-   *  否则位置环变为正反馈。两种写法在置零状态下逐周期产生的轮速完全一致。） */
+  /* 目标 - 当前：X 为左右、Y 为前后，统一坐标下直接构成负反馈。 */
   devx = (float)x - pos_x;
   devy = (float)y - pos_y;
 
-  /* 最短航向误差，统一到 [-180, 180] */
+  /* 最短航向误差，统一到 [-180, 180]
+   * 必须用 O(1) 写法：目标航向来自串口（GOTO 的 z），若被构造成 Inf
+   * （例如 GOTO=0,0,<40 位数字> 溢出成 +Inf），"while (devz > 180) devz -= 360"
+   * 会永不退出，20ms 任务连同遥测/命令处理一起永久挂死。
+   * 这里用 fmodf 归约到 (-360,360) 再补一次修正；同时对非有限值直接判为 0。 */
   devz = (float)z - zangle;
-  while (devz > 180.0f)
+  if (!isfinite(devz))
   {
-    devz -= 360.0f;
+    devz = 0.0f;
   }
-  while (devz < -180.0f)
+  devz = fmodf(devz, 360.0f);
+  if (devz > 180.0f)       { devz -= 360.0f; }
+  else if (devz < -180.0f) { devz += 360.0f; }
+
+  /* 世界坐标误差 → 车体坐标，再分别应用轴 P 增益：
+   *   X_body_error =  cosθ*devx + sinθ*devy
+   *   Y_body_error = -sinθ*devx + cosθ*devy
+   *   cmd_x = mKpx * X_body_error
+   *   cmd_y = mKpy * Y_body_error
+   * P 必须在旋转之后应用，否则航向不为 0 时 X/Y 增益会互相串轴。 */
   {
-    devz += 360.0f;
+    float c = cosf(zangle * 3.1415926f / 180.0f);
+    float s = sinf(zangle * 3.1415926f / 180.0f);
+
+    cmd_x = mKpx * ( c * devx + s * devy);
+    cmd_y = mKpy * (-s * devx + c * devy);
   }
-
-  /* ---------------- 世界坐标误差 → 车体坐标系（按当前航向角旋转）----------------
-   * θ = zangle（度→弧度），误差取的是**世界/场地坐标**误差 devx/devy。
-   * 本工程约定：θ 逆时针为正、内部 x 轴=前后、内部 y 轴=左右，因此车体分量满足
-   *
-   *   VX(前后) =  cosθ * (mKpx*devx) + sinθ * (mKpy*devy)
-   *   VY(左右) = -sinθ * (mKpx*devx) + cosθ * (mKpy*devy)
-   *
-   * 即 [VX;VY]^T = R(-θ) · diag(mKpx,mKpy) · [devx;devy]^T，R(-θ)=[[c,s],[-s,c]]，
-   * 与"麦轮要的是车体 forward/lateral，而不是直接把 world 误差当车体速度"一致。
-   * 注意：P 增益乘在旋转之前；当 mKpx == mKpy（默认 2.3）时等价于"先旋转再按轴加增益"，
-   * 两轴增益不同时方向会有偏差，调参时尽量让 KPX/KPY 保持接近。
-   * 各分量在旋转后由 numerical_limit 分别限幅（不是按轮限幅），
-   * 四轮转速的整体同比限幅在 SetMotorVoltageAndDirection 里统一做。 */
-  vy1 = cosf(zangle * 3.1415926f / 180.0f) * mKpy * devy;
-  vx2 = sinf(zangle * 3.1415926f / 180.0f) * mKpy * devy;
-  numerical_limit(&vy1, XYVmax, XYVmin, 5.0f);
-  numerical_limit(&vx2, XYVmax, XYVmin, 5.0f);
-
-  vy2 = sinf(zangle * 3.1415926f / 180.0f) * mKpx * devx;
-  vx1 = cosf(zangle * 3.1415926f / 180.0f) * mKpx * devx;
-  numerical_limit(&vy2, XYVmax, XYVmin, 5.0f);
-  numerical_limit(&vx1, XYVmax, XYVmin, 5.0f);
+  numerical_limit(&cmd_x, XYVmax, XYVmin, 5.0f);
+  numerical_limit(&cmd_y, XYVmax, XYVmin, 5.0f);
 
   /* 航向环不参与旋转：devz 已在上面 wrap 到 [-180,180]，直接 P 控制。 */
   vz = mKpz * devz;
   numerical_limit(&vz, ZVmax, 0.0f, 5.0f);
 
-  /* 麦轮正解：与 MecanumControl_MoveVelocity 保持同一约定（vx=前后、vy=左右）。
-   * 实车证据：原公式把车体"前后"(vx1+vx2)与"左右"(vy1-vy2)两个分量送进了相反的槽位，
-   * MANUAL 方向正常而 GOTO=0,1000,0（向前1米）却横移。speed[0]/speed[3] 对两个分量
-   * 对称，无需改动；只对调 speed[1]/speed[2] 的交叉项即等效于 MoveVelocity 的四式。 */
-  speed[0] = (int)-(vy1 - vy2 + vx1 + vx2 + vz);
-  speed[1] = (int) (vx1 + vx2 - vy1 + vy2 - vz);
-  speed[2] = (int)-(vx1 + vx2 - vy1 + vy2 + vz);
-  speed[3] = (int) (vy1 - vy2 + vx1 + vx2 - vz);
+  MecanumControl_CalcWheelSpeed(cmd_x, cmd_y, vz, speed);
 
   /* 速度斜坡限制 */
   for (i = 0U; i < 4U; ++i)
@@ -468,25 +474,20 @@ void MecanumControl_Stop(void)
 
 /**
  * @brief  车体坐标系直接速度移动（MANUAL 手动、ZDT 单轮测试走这条路）
- * @param  vxRpm 内部前后轴速度，RPM：**正数 → 车尾方向**（≠ 对外 +Y(车头)）
- * @param  vyRpm 内部左右轴速度，RPM：正数 → 车左方向（与对外 +X 同号）
- * @param  vzRpm 旋转速度，RPM：正数 → 逆时针（与对外一致）
- * @note   形参符号是**内部**约定，由 debug_usart.c 的适配层负责与
- *         对外 MANUAL=X(车左),Y(车头),W(逆时针) 互转，本函数不做坐标变换。
- *         四轮结果在 SetMotorVoltageAndDirection 里做整体同比限幅后下发。
+ * @param  vxRpm 左右速度，RPM：正数 → 车左
+ * @param  vyRpm 前后速度，RPM：正数 → 车头
+ * @param  vzRpm 旋转速度，RPM：正数 → 逆时针
+ * @note   形参与对外 MANUAL=X(车左),Y(车头),W(逆时针) 完全同序、同符号，
+ *         本函数不做坐标交换。四轮结果在 SetMotorVoltageAndDirection 里
+ *         做整体同比限幅后下发。
  */
 void MecanumControl_MoveVelocity(float vxRpm, float vyRpm, float vzRpm)
 {
-  /* O 型麦轮正解 */
-  int32_t wheel[4];
+  int wheel[4];
 
-  wheel[0] = (int32_t)-(vxRpm + vyRpm + vzRpm);
-  wheel[1] = (int32_t) (vxRpm - vyRpm - vzRpm);
-  wheel[2] = (int32_t)-(vxRpm - vyRpm + vzRpm);
-  wheel[3] = (int32_t) (vxRpm + vyRpm - vzRpm);
+  MecanumControl_CalcWheelSpeed(vxRpm, vyRpm, vzRpm, wheel);
 
-  SetMotorVoltageAndDirection((int)wheel[0], (int)wheel[1],
-                              (int)wheel[2], (int)wheel[3]);
+  SetMotorVoltageAndDirection(wheel[0], wheel[1], wheel[2], wheel[3]);
 }
 
 /**

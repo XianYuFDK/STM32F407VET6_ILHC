@@ -1,9 +1,8 @@
-"""编译真实 Debug_ParseLine，运行时验证三个协议的 X/Y 交换与钳位，不连接设备。
+"""编译真实 Debug_ParseLine，运行时验证统一 X/Y 协议与钳位，不连接设备。
 
-对外协议：MANUAL=X(左右),Y(前后),W；GOTO=X(场地左右),Y(场地前后),Z；
+对外协议：MANUAL=X(左右),Y(前后),W；GOTO=X(场地左右),Y(场地前后),Z，X/Y 单位 cm；
 OPSOFFSET=X(左右偏移),Y(前后偏移)；KPX=左右轴增益、KPY=前后轴增益。
-MANUAL 暂存协议原序（交换在 Debug_ServiceManual 调用 MoveVelocity 时完成，
-由 test_debug_manual.py 覆盖），GOTO/OPSOFFSET/参数表在此处直接落到内部顺序。
+协议、固件内部和底盘控制变量使用同一轴序、同一符号，不再交换或取反。
 """
 from pathlib import Path
 import subprocess
@@ -36,7 +35,7 @@ prelude = r'''
 #include <assert.h>
 #include <string.h>
 #include <stdio.h>
-/* 底盘内部量：形参/变量名保持(前后, 左右)，参数表按对外命名映射 */
+/* 底盘内部量同样使用 X=左右、Y=前后，参数表直接对应。 */
 static float mKpx = 2.3f, mKpy = 2.3f, mKpz = 9.0f;
 static float XYVmax = 1600.0f, ZVmax = 750.0f, XYVmin = 5.0f, ZVmin = 5.0f;
 static float zangle = 0.0f;
@@ -74,7 +73,7 @@ int main(void) {
   __enable_irq();
   assert(mask == 0U);
 
-  /* MANUAL：暂存协议原序 X(左右),Y(前后),W；交换在服务层完成 */
+  /* MANUAL：X(左右),Y(前后),W 原序暂存。 */
   strcpy(line, "MANUAL=70,60,30");
   Debug_ParseLine(line);
   assert(s_manual_active == 1U);
@@ -87,46 +86,48 @@ int main(void) {
   Debug_ParseLine(line);
   assert(s_manual_velocity[0] == -100);
 
-  /* GOTO：协议 X=车左 → 内部 s_goto_y（同向）；Y=车头 → 内部 s_goto_x 并取反
-     （内部 +前后 指向车尾） */
+  /* GOTO：X=车左、Y=车头，直接写入同名的统一坐标目标。 */
   zangle = 12.0f;
-  strcpy(line, "GOTO=1000,2000,45");
+  strcpy(line, "GOTO=100.0,200.0,45.0");
   Debug_ParseLine(line);
   assert(s_goto_active == 1U);
-  assert(s_goto_x == -2000.0f && s_goto_y == 1000.0f && s_goto_z == 45.0f);
-  strcpy(line, "GOTO=1000,2000");                    /* 省略Z：保持当前航向 */
+  assert(s_goto_x == 1000.0f && s_goto_y == 2000.0f && s_goto_z == 45.0f);
+  strcpy(line, "GOTO=100.0,200.0");                  /* 省略Z：保持当前航向 */
   Debug_ParseLine(line);
-  assert(s_goto_x == -2000.0f && s_goto_y == 1000.0f && s_goto_z == 12.0f);
-  strcpy(line, "GOTO=-5000,250");                    /* 两轴仍按±3000钳位，交换取反在钳位之后 */
+  assert(s_goto_x == 1000.0f && s_goto_y == 2000.0f && s_goto_z == 12.0f);
+  strcpy(line, "GOTO=0.1,-0.1,0.0");                 /* 0.1cm必须换算成1mm */
   Debug_ParseLine(line);
-  assert(s_goto_x == -250.0f && s_goto_y == -3000.0f);
-  strcpy(line, "GOTO=1000");                         /* 少于两个数：不接受新目标 */
+  assert(s_goto_x == 1.0f && s_goto_y == -1.0f);
+  strcpy(line, "GOTO=-500.0,25.0");                  /* 协议按±300.0cm钳位并换算为mm */
   Debug_ParseLine(line);
-  assert(s_goto_x == -250.0f && s_goto_y == -3000.0f);
+  assert(s_goto_x == -3000.0f && s_goto_y == 250.0f);
+  strcpy(line, "GOTO=100.0");                        /* 少于两个数：不接受新目标 */
+  Debug_ParseLine(line);
+  assert(s_goto_x == -3000.0f && s_goto_y == 250.0f);
 
-  /* OPSOFFSET：协议 X=车左 → s_offset_y 同向；Y=车头 → s_offset_x 取反 */
+  /* OPSOFFSET：X=车左、Y=车头，直接暂存同轴量。 */
   strcpy(line, "OPSOFFSET=60,-50");                  /* 车左60mm、车后50mm */
   Debug_ParseLine(line);
   assert(s_offset_req == 1U);
-  assert(s_offset_x == 50.0f && s_offset_y == 60.0f);
+  assert(s_offset_x == 60.0f && s_offset_y == -50.0f);
   s_offset_req = 0U;
   strcpy(line, "OPSOFFSET=-501,0");                  /* 超范围仍拒绝 */
   Debug_ParseLine(line);
   assert(s_offset_req == 0U);
 
-  /* 参数表：KPX 指向左右轴增益 mKpy，KPY 指向前后的 mKpx */
+  /* 参数表：KPX 写 mKpx（左右），KPY 写 mKpy（前后）。 */
   strcpy(line, "KPX=7");
   Debug_ParseLine(line);
-  assert(mKpy == 7.0f && mKpx == 2.3f);
+  assert(mKpx == 7.0f && mKpy == 2.3f);
   strcpy(line, "KPY=4");
   Debug_ParseLine(line);
-  assert(mKpx == 4.0f && mKpy == 7.0f);
+  assert(mKpx == 7.0f && mKpy == 4.0f);
   strcpy(line, "KPZ=5");
   Debug_ParseLine(line);
-  assert(mKpz == 5.0f && mKpx == 4.0f && mKpy == 7.0f);
-  strcpy(line, "KPX=99");                            /* 超限按上限钳位到50，写的仍是 mKpy */
+  assert(mKpz == 5.0f && mKpx == 7.0f && mKpy == 4.0f);
+  strcpy(line, "KPX=99");                            /* 超限按上限钳位到50，写的仍是 mKpx */
   Debug_ParseLine(line);
-  assert(mKpy == 50.0f && mKpx == 4.0f);
+  assert(mKpx == 50.0f && mKpy == 4.0f);
 
   /* 失能闸门：MANUAL/GOTO 在解析阶段即被丢弃 */
   s_wheel_enabled = 0U;
@@ -136,7 +137,7 @@ int main(void) {
   strcpy(line, "MANUAL=70,60,30");
   Debug_ParseLine(line);
   assert(s_manual_active == 0U);
-  strcpy(line, "GOTO=1000,2000,45");
+  strcpy(line, "GOTO=100.0,200.0,45.0");
   Debug_ParseLine(line);
   assert(s_goto_active == 0U && s_goto_x == 0.0f && s_goto_y == 0.0f);
   s_wheel_enabled = 1U;
@@ -146,24 +147,16 @@ int main(void) {
   Debug_ParseLine(line);
   assert(s_stop_req == 1U);
 
-  /* 适配层反向映射：内部(-2000,1000) -> 用户 X=+1000(左)、Y=+2000(前) */
-  {
-    float ux = 0.0f, uy = 0.0f;
-    Debug_InternalToUser(-2000.0f, 1000.0f, &ux, &uy);
-    assert(ux == 1000.0f && uy == 2000.0f);
-  }
-
-  puts("ParseLine X/Y boundary mapping passed:");
-  puts("  GOTO=X(left),Y(front) -> internal forward=-Y, lateral=+X  (adapter layer)");
-  puts("  OPSOFFSET=X(left),Y(front) -> internal forward=-Y, lateral=+X (adapter layer)");
-  puts("  MANUAL passed through adapter: forward=-Y, lateral=+X; KPX->mKpy, KPY->mKpx");
+  puts("ParseLine unified X/Y protocol passed:");
+  puts("  GOTO/OPSOFFSET/MANUAL use X=left,Y=front directly");
+  puts("  KPX->mKpx, KPY->mKpy");
   return 0;
 }
 '''
 
 names = ["Debug_StrCaseCmp", "Debug_StrCaseCmpN", "Debug_ParseFloat", "Debug_ParseFloatList",
          "Debug_ParseManual", "Debug_WheelReady", "Debug_ParseOffset", "Debug_SetParam",
-         "Debug_UserToInternal", "Debug_InternalToUser", "Debug_ParseLine"]
+         "Debug_ParseLine"]
 typedef = block("typedef struct\n{\n  const char *name;", "} DebugParam_t;")
 table = block("static const DebugParam_t s_params[] =", "\n};")
 code = prelude + typedef + "\n" + table + "\n" + "\n".join(function(n) for n in names) + checks

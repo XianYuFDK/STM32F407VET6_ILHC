@@ -41,14 +41,9 @@ int main(void) {
  assert(Debug_ParseManual("-300,+300,0",v));
  assert(v[0]==-300 && v[1]==300 && v[2]==0);
  for(i=0;i<sizeof(bad)/sizeof(bad[0]);i++) assert(!Debug_ParseManual(bad[i],v));
- /* 协议 MANUAL=X(车左+),Y(车头+),W；内部 MoveVelocity 形参是(前后,左右,旋转)，
-    +前后 指向车尾，因此交换后只把前后轴取反：X=70、Y=60 → output=(-60, 70, 30)。
-    用两个不同的值锁住这次映射（漏交换或误取反左右轴都会露馅）。 */
- s_manual_active=1; s_manual_velocity[0]=70; s_manual_velocity[1]=60; s_manual_velocity[2]=30;
- tick=350; Debug_ServiceManual(); assert(moves==1 && output[0]==-60 && output[1]==70 && output[2]==30);
- /* 反向适配层：内部(-60,70) 应回到用户 X=+70(左)、Y=+60(前)，与上面互为逆变换 */
- {float ux=0.0f, uy=0.0f; Debug_InternalToUser(-60.0f, 70.0f, &ux, &uy);
-  assert(ux==70.0f && uy==60.0f);}
+  /* MANUAL 与 MoveVelocity 完全同序、同号：X=70、Y=60、W=30 原样下发。 */
+  s_manual_active=1; s_manual_velocity[0]=70; s_manual_velocity[1]=60; s_manual_velocity[2]=30;
+  tick=350; Debug_ServiceManual(); assert(moves==1 && output[0]==70 && output[1]==60 && output[2]==30);
  tick=351; Debug_ServiceManual(); assert(stops==1 && !s_manual_active);
  Debug_ServiceManual(); assert(stops==1 && moves==1);
  s_manual_active=1; s_manual_tick=UINT32_MAX-100; tick=249; mask=1;
@@ -61,18 +56,17 @@ int main(void) {
  s_manual_velocity[0]=70; s_manual_velocity[1]=60; s_manual_velocity[2]=30;
  s_wheel_enabled=0; mask=1;
  Debug_ServiceManual(); assert(clears==1 && moves==2 && stops==3 && mask==1);
- /* 重新使能后带速手动恢复正常下发（同样按 X=车左 同向 / Y=车头 取反） */
- s_manual_tick=tick; s_wheel_enabled=1; mask=0;
- Debug_ServiceManual(); assert(moves==3 && output[0]==-60 && output[1]==70 && output[2]==30 && clears==1);
- puts("Manual parser / mixed velocity / timeout / tick wrap tests passed");
+  /* 重新使能后带速手动恢复正常下发（统一坐标原样传递）。 */
+  s_manual_tick=tick; s_wheel_enabled=1; mask=0;
+  Debug_ServiceManual(); assert(moves==3 && output[0]==70 && output[1]==60 && output[2]==30 && clears==1);
+  puts("Manual parser / mixed velocity / timeout / tick wrap tests passed");
  return 0;
 }
 '''
 with tempfile.TemporaryDirectory(prefix="ilhc_manual_test_") as directory:
     folder=Path(directory)
     src, exe=folder/"test.c", folder/"test.exe"
-    src.write_text(prelude + function("Debug_UserToInternal") + function("Debug_InternalToUser")
-                   + function("Debug_ParseManual") + function("Debug_WheelReady")
+    src.write_text(prelude + function("Debug_ParseManual") + function("Debug_WheelReady")
                    + function("Debug_ServiceManual") + checks,encoding="utf-8")
     subprocess.run(["gcc","-std=c99","-Wall","-Wextra","-Werror",str(src),"-o",str(exe)],check=True)
     subprocess.run([str(exe)],check=True)

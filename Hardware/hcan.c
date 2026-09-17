@@ -3,7 +3,7 @@
  * @file    hcan.c
  * @brief   CAN 协议收发封装
  *
- *          CAN1：
+ *          CAN2：
  *          - 滤波：全接收
  *          - 接收：FIFO0 中断，Rxfifo0MsgPendingCallback
  *          - 发送：标准帧/扩展帧，长数据自动分包
@@ -33,13 +33,13 @@ static void CAN_Filter_ParamsInit(CAN_FilterTypeDef *sFilterConfig)
   sFilterConfig->FilterMaskIdHigh = 0;
   sFilterConfig->FilterMaskIdLow = 0;
   sFilterConfig->FilterFIFOAssignment = CAN_FILTER_FIFO0;
-  /* CAN2 是 CAN1 的从机：Bank0~13 属于 CAN1，CAN2 只能用 Bank14~27，
-   * 这里用 14（与 SlaveStartFilterBank 一致）。写的是 CAN1 地址空间的滤波寄存器。 */
+  /* CAN2 使用 Bank14~27，这里用 14（与 SlaveStartFilterBank 一致）。
+   * 滤波器寄存器写入共享过滤器寄存器组。 */
   sFilterConfig->FilterBank = 14;
   sFilterConfig->FilterMode = CAN_FILTERMODE_IDMASK;
   sFilterConfig->FilterScale = CAN_FILTERSCALE_32BIT;
   sFilterConfig->FilterActivation = ENABLE;
-  /* F407 的 CAN1/CAN2 共用滤波器，Bank 0~13 分给 CAN1 */
+  /* F407 的 CAN 滤波器由两个 CAN 实例共享。 */
   sFilterConfig->SlaveStartFilterBank = 14;
 }
 
@@ -256,14 +256,14 @@ void HCan_ClearRxFlag(void)
 /* ------------------------- HAL 接收回调 ---------------------------- */
 
 /**
- * @brief  CAN1 FIFO0 接收到消息
+ * @brief  CAN2 FIFO0 接收到消息
  */
 void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
 {
   CAN_RxHeaderTypeDef rx_header;
   uint8_t data[8];
 
-  if ((hcan == NULL) || (hcan->Instance != CAN1))
+  if ((hcan == NULL) || (hcan->Instance != CAN2))
   {
     return;
   }

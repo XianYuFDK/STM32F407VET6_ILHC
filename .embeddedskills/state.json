@@ -1,0 +1,32 @@
+{
+  "last_observe": {
+    "type": "serial_hex",
+    "port": "COM9",
+    "baudrate": 115200,
+    "bytes_received": 9765,
+    "duration_sec": 2.0,
+    "timestamp": "2026-09-17T17:21:56+08:00"
+  },
+  "last_build": {
+    "provider": "eide",
+    "action": "build",
+    "project": "MDK-ARM",
+    "config": "STM32F407VET6_ILHC",
+    "log_dir": ".embeddedskills/build",
+    "artifacts": {
+      "hex_file": "MDK-ARM/build/STM32F407VET6_ILHC/STM32F407VET6_ILHC.hex",
+      "axf_file": "MDK-ARM/build/STM32F407VET6_ILHC/STM32F407VET6_ILHC.axf",
+      "flash_file": "MDK-ARM/build/STM32F407VET6_ILHC/STM32F407VET6_ILHC.hex",
+      "debug_file": "MDK-ARM/build/STM32F407VET6_ILHC/STM32F407VET6_ILHC.axf",
+      "build_dir": "MDK-ARM/build/STM32F407VET6_ILHC",
+      "log_file": ".embeddedskills/build/MDK-ARM-STM32F407VET6_ILHC-build.log"
+    },
+    "hex_file": "MDK-ARM/build/STM32F407VET6_ILHC/STM32F407VET6_ILHC.hex",
+    "axf_file": "MDK-ARM/build/STM32F407VET6_ILHC/STM32F407VET6_ILHC.axf",
+    "flash_file": "MDK-ARM/build/STM32F407VET6_ILHC/STM32F407VET6_ILHC.hex",
+    "debug_file": "MDK-ARM/build/STM32F407VET6_ILHC/STM32F407VET6_ILHC.axf",
+    "build_dir": "MDK-ARM/build/STM32F407VET6_ILHC",
+    "log_file": ".embeddedskills/build/MDK-ARM-STM32F407VET6_ILHC-build.log",
+    "timestamp": "2026-09-17T19:21:56+08:00"
+  }
+}

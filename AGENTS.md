@@ -1,5 +1,50 @@
 # 工程导航与维护约定
 
+## 当前坐标契约（2026-09-17，优先级最高）
+
+全工程统一使用以下车体/场地坐标，**不再建立任何内外坐标交换或取反层**：
+
+- `+X = 车左`，`-X = 车右`
+- `+Y = 车头`，`-Y = 车尾`
+- `+Z = 逆时针`
+
+固件变量、串口协议、遥测、底盘位置环和 Qt 内部状态都直接使用该轴序：
+
+- `pos_x` 就是 X（左右，+左），`pos_y` 就是 Y（前后，+前）；
+- `MANUAL/GOTO/OPSOFFSET` 的 X/Y 原义传递，不再交换；
+- `KPX -> mKpx`、`KPY -> mKpy`；
+- 位置环 P 增益在“世界误差旋转到车体坐标”之后应用：
+  `cmd_x = mKpx*(c*devx+s*devy)`、`cmd_y = mKpy*(-s*devx+c*devy)`，
+  避免航向不为 0 时 X/Y 增益串轴；
+- 麦轮公式：`[+Y-X-Z, -Y-X-Z, +Y+X-Z, -Y+X-Z]`；
+- OPS 原始帧实车标定 `+x_raw=车右`、`+y_raw=车头`，唯一映射为
+  `X=-x_raw`、`Y=+y_raw`；
+- OPS 默认安装统一坐标 `(X=左60, Y=后-50)mm`，协议下发
+  `OPSOFFSET=60.0,-50.0`；
+- Qt `manual_vector` 与控件偏移也使用 `(X,Y,Z)`，不保留旧的
+  `(前后,左右)` 本地顺序。
+
+本文件下方较早的坐标描述中，凡出现“内部前后/左右”“交换后取反”
+`Debug_UserToInternal`/`Debug_InternalToUser`、`KPX->mKpy`、或把
+`pos_x` 描述为前后轴的段落，均属于历史记录，已被本节取代，不得据此实现。
+
+2026-09-17 主接收端协议升级：`Hardware/ops.c/.h` 现同时解析旧
+`0x5C`/14B/CRC8 与新 `0x5D`/28B/CRC16 帧；USART2 改为 64B 流式 DMA 解析，
+支持 flags、session_id、拆包重同步和错误回调任务级重挂。初始化先发旧
+`C5 30` 兼容旧 OPS，再发 `C5 32` 固定新协议方向 2；V2 session 变化会取消
+旧 GOTO 并重设本地原点参考。回归入口：`Tests/hardware/test_ops_protocol.py`。
+
+2026-09-17 单位变更（最新）：移动/定位协议的 `GOTO=X,Y,Z` 中 X/Y 改为 **cm、保留 1 位小数**，
+24 通道遥测的 ch0/ch1（位置）和 ch3/ch4（误差）也改为 cm；F407 内部 PID、限幅和到位阈值仍使用 mm。
+协议边界按 `1 cm = 10 mm` 换算，GOTO 对外范围 ±300.0cm（内部 ±3000mm）；OPSOFFSET 与步进命令继续使用 mm。
+Qt 地图几何/碰撞检查继续用 mm，但显示、地图原点输入和 GOTO 发送全部使用 cm。
+
+2026-09-17 轮控回退（最新，撤销上一轮 2/4 号输出极性补偿）：实车按 W 变成旋转后，已从
+`SetMotorVoltageAndDirection()` 删除 `s_motor_dir_invert` 和额外取反逻辑，恢复为“逻辑轮速正号转
+CW、负号转 CCW”。混控公式保持不变；W 最终 ZDT 图案仍是 `[+ - + -]`，A 为 `[- - + +]`，
+Q 为 `[- - - -]`。不要在移动控制层再次加入 2/4 轮极性翻转；回归入口
+`Tests/hardware/test_mecanum_mixer.py`。
+
 2026-09-17 回退（**推翻**下面第一条的 y 取反）：实车 `GOTO=0,1000,0` 表现为"先前 1 米、再横移"，
 且地图显示航向≈90°。结论：
 ① **"车实际向右 / 上位机显示向左"不是矛盾，而是坐标系混淆**：地图抬头写明"航向0°左、90°上"，
@@ -62,8 +107,8 @@ rx/ry 取号互换并把输出 y 一并取反（两行）。确认前**不要跑
 **⑤ ZDT ACK 校验升级**：原先只比 `frame[0]`（地址），Stop/Enable 的迟到回包会被当成速度帧成功应答；
 现新增 `s_zdt_watch_cmd`，必须 **地址 + 功能码(0xF6)** 同时匹配，且**状态码 == 0x02** 才算成功，
 非 0x02 新增事件11 文本 `ERR ZDT REPLY STATUS != 0x02 (SEE RAW FRAME)`（原先 0xE2/0xEE 与成功无区别）。
-**⑥ Qt 侧**：`manual_vector` 统一为**协议顺序 (左右X, 前后Y, 旋转W)**，`_manual_tick()` 直接原样下发
-不再交换；"反向"开关顺序同步为（左右反向/前后反向/旋转反向）。
+**⑥ Qt 侧**：`manual_vector` 保持**(前后, 左右, 旋转)物理顺序**，`_manual_tick()` 发送前交换为协议
+顺序 `MANUAL=X(左右),Y(前后),W`；"反向"开关顺序保持（前后反向/左右反向/旋转反向）。
 **⑦ 串口健壮性**：`zdt_x42s.c` 滑窗写入前补 `if (s_rx_count >= 4U) s_rx_count = 0U;` 越界兜底。
 **未改动（经核实本来就正确）**：世界→车体的旋转矩阵（`chassis_move` 229-237，θ 用弧度、
 `R(-θ)·diag(mKpx,mKpy)`，等价于 `VX=cosθ·Kpx·devx+sinθ·Kpy·devy`）、`devz` 的 ±180° wrap
@@ -71,8 +116,8 @@ rx/ry 取号互换并把输出 y 一并取反（两行）。确认前**不要跑
 near 100mm/30°)、`devx=目标-当前` 的负反馈配对、轮序（俯视车头朝上：左前1/右前2/左后3/右后4）、
 ZDT F6/Emm 帧格式、USART1 的 DMA+空闲接收与行缓冲边界、Qt 的 JustFloat/ASCII 双模式解析
 （`_scan_text` 遇到二进制字节即丢弃候选行）与地图单次交换（`field_to_layout` 只做显示旋转+偏移）。
-**已知遗留（未改，需实车确认）**：a) P 增益乘在旋转之前，`KPX≠KPY` 时行进方向会有偏差（默认两者
-都是 2.3 时精确等价，故未动公式，已在 `chassis_move` 注明）；b) `ZDT_X42S_SpeedAcc` 内仍保留
+**已修复**：a) P 增益原先乘在旋转之前，`KPX≠KPY` 时行进方向会有偏差；现已改为先把世界误差旋转到
+车体坐标，再分别乘 `mKpx/mKpy`，并由 `Tests/hardware/test_chassis_pid.py` 运行时锁定。**仍在观察**：b) `ZDT_X42S_SpeedAcc` 内仍保留
 单轮裁剪（现在因上游整体限幅而不会触发，属于最后一道保险）；c) `vKpx/vKpy/vKpz/cvKpz` 四个全局量
 声明后全工程未使用；d) OPS 的 `s_mount_x_mm` 符号结论依赖"传感器 +x 与车头同向"这一安装假设，
 若实车旋转测试仍画圆，把 `ops.c` 补偿矩阵的两个 rx 项符号再翻一次即可（一行）。
@@ -179,12 +224,13 @@ CAN1 启动失败 → `DebugUsart_Init` 置 `s_zdt_text_mode=1`（`debug_usart.c
 `中心相对位移 = 原始OPS位移 - (R(yaw)-R(参考yaw))*r` 的形式均未变。mecanum_control.c 的 chassis_move()
 误差同步改为 `devx = 目标 - pos_x`、`devy = 目标 - pos_y`（原为 当前-目标），与 ops.c 必须成对出现，
 否则位置环变成正反馈；置零状态下逐周期轮速与改动前完全相同，底层两条麦轮公式本轮刻意未改。
-debug_usart.c 只在边界各交换一次：遥测 `data[0]=pos_y`、`data[1]=pos_x`、`data[3]=devy`、`data[4]=devx`、
-`data[6]=mKpy`、`data[7]=mKpx`（ch2/ch5/ch8 及其余通道、24 通道数与 JustFloat 帧尾不变；固件内部变量仍是
+debug_usart.c 只在边界各交换一次：遥测经适配层后 `data[0]=user_x*0.1f`、`data[1]=user_y*0.1f`、
+`data[3]=err_x*0.1f`、`data[4]=err_y*0.1f`、`data[6]=mKpy`、`data[7]=mKpx`（ch2/ch5/ch8 及其余通道、
+24 通道数与 JustFloat 帧尾不变；固件内部变量仍是
 `pos_x`=前后、`pos_y`=左右，交换只发生在打包/解析边界）；`KPX` 改指左右轴增益 `mKpy`、`KPY` 改指前后轴
 增益 `mKpx`，两个命令名和 0~50 范围不变。协议：`MANUAL=X(左右),Y(前后),W`，固件调用
 `MecanumControl_MoveVelocity(v[1], v[0], v[2])`（该 C 接口形参顺序仍是(前后,左右,旋转)）；
-`GOTO=X(场地左右),Y(场地前后),Z`（Z 可省略则保持当前航向，x/y 仍 ±3000mm）；`OPSOFFSET=X(左右安装偏移,
+`GOTO=X(场地左右),Y(场地前后),Z`（Z 可省略则保持当前航向，x/y 为 ±300.0cm；固件内部换算为 ±3000mm）；`OPSOFFSET=X(左右安装偏移,
 左+右−),Y(前后安装偏移,前+后−)`（±500mm），物理默认安装（车左60mm、车后50mm）现下发
 `OPSOFFSET=60.0,-50.0`，`OPS_SetMountOffset` 形参顺序仍是(前后,左右)。Qt：地图 +X=屏幕左、+Y=屏幕上，
 与协议轴序重合，`_ops_to_field`/`_field_to_ops` 不再交换或取反、只做一次 `map_theta` 标定旋转，地图几何、
@@ -196,7 +242,7 @@ JSON 键 `x_mm`=前后、`y_mm`=左右保持不变（与线序相反）；遥测
 「X 轴误差（左右）」「Y 轴误差（前后）」「X 轴 P（左右）」「Y 轴 P（前后）」，底盘参数标签为
 「X 轴 P 系数（左右）」「Y 轴 P 系数（前后）」，CSV 列名 `pos_x/pos_y/devx/devy…` 不变。回归：新增
 Tests/hardware/test_coordinate_chain.py（源码文本锁定上述边界交换，并断言 24 通道帧格式与麦轮公式未被波及）
-与 test_parse_line_axes.py（编译真实 Debug_ParseLine，验证 GOTO/OPSOFFSET/KPX/KPY 的内部落点、±3000 钳位、
+与 test_parse_line_axes.py（编译真实 Debug_ParseLine，验证 GOTO/OPSOFFSET/KPX/KPY 的内部落点、±300.0cm→mm 钳位、
 省略 Z、超限钳位到 50 与 WHEELOFF 失能闸门）；test_ops_offset.py、test_debug_manual.py 按新符号/新顺序更新；
 Qt 新增 test_telemetry_direction_matches_field_axes。**当时的"已知未修"问题**（chassis_move 与
 MecanumControl_MoveVelocity 两条麦轮公式的轴通道归属互换）已于同日按实车证据单独修复，见本文件
@@ -346,11 +392,15 @@ HAL 毫秒时基由 TIM7 中断和 `HAL_TIM_PeriodElapsedCallback()` 维护；RT
 
 ### OPS 与底盘
 
-- OPS 上行：`0x5C + float32 x + float32 y + float32 z + CRC8`，14 字节。CRC 算法以 `ops.c` 实现为准。
+- OPS 上行同时支持：V1 `0x5C + float32 x + float32 y + float32 z + CRC8`（14 字节）；
+  V2 `0x5D + ver/len/flags + seq + session_id + timestamp + float32 x/y/z + CRC16`（28 字节）。
+  V2 位姿必须同时满足 `POS_VALID/IMU_ONLINE/ENC_VALID` 才会发布；CRC/字段定义以 `ops.c` 为准。
 - OPS 原始坐标与 `OPS_GetPosition()` / `OPS_GetAbsolutePosition()` 返回单位为 **m、rad**；`mecanum_control.c` 内统一转换为 **mm、deg**。
-- `OPS_ZeroCoordinates()` 仅在本地记录 X/Y 原点；不重置 OPS 本体，也不将 yaw 清零。`OPS_ClearZero()` 恢复绝对 X/Y。置零分支不再反号：`GetPosition = 原始相对位移 - 偏心旋转位移`，与非置零分支同为物理正向（内部 `pos_x` 向前增大、`pos_y` 向左增大）。
-- `OPS_Init()` 发送 `0xC5 0x22` 和 `0xC5 0x30`，包含启动等待；不是可在中断里调用的轻量操作。
-- `chassis_move(x,y,z)` 计算位置误差、P 控制、限幅、速度斜坡及到位状态；由 `SetMotorVoltageAndDirection()` 实际下发轮速。误差定义为 `目标 - 当前`（`devx`=前后、`devy`=左右），必须与 ops.c 的置零正向坐标成对，否则位置环变正反馈；两条麦轮公式已于 2026-09-16 按实车修正为同约定（chassis_move 的 speed[1]/speed[2] 交叉项已对调）。
+- `OPS_ZeroCoordinates()` 在本地同时记录 X/Y 原点和当前 Z 零点；不重置 OPS 本体。`OPS_ClearZero()` 恢复绝对 X/Y/Z。置零分支不再反号：`GetPosition = 原始相对位移 - 偏心旋转位移`，与非置零分支同为物理正向（统一坐标 `pos_x` 向左增大、`pos_y` 向前增大，`Z` 以清零姿态为 0）。
+- `OPS_Init()` 发送 `0xC5 0x22` 复位，先发 `0xC5 0x30` 兼容旧 OPS 启动，再发 `0xC5 0x32`
+  固定新协议方向 2；包含启动等待，不是可在中断里调用的轻量操作。USART2 错误恢复由
+  `OPS_ServiceRx()` 在默认任务上下文执行。
+- `chassis_move(x,y,z)` 计算位置误差、P 控制、限幅、速度斜坡及到位状态；由 `SetMotorVoltageAndDirection()` 实际下发轮速。误差定义为 `目标 - 当前`（`devx`=X左右、`devy`=Y前后），必须与 ops.c 的置零正向坐标成对，否则位置环变正反馈；麦轮矩阵保持统一坐标公式，输出层只做逻辑符号到 CW/CCW 的直接映射，不得再加入 2/4 轮极性翻转。
 - `MecanumControl_GotoOPS()` 封装计算与输出，输入 mm/deg；OPS 超过 200ms 未更新时停车。调试层会在离线或到位后取消 GOTO。
 - `MecanumControl_MoveVelocity(vxRpm,vyRpm,vzRpm)` 的输入是 RPM 形式的速度分量，不是 m/s 或 rad/s。
 - 实际位置控制是 P 控制；`SetPid` / `SetYawPid` 的兼容名称不代表完整 PID，修改前查看实现。不要自动重新加入 `mecanum_pid.c`。
@@ -371,7 +421,7 @@ HAL 毫秒时基由 TIM7 中断和 `HAL_TIM_PeriodElapsedCallback()` 维护；RT
 - 下行命令为 ASCII，每行以 CR 或 LF 结束，命令不区分大小写。参数表 `s_params` 和解析入口 `Debug_ParseLine()` 位于 `debug_usart.c`。
 - 遥测为 **24 个小端 float32 + `00 00 80 7F`**，共 100 字节，标准 VOFA+ JustFloat，没有额外 `55 AA` 帧头。
 - 通道 0..11 是底盘位姿、误差、参数和首轮目标速度；12..23 是 DM ID、反馈和目标参数。完整映射查看 `DebugUsart_Send()` 及调试手册。
-- 对外坐标约定：+X=左右轴（车左+）、+Y=前后轴（车前+）、+Z=逆时针为正，置零与否符号一致；固件内部变量仍是 `pos_x`=前后、`pos_y`=左右，X/Y 只在遥测打包（ch0/ch1、ch3/ch4、ch6/ch7）、`MANUAL`/`GOTO`/`OPSOFFSET` 解析和 `KPX`/`KPY` 参数表指针四处各交换一次。改动任一处都要核对其他三处并同步 Qt `core.py`（CSV 列名 `pos_x/pos_y/devx/devy` 未随显示名改动）。
+- 对外与内部统一坐标：+X=左右轴（车左+）、+Y=前后轴（车前+）、+Z=逆时针为正，置零与否符号一致；固件 `pos_x` 就是 X，`pos_y` 就是 Y，遥测、`MANUAL`/`GOTO`/`OPSOFFSET` 和 `KPX`/`KPY` 均直接使用该轴序，不存在交换层。Qt `core.py/main.py` 使用相同轴序（CSV 列名仍为 `pos_x/pos_y/devx/devy`）。
 - 固件不提供普通文本 ACK；不要把打印文本混入同一遥测流。
 - `PING` 建议每 200ms 发送；固件超过 1s 没收到完整命令行时停止活动的 GOTO/DM 调试动作。上位机由 GUI 主循环产生心跳。
 - `STOP` 取消 GOTO、停车并失能 DM；`ZERO` 先取消定位移动并停车，再置本地 X/Y 原点。
@@ -409,7 +459,8 @@ Qt 完整运行依赖见其 `requirements.txt`，`--selftest` 在加载 Qt 界�
 - 中断回调只做必要解析和状态更新；阻塞发送、等待、复杂控制放任务中。共享结构快照保护需恢复进入临界区前的 PRIMASK，不可无条件开中断。
 - 新增 UART4 轮速输出前先确认四轮使能状态：ZDT_X42S 在速度模式下收到速度命令会重新使能并锁轴，失能后多一条速度帧就会把失能帧覆盖掉。停车分两条路径，`MecanumControl_Stop()` 会发速度 0 帧，`MecanumControl_ClearTarget()` 只清软件目标。
 - DMA 发送缓冲区在传输完成前不能重写；新增任务或增加局部缓冲区时核对默认任务 512 字节栈及 RTOS 堆。
-- OPS 当前按单个 14 字节帧接收，没有完整的字节流重同步/拼帧机制；不要描述成任意拆包粘包均可恢复。
+- OPS 当前使用 64 字节 DMA 缓冲和逐字节流式解析，支持 V1/V2 拆包、粘包和噪声后重同步；
+  但仍然依赖真实 USART2/DMA 中断时序和 OPS 端 CRC 正确，不能把主机回放测试等同于实车验证。
 - 主机失联保护在调试任务中执行，不是所有底层运动 API 的统一保护。UART4 发送仍阻塞且未解析电机应答；DM 模式切换也未读回确认。
 - `main()` 启动时会使能底盘。调试程序真实串口连接和命令可能产生运动；阅读、文档和构建任务本身不要求自动烧录或发送运动命令。
 - 上位机地图支持固定障碍与直线路径检查；不等于固件避障，也未实现完整车体膨胀和自动绕障。

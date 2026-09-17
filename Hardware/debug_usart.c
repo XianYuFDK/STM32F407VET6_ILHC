@@ -6,13 +6,12 @@
  *          - VOFA+ JustFloat 数据帧：N*float + 0x00 0x00 0x80 0x7F
  *          - DMA 空闲接收 ASCII 命令：KPX=3.0、XVMAX=1600、STOP、ZERO
  *                            以及 DM 电机：DMID/DMEN/DMOFF/DMMODE/DMPOS 等
- *          - 坐标约定（对外统一）：+X=小车左方、+Y=小车正前方、+Z=逆时针为正；
- *            X为左右轴、Y为前后轴。遥测、MANUAL、GOTO、OPSOFFSET 全部按此顺序。
- *            底盘内部沿用 pos_x=前后、pos_y=左右；内外转换集中在下面的两个适配
- *            函数（Debug_UserToInternal / Debug_InternalToUser）里，别处禁止再换。
+ *          - 统一坐标约定（协议与底盘内部相同）：
+ *            +X=车左、+Y=车头、+Z=逆时针；X/Y 直接对应 pos_x/pos_y，
+ *            不存在交换或取反的适配层。
  *          - GOTO=x,y,z：上位机点击场地地图下发 OPS 全局定位移动目标（x=左右、
- *            y=前后、z=航向角），本任务每 20ms 周期执行一步 MecanumControl_GotoOPS，
- *            STOP 取消
+ *            y=前后，单位 cm 且保留 1 位小数；z=航向角），本任务每 20ms 周期执行
+ *            一步 MecanumControl_GotoOPS，STOP 取消。固件内部仍用 mm 闭环。
  *          - WHEELEN/WHEELOFF：底盘四轮统一锁轴/释放，失能期间拒绝运动命令；
  *            失能后停车只清目标（MecanumControl_ClearTarget），绝不再发速度帧，
  *            否则ZDT_X42S会重新使能锁轴，表现为"失能了还是锁"
@@ -60,54 +59,17 @@ typedef struct
   float       max;
 } DebugParam_t;
 
-/* 可调参数表
- * 命名与对外坐标约定一致：X=左右轴、Y=前后轴，因此 KPX 指向左右轴增益 mKpy，
- * KPY 指向前后的 mKpx。内部变量名与解算公式不变，只在此处做一次映射；
- * 遥测 data[6]/data[7] 同步按 mKpy/mKpx 打包，保证"写入的"与"回读的"是同一个量。 */
+/* 可调参数表：KPX 直接写 X=左右轴增益 mKpx，KPY 直接写 Y=前后轴增益 mKpy。 */
 static const DebugParam_t s_params[] =
 {
-  {"KPX",   &mKpy,   0.0f,   50.0f},
-  {"KPY",   &mKpx,   0.0f,   50.0f},
+  {"KPX",   &mKpx,   0.0f,   50.0f},
+  {"KPY",   &mKpy,   0.0f,   50.0f},
   {"KPZ",   &mKpz,   0.0f,   50.0f},
   {"XVMAX", &XYVmax, 0.0f,   3000.0f},
   {"ZVMAX", &ZVmax,  0.0f,   3000.0f},
   {"XVMIN", &XYVmin, 0.0f,   100.0f},
   {"ZVMIN", &ZVmin,  0.0f,   100.0f},
 };
-
-/* ====================== 坐标适配层（全工程唯一转换点） ======================
- * 对外（上位机 / 串口协议 / 比赛场地地图）统一约定：
- *   X  : 左右轴， +X = 车左        -X = 车右
- *   Y  : 前后轴， +Y = 车头方向    -Y = 车尾方向
- *   Z/W: 航向角， + = 自顶向下看逆时针(CCW)   - = 顺时针(CW)
- *   MANUAL=X,Y,W 与 GOTO=X,Y,Z 的 X/Y/Z 含义同上。
- *
- * 底盘内部（Hardware/mecanum_control.c、Hardware/ops.c，本次不改动其公式）：
- *   pos_x / devx / MoveVelocity 第1形参 : 前后轴，但 **+ 指向车尾**（与对外 +Y 反号）
- *   pos_y / devy / MoveVelocity 第2形参 : 左右轴， + 与车左 **同向**
- *   zangle : 航向角(单位:度)，+ = 逆时针（与对外一致）
- *
- * 所以 对外 ↔ 内部 = 交换"左右/前后"两轴，并且**只把前后轴取反**
- * （几何上等价于沿车体左右轴做一次镜像，不是 180° 旋转）。
- * 实车标定依据：键盘 W 要车头、A 要车左，只有按此映射才同时成立；
- * 若两轴都取反（180° 旋转）实测 A/D 会反；若都不取反则 W/S 会反。
- *
- * >>> 全工程只有下面两个函数做坐标变换，其它文件/层级一律不得再交换 X/Y，
- *     否则会出现二次交换（底层换一次、Qt 再换一次 = 方向又变回去）。 <<<
- */
-static void Debug_UserToInternal(float user_x_left, float user_y_forward,
-                                 float *internal_forward, float *internal_lateral)
-{
-  if (internal_forward != NULL) { *internal_forward = -user_y_forward; }  /* 用户+Y(前) → 内部前后为负 */
-  if (internal_lateral != NULL) { *internal_lateral =  user_x_left;    }  /* 左右同向(+左) */
-}
-
-static void Debug_InternalToUser(float internal_forward, float internal_lateral,
-                                 float *user_x_left, float *user_y_forward)
-{
-  if (user_x_left    != NULL) { *user_x_left    =  internal_lateral;   }  /* 内部左右即用户+X */
-  if (user_y_forward != NULL) { *user_y_forward = -internal_forward;   }  /* 内部前后取反才是用户+Y */
-}
 
 /* --------------------------- 私有变量 ------------------------------ */
 static uint8_t s_rx[DEBUG_RX_SIZE];
@@ -382,7 +344,7 @@ static uint8_t Debug_StrCaseCmpN(const char *a, const char *b, uint32_t n)
 }
 
 /**
- * @brief  解析逗号分隔的浮点列表，例如 "1200,800,90"
+ * @brief  解析逗号分隔的浮点列表，例如 "120.0,80.0,90.0"
  * @return 解析出的个数（0 ~ max）
  */
 static uint8_t Debug_ParseFloatList(const char *s, float *out, uint8_t max)
@@ -700,13 +662,10 @@ static void Debug_ServiceManual(void)
     return;
   }
   if (v[0] == 0 && v[1] == 0 && v[2] == 0) MecanumControl_Stop();
-  /* 协议 MANUAL=X,Y,W 为 X=左右速度(+车左)、Y=前后速度(+车头)、W=旋转(+逆时针)。
-   * 经适配层转到内部(前后, 左右, 旋转)：变换只发生在 Debug_UserToInternal() 里。 */
+  /* MANUAL 与底盘统一坐标完全同序：X=左、Y=前、W=逆时针。 */
   else
   {
-    float fwd, lat;
-    Debug_UserToInternal((float)v[0], (float)v[1], &fwd, &lat);
-    MecanumControl_MoveVelocity(fwd, lat, (float)v[2]);
+    MecanumControl_MoveVelocity((float)v[0], (float)v[1], (float)v[2]);
   }
 }
 
@@ -908,15 +867,9 @@ static void Debug_ParseLine(char *line)
     float v[2];
     if (Debug_ParseOffset(line + 10U, v))
     {
-      /* 协议 OPSOFFSET=X,Y 为 X=左右安装偏移(+车左)、Y=前后安装偏移(+车头)，
-       * 例如 OPSOFFSET=60,-50 表示 OPS 装在车左60mm、车后50mm。
-       * OPS_SetMountOffset 形参是内部(前后, 左右)，经适配层转换后暂存，
-       * 由 DebugUsart_Send 在任务上下文里下发（中断内不做耗时操作）。 */
-      {
-        float fwd, lat;
-        Debug_UserToInternal(v[0], v[1], &fwd, &lat);
-        s_offset_x = fwd; s_offset_y = lat;
-      }
+      /* OPSOFFSET 与统一坐标同序：X=左偏移、Y=前偏移。
+       * 例如 OPSOFFSET=60,-50 表示 OPS 装在车左60mm、车后50mm。 */
+      s_offset_x = v[0]; s_offset_y = v[1];
       s_offset_req = 1U;
     }
     return;
@@ -992,7 +945,8 @@ static void Debug_ParseLine(char *line)
     return;
   }
 
-  /* GOTO=x,y,z：OPS 全局定位移动目标，z 可省略（保持当前航向）。
+  /* GOTO=x,y,z：OPS 全局定位移动目标，x/y 单位 cm（1位小数），z 可省略（保持当前航向）。
+   * 对外坐标范围 ±300.0 cm；按统一轴序直接换算为内部 mm。
    * 四轮失能时不接受新目标，避免释放状态下位置环持续输出轮速。 */
   if ((Debug_StrCaseCmpN(line, "GOTO", 4U) == 0U) && (line[4] == '='))
   {
@@ -1001,21 +955,31 @@ static void Debug_ParseLine(char *line)
 
     if ((n >= 2U) && (Debug_WheelReady() != 0U))
     {
-      if (v[0] < -3000.0f) { v[0] = -3000.0f; }
-      if (v[0] > 3000.0f)  { v[0] = 3000.0f; }
-      if (v[1] < -3000.0f) { v[1] = -3000.0f; }
-      if (v[1] > 3000.0f)  { v[1] = 3000.0f; }
+      if (v[0] < -300.0f) { v[0] = -300.0f; }
+      if (v[0] > 300.0f)  { v[0] = 300.0f; }
+      if (v[1] < -300.0f) { v[1] = -300.0f; }
+      if (v[1] > 300.0f)  { v[1] = 300.0f; }
+
+      /* cm → mm：协议只表达 0.1cm，转换为整数 mm 后直接进入位置环。
+       * 正负分别加减 0.5 后向零取整，等价于按最近 1mm 取整。 */
+      v[0] = (v[0] >= 0.0f)
+           ? (float)(int32_t)((v[0] * 10.0f) + 0.5f)
+           : (float)(int32_t)((v[0] * 10.0f) - 0.5f);
+      v[1] = (v[1] >= 0.0f)
+           ? (float)(int32_t)((v[1] * 10.0f) + 0.5f)
+           : (float)(int32_t)((v[1] * 10.0f) - 0.5f);
 
       s_manual_active = 0U;
-      /* 协议 GOTO=X,Y,Z 为**场地(世界)坐标**：X=场地左右(+车左)、Y=场地前后(+车头)，
-       * 单位 mm，超出 ±3000 已在上方钳位；z 省略时保持当前航向。
-       * 内部 s_goto_x/s_goto_y 是(前后, 左右)车体轴，经适配层转换；
-       * 世界→车体的旋转由 MecanumControl_GotoOPS 内部完成。 */
+      /* GOTO=X,Y,Z 与底盘统一坐标同序：X=场地左、Y=场地前，单位已换算为 mm。 */
+      s_goto_x = v[0];
+      s_goto_y = v[1];
+      /* 目标航向必须钳位并拒 NaN/Inf：否则 devz 可能变成 Inf，
+       * 位置环里的回绕会永不退出（20ms 任务永久挂死）。
+       * 取反写法 (!(x >= -3600 && x <= 3600)) 可同时拒绝 NaN。 */
+      if (!(v[2] >= -3600.0f && v[2] <= 3600.0f))
       {
-        float fwd, lat;
-        Debug_UserToInternal(v[0], v[1], &fwd, &lat);
-        s_goto_x = fwd;
-        s_goto_y = lat;
+        s_goto_active = 0U;
+        return;
       }
       /* 目标航向未给出时保持当前航向 */
       s_goto_z = (n >= 3U) ? v[2] : zangle;
@@ -1144,6 +1108,15 @@ void DebugUsart_Init(void)
   /* 启动失败也保留恢复请求，由默认任务重试。 */
   s_rx_callbacks_ready = 0U;
   s_rx_recover = 1U;
+  /* OPS 错误恢复和会话变化必须先于遥测/运动服务处理。OPS 重启后
+   * 坐标系原点会变化，继续执行旧 GOTO 会产生错误方向，因此立即取消。 */
+  OPS_ServiceRx();
+  if (OPS_ConsumeSessionChanged() != 0U)
+  {
+    s_goto_active = 0U;
+    Debug_ChassisStop();
+  }
+
   DebugUsart_ServiceRx();
 }
 
@@ -1153,8 +1126,8 @@ void DebugUsart_Init(void)
 void DebugUsart_Send(void)
 {
   float data[DEBUG_VOFA_CHANNELS];
-  float user_x, user_y;      /* 适配层输出：用户坐标 X=左右(+左)、Y=前后(+车头) */
-  float err_x, err_y;        /* 适配层输出：用户坐标下的位置误差 */
+  float user_x, user_y;      /* 统一坐标：X=左右(+左)、Y=前后(+车头) */
+  float err_x, err_y;        /* 统一坐标下的位置误差 */
   DmJ4310Feedback_t dmFb;
   uint32_t i;
   uint32_t len;
@@ -1212,7 +1185,7 @@ void DebugUsart_Send(void)
     float x_mm, y_mm;
     primask = __get_PRIMASK();
     __disable_irq();
-    x_mm = s_offset_x; y_mm = s_offset_y;   /* s_offset_*=前后/左右，与SetMountOffset形参一致 */
+    x_mm = s_offset_x; y_mm = s_offset_y;   /* X=左偏移、Y=前偏移 */
     s_offset_req = 0U;
     s_manual_active = s_goto_active = 0U;
     if (primask == 0U) __enable_irq();
@@ -1376,21 +1349,21 @@ void DebugUsart_Send(void)
 
   /* 手动旋转/静止调试同样刷新补偿后位置，不依赖GOTO运行。 */
   MecanumControl_GetPose(&pos_x, &pos_y, &zangle);
-  /* 对外坐标：ch0=X=左右轴、ch1=Y=前后轴、ch2=Z=航向角，均为物理正向
-   * （车左/+、车头/+、逆时针/+）。
-   * 内部 pose 经 Debug_InternalToUser() 转到对外坐标 —— 变换只发生在那一个函数里；
-   * ch6/ch7 是 KPX/KPY 的回读（左右/前后增益），与参数表映射保持一致；
-   * 通道总数与帧格式不变。 */
-  Debug_InternalToUser(pos_x, pos_y, &user_x, &user_y);
-  Debug_InternalToUser(devx, devy, &err_x, &err_y);
-  data[0]  = user_x;
-  data[1]  = user_y;
+  /* 底盘内部已经使用统一坐标：ch0=X=左右、ch1=Y=前后、ch2=Z=航向角。
+   * ch6/ch7 直接回读 mKpx/mKpy；通道总数与帧格式不变。 */
+  user_x = pos_x;
+  user_y = pos_y;
+  err_x = devx;
+  err_y = devy;
+  /* 对外位置/误差统一为 cm；内部 pose/误差仍为 mm，仅在此打包边界缩放。 */
+  data[0]  = user_x * 0.1f;
+  data[1]  = user_y * 0.1f;
   data[2]  = zangle;
-  data[3]  = err_x;
-  data[4]  = err_y;
+  data[3]  = err_x * 0.1f;
+  data[4]  = err_y * 0.1f;
   data[5]  = devz;
-  data[6]  = mKpy;
-  data[7]  = mKpx;
+  data[6]  = mKpx;
+  data[7]  = mKpy;
   data[8]  = mKpz;
   data[9]  = XYVmax;
   data[10] = ZVmax;
@@ -1485,7 +1458,7 @@ void CAN_Rx_Callback(CAN_HandleTypeDef *hcan)
   DmJ4310Feedback_t fb;
   uint8_t rxData[8];
 
-  if ((hcan == NULL) || (hcan->Instance != CAN1))
+  if ((hcan == NULL) || (hcan->Instance != CAN2))
   {
     return;
   }

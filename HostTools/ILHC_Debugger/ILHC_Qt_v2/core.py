@@ -56,6 +56,8 @@ TELEMETRY_WARN_S = 0.35                          # 遥测延迟黄色阈值
 TELEMETRY_TIMEOUT_S = 1.00                       # 遥测超时红色阈值
 URGENT_COMMANDS = {"STOP", "DMSTOP", "DMOFF", "S28CANCEL", "S35CANCEL"}
 APP_NAME = "ILHC 调试上位机"
+# OPS 移动协议统一用 cm；地图几何/内部运动模拟仍用 mm，避免改变既有半径和限幅。
+OPS_CM_TO_MM = 10.0
 
 # 固件在 CAN 启动失败或 ZDT 文字调试时会进入文字模式并停止 24 通道遥测，
 # 只有收到 VOFA 才恢复。连接瞬间的那次 VOFA 可能落在固件启动空窗里丢失，
@@ -74,11 +76,11 @@ G_DM_FB = 2            # DM 电机反馈
 G_DM_CMD = 3           # DM 电机目标
 
 CHANNELS = [
-    (0,  "pos_x",        "OPS X 坐标（左右）", "mm",   G_CHASSIS_POS),
-    (1,  "pos_y",        "OPS Y 坐标（前后）", "mm",   G_CHASSIS_POS),
+    (0,  "pos_x",        "OPS X 坐标（左右）", "cm",   G_CHASSIS_POS),
+    (1,  "pos_y",        "OPS Y 坐标（前后）", "cm",   G_CHASSIS_POS),
     (2,  "zangle",       "航向角",       "°",    G_CHASSIS_POS),
-    (3,  "devx",         "X 轴误差（左右）", "",  G_CHASSIS_POS),
-    (4,  "devy",         "Y 轴误差（前后）", "",  G_CHASSIS_POS),
+    (3,  "devx",         "X 轴误差（左右）", "cm", G_CHASSIS_POS),
+    (4,  "devy",         "Y 轴误差（前后）", "cm", G_CHASSIS_POS),
     (5,  "devz",         "航向误差",     "",     G_CHASSIS_POS),
     (6,  "mKpx",         "X 轴 P（左右）", "",   G_CHASSIS_PID),
     (7,  "mKpy",         "Y 轴 P（前后）", "",   G_CHASSIS_PID),
@@ -560,10 +562,10 @@ class Simulator(threading.Thread):
         self.fb_status, self.fb_tmos, self.fb_trotor = 0, 35.0, 33.0
         self.zero_x, self.zero_y, self.zero_z = 0.0, 0.0, 0.0
         # GOTO 定位移动模拟（点击场地地图后小车驶向目标）
-        self.hold = None        # (x, y) 固定点位；None = 演示巡航
-        self.goto = None        # (x, y, z) 目标
+        self.hold = None        # (X=左, Y=前)，单位 mm；None = 演示巡航
+        self.goto = None        # (X=左, Y=前, Z=逆时针)，单位 mm/deg
         self.zval = 0.0         # 当前航向（deg）
-        self.ops_offset = (50.0, 60.0)   # 内部(前后,左右)：车后50→+50、车左60→+60
+        self.ops_offset = (60.0, -50.0)  # 统一坐标：车左60mm、车后50mm
         self.ops_reference_yaw = 0.0
         self.manual = None
         self.manual_tick = 0.0
@@ -577,6 +579,11 @@ class Simulator(threading.Thread):
     @staticmethod
     def _clamp(v, lo, hi):
         return lo if v < lo else (hi if v > hi else v)
+
+    def _relative_heading(self, zdeg=None):
+        """把内部连续航向换算为相对于最近一次 ZERO/OPSOFFSET 的角度。"""
+        z = self.zval if zdeg is None else zdeg
+        return (z - self.ops_reference_yaw + 180.0) % 360.0 - 180.0
 
     def handle_line(self, line):
         line = line.strip().upper()
@@ -613,8 +620,8 @@ class Simulator(threading.Thread):
                 ops_offset_command(left, forward)
             except (ValueError, OverflowError):
                 return
-            # 与固件内部(前后, 左右)顺序一致，且 +前后 指向车尾故取反，供偏心补偿换算使用。
-            self.ops_offset = (-forward, left)
+            # OPSOFFSET 与统一坐标完全同序：X=车左、Y=车头。
+            self.ops_offset = (left, forward)
             self.manual = self.goto = None
             self.hold = (0.0, 0.0)
             self.ops_reference_yaw = self.zval
@@ -662,13 +669,14 @@ class Simulator(threading.Thread):
                 parts = [float(p) for p in line[5:].split(",") if p.strip()]
             except ValueError:
                 return
-            if len(parts) >= 2:
+            if len(parts) >= 2 and all(math.isfinite(p) for p in parts):
                 self.manual = None
                 if self.hold is None:              # 从演示巡航位置切入定位模式
                     self.hold = (600.0 * math.sin(0.25 * self._t),
                                  450.0 * math.cos(0.19 * self._t))
-                self.goto = (self._clamp(parts[0], -3000, 3000),
-                             self._clamp(parts[1], -3000, 3000),
+                # 协议 X/Y 为 cm；模拟器内部 hold/位置仍用 mm。
+                self.goto = (self._clamp(parts[0], -300.0, 300.0) * OPS_CM_TO_MM,
+                             self._clamp(parts[1], -300.0, 300.0) * OPS_CM_TO_MM,
                              parts[2] if len(parts) >= 3 else self.zval)
             return
         if line == "DMEN":
@@ -715,22 +723,19 @@ class Simulator(threading.Thread):
             if time.monotonic() - self.manual_tick > 0.350:
                 self.manual = None
             else:
-                # 协议顺序 MANUAL=X(车左),Y(车头),W；hold 用内部(前后, 左右)，
-                # 与固件 MoveVelocity(-v[1], v[0], v[2]) 一致：交换后只把前后轴取反。
+                # MANUAL 与 hold 都是统一坐标：X=车左、Y=车头、W=逆时针。
                 left_rpm, forward_rpm, wz = self.manual
-                vx, vy = -forward_rpm, left_rpm
                 angle = math.radians(self.zval)
                 px, py = self.hold
                 # 演示换算，不代表实车轮径、轮距标定结果。
-                self.hold = (px + (vx * math.cos(angle) - vy * math.sin(angle)) / 0.238 / SEND_HZ,
-                             py + (vx * math.sin(angle) + vy * math.cos(angle)) / 0.238 / SEND_HZ)
+                self.hold = (px + (left_rpm * math.cos(angle) - forward_rpm * math.sin(angle)) / 0.238 / SEND_HZ,
+                             py + (left_rpm * math.sin(angle) + forward_rpm * math.cos(angle)) / 0.238 / SEND_HZ)
                 self.zval += wz / SEND_HZ
         n = lambda a=1.0: random.gauss(0, a)     # noqa: E731
         if self.goto is not None and self.hold is not None:
-            # GOTO 定位模式：以 500mm/s 限速驶向目标，航向最短路径逼近
-            # 协议顺序 GOTO=X(车左),Y(车头),Z；与固件 s_goto_x=-v[1]、s_goto_y=v[0] 一致。
-            left_t, forward_t, tz = self.goto
-            tx, ty = -forward_t, left_t
+            # GOTO 定位模式：以 500mm/s 限速驶向目标，航向最短路径逼近。
+            # GOTO 与 hold 都是统一坐标：X=车左、Y=车头、Z=逆时针。
+            tx, ty, tz = self.goto
             px, py = self.hold
             ddx, ddy = tx - px, ty - py
             dist = math.hypot(ddx, ddy)
@@ -739,11 +744,11 @@ class Simulator(threading.Thread):
                 px += ddx / dist * step
                 py += ddy / dist * step
                 self.hold = (px, py)
-            dz = (tz - self.zval + 180.0) % 360.0 - 180.0
+            dz = (tz - self._relative_heading() + 180.0) % 360.0 - 180.0
             if abs(dz) > 1.0:
                 self.zval += self._clamp(dz, -120.0 / SEND_HZ, 120.0 / SEND_HZ)
             else:
-                self.zval = tz
+                self.zval = self.ops_reference_yaw + tz
                 if dist <= 6.0:
                     self.goto = None             # 到位，原地保持
             pos_x = px + 3 * n()
@@ -789,18 +794,20 @@ class Simulator(threading.Thread):
             self.fb_trotor = max(30.0, self.fb_trotor - 0.012) + 0.02 * n()
         if self.hold is not None:
             angle, ref = math.radians(self.zval), math.radians(self.ops_reference_yaw)
-            dc, ds = math.cos(angle) - math.cos(ref), math.sin(angle) - math.sin(ref)
-            # 与 firmware ops.c 同一模型：OPS 原始帧是右手系(+x=车尾、+y=车右)，
-            # 真实安装"车后50、车左60" ⇒ 原始帧偏移 m_raw=(+50,-60)，
-            # 补偿用标准 CCW 矩阵，最后把 y 翻回内部(+车左)：pos_* 是内部坐标。
-            ex = 50.0 - self.ops_offset[0]
-            ey = -(60.0 - self.ops_offset[1])
-            pos_x -= dc * ex - ds * ey
-            pos_y -= -(ds * ex + dc * ey)
-        # 打包顺序镜像 debug_usart.c：ch0=X=车左(=pos_y)、ch1=Y=车头(=-pos_x)，
-        # ch3/ch4 同步；ch6/ch7 打包"KPX/KPY 所写入的那个量"，对应 data[6]=mKpy、data[7]=mKpx。
+            ca, sa = math.cos(angle), math.sin(angle)
+            cr, sr = math.cos(ref), math.sin(ref)
+            # 配置偏移与实际安装不一致时，旋转会留下安装半径残差。
+            # 统一坐标下：pos = 真实中心相对位移 + [R(-yaw)-R(-ref)]*(m_phys-m_cfg)。
+            dx = 60.0 - self.ops_offset[0]
+            dy = -50.0 - self.ops_offset[1]
+            pos_x += (ca * dx + sa * dy) - (cr * dx + sr * dy)
+            pos_y += (-sa * dx + ca * dy) - (-sr * dx + cr * dy)
+        zangle = self._relative_heading(zangle)
+        # 与 debug_usart.c 完全同序：ch0=X=车左、ch1=Y=车头、ch3/ch4 误差、
+        # ch6/ch7 分别回读 mKpx/mKpy；位置/误差对外为 cm，hold 仍为 mm。
         return (
-            pos_y, -pos_x, zangle, devy, -devx, devz,
+            pos_x / OPS_CM_TO_MM, pos_y / OPS_CM_TO_MM, zangle,
+            devx / OPS_CM_TO_MM, devy / OPS_CM_TO_MM, devz,
             self.kpx, self.kpy, self.kpz, self.xyvmax, self.zvmax, spd0,
             float(self.dm_id), self.fb_pos, self.fb_vel, self.fb_tor,
             float(self.fb_status), self.fb_tmos, self.fb_trotor,
@@ -976,7 +983,7 @@ def selftest():
     sim = Simulator(queue.Queue(), queue.Queue(), queue.Queue())
     sim.handle_line('WHEELOFF')
     sim.handle_line('MANUAL=60,0,0')
-    sim.handle_line('GOTO=100,100,0')
+    sim.handle_line('GOTO=10.0,10.0,0.0')
     assert sim.wheel_enabled is False and sim.manual is None and sim.goto is None
     sim.handle_line('WHEELEN')
     sim.handle_line('MANUAL=60,0,0')
