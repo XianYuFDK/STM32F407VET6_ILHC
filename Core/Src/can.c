@@ -70,7 +70,8 @@ void HAL_CAN_MspInit(CAN_HandleTypeDef* canHandle)
   /* USER CODE END CAN2_MspInit 0 */
     /* CAN2 是 CAN1 的从机：滤波器寄存器（FMR/FA1R/FiRx 等）位于 CAN1 地址空间，
      * CAN2 只能使用 Bank14~27（由 CAN_FMR.CAN2SB 划分）。因此 CAN1 的时钟
-     * 也必须使能，否则 CAN2 的滤波器和接收都无法工作。 */
+     * 也必须使能，否则 CAN2 的滤波器和接收都无法工作。业务帧使用 PB5/PB6
+     * 的 CAN2，不需要把总线切回 CAN1。 */
     __HAL_RCC_CAN1_CLK_ENABLE();
     __HAL_RCC_CAN2_CLK_ENABLE();
 
@@ -87,7 +88,7 @@ void HAL_CAN_MspInit(CAN_HandleTypeDef* canHandle)
     HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
 
-    /* CAN2 接收中断初始化（沿用 CAN1 的抢占优先级 5，与其它外设一致） */
+    /* CAN2 接收中断初始化（当前抢占优先级 5，与其它外设一致） */
     HAL_NVIC_SetPriority(CAN2_RX0_IRQn, 5, 0);
     HAL_NVIC_EnableIRQ(CAN2_RX0_IRQn);
 

@@ -35,11 +35,6 @@ static int out_dir[4];
 static int out_rpm[4];
 static int out_calls;
 
-static void HAL_Delay(uint32_t delay_ms)
-{
-  (void)delay_ms;
-}
-
 static void Mecanum_NormalizeWheelSpeed(int *speed, int limit)
 {
   (void)speed;

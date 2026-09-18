@@ -79,7 +79,9 @@ HAL_StatusTypeDef Motor28_AbsPosition(uint32_t r, uint16_t speed);
  * @param data 至少 length 字节的可读数据，函数内部复制，不保留指针。
  * @param length 有效数据长度 1..8。
  * @return 1 已缓存；0 非本模块 ID 或参数无效。
- * @note 仅由 CAN1 RX 中断分派调用，调用方先筛除标准帧和远程帧。
+ * @note 本项目由 CAN2（PB5 RX / PB6 TX）RX 中断分派调用；CAN2 使用 CAN1
+ *       共享 filter bank。
+ *       调用方先筛除标准帧和远程帧。
  *       不校验执行成功/到位码；新回复会覆盖旧回复，计数饱和于 UINT32_MAX。
  */
 uint8_t Stepper2835_OnRx(uint32_t id, const uint8_t *data, uint8_t length);

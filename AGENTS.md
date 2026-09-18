@@ -25,11 +25,23 @@
 `Debug_UserToInternal`/`Debug_InternalToUser`、`KPX->mKpy`、或把
 `pos_x` 描述为前后轴的段落，均属于历史记录，已被本节取代，不得据此实现。
 
+## 当前 CAN 契约（2026-09-18，优先级最高）
+
+- 当前业务 CAN 总线是 **CAN2**：`PB5=CAN2_RX`、`PB6=CAN2_TX`、1 Mbps。
+- DM、28/35 都通过 `Hardware/hcan.c` 使用 `hcan2`；当前接线不要再使用
+  `PA11`/`PA12` 作为 CAN 引脚。
+- CAN2 使用 CAN1 的共享 filter bank（CAN2 可用 Bank14~27），因此 **CAN1
+  外设时钟必须继续开启**。这不是把业务总线切回 CAN1，不能删除该时钟使能。
+- 下文历史记录中的 `CAN1`、`PA11`、`PA12` 只用于迁移前对照；当前配置以本节、
+  `Core/Src/can.c`、`Hardware/hcan.c` 和 `.ioc` 为准。
+
 2026-09-17 主接收端协议升级：`Hardware/ops.c/.h` 现同时解析旧
 `0x5C`/14B/CRC8 与新 `0x5D`/28B/CRC16 帧；USART2 改为 64B 流式 DMA 解析，
 支持 flags、session_id、拆包重同步和错误回调任务级重挂。初始化先发旧
-`C5 30` 兼容旧 OPS，再发 `C5 32` 固定新协议方向 2；V2 session 变化会取消
-旧 GOTO 并重设本地原点参考。回归入口：`Tests/hardware/test_ops_protocol.py`。
+`C5 30` 兼容旧 OPS，再发 `C5 32` 固定新协议方向 2；V2 session 变化会每周期
+被消费，取消旧 GOTO 和活动手动运动，并按 WHEELOFF 语义安全停车，同时重设
+本地原点参考。回归入口：`Tests/hardware/test_ops_protocol.py`、
+`Tests/hardware/test_ops_runtime_recovery.py`。
 
 2026-09-17 单位变更（最新）：移动/定位协议的 `GOTO=X,Y,Z` 中 X/Y 改为 **cm、保留 1 位小数**，
 24 通道遥测的 ch0/ch1（位置）和 ch3/ch4（误差）也改为 cm；F407 内部 PID、限幅和到位阈值仍使用 mm。
@@ -113,11 +125,11 @@ rx/ry 取号互换并把输出 y 一并取反（两行）。确认前**不要跑
 near 100mm/30°)、`devx=目标-当前` 的负反馈配对、轮序（俯视车头朝上：左前1/右前2/左后3/右后4）、
 ZDT F6/Emm 帧格式、USART1 的 DMA+空闲接收与行缓冲边界、Qt 的 JustFloat/ASCII 双模式解析
 （`_scan_text` 遇到二进制字节即丢弃候选行）与地图单次交换（`field_to_layout` 只做显示旋转+偏移）。
-**已知遗留（未改，需实车确认）**：a) P 增益乘在旋转之前，`KPX≠KPY` 时行进方向会有偏差（默认两者
-都是 2.3 时精确等价，故未动公式，已在 `chassis_move` 注明）；b) `ZDT_X42S_SpeedAcc` 内仍保留
-单轮裁剪（现在因上游整体限幅而不会触发，属于最后一道保险）；c) `vKpx/vKpy/vKpz/cvKpz` 四个全局量
-声明后全工程未使用；d) OPS 的 `s_mount_x_mm` 符号结论依赖"传感器 +x 与车头同向"这一安装假设，
-若实车旋转测试仍画圆，把 `ops.c` 补偿矩阵的两个 rx 项符号再翻一次即可（一行）。
+**已修复（2026-09-18）**：a) `chassis_move()` 已改为先把世界坐标误差旋转到车体坐标，
+再应用 `mKpx/mKpy`，并只对最终 `cmd_x/cmd_y` 各限幅一次；航向环启用 `ZVmin`，
+运行时回归入口 `Tests/hardware/test_chassis_move.py`。仍有待实车确认：b) `ZDT_X42S_SpeedAcc`
+内保留单轮裁剪（现在因上游整体限幅而不会触发，属于最后一道保险）；c) `vKpx/vKpy/vKpz/cvKpz`
+四个全局量声明后全工程未使用；d) OPS 安装矩阵仍需用原地旋转测试复核。
 **回归**：11 个固件套件 + Qt 31 用例全通过；`Code=32192`，0 错误 0 警告。
 
 2026-09-16 GOTO 横移修复（实车："手动 `GOTO=0,1000,0` 想让车沿 Y 前进 1 米，车却直接向右移动"）：
@@ -193,10 +205,13 @@ RX DMA `NDTR` 恒为 14/14 ⇒ **OPS 一个字节都没发过来**，不是坐�
 遥测会静默永久停止，建议加"连续 N 周期非 READY 就 Abort 复位"；③ 收发器与总线
 （CANH/CANL 短路、终端电阻、DM 电机供电）仍需万用表排查。
 
+> 以下“CAN1 启动失败”记录的是迁移前的历史故障现象；当前业务 CAN 已迁移到
+> CAN2/PB5/PB6，故障现象应结合 CAN2 接线和收发器排查。
+
 2026-09-16 遥测静默修复（上位机侧，无需烧录）：实车抓到 COM14 原始数据，遥测帧正常
 （ch6/ch7=2.3、ch8=9.0、ch9=1600、ch10=750）之后紧跟一行 ASCII
 `ERR CAN START FAILED; CAN DISABLED; USART1 AVAILABLE`，随后串口再无数据。根因链：
-CAN1 启动失败 → `DebugUsart_Init` 置 `s_zdt_text_mode=1`（`debug_usart.c:1040-1044`）
+迁移前 CAN1 启动失败 → `DebugUsart_Init` 置 `s_zdt_text_mode=1`（`debug_usart.c:1040-1044`）
 关掉全部 24 通道遥测 → 只有 `VOFA` 能恢复 → 旧上位机**只在打开串口那一刻发一次 VOFA
 （`core.py:385`）**，板子若在上位机已连接时复位/上电（或那次 VOFA 落进 `OPS_Init` 约 1.3s
 的启动空窗），之后再无补发机制 → 永久 0 字节。同时 `FrameParser` 只认 JustFloat 帧，
@@ -207,7 +222,7 @@ CAN1 启动失败 → `DebugUsart_Init` 置 `s_zdt_text_mode=1`（`debug_usart.c
 提取出来经新增的 `text_q` 显示到日志，不再吞掉；③ `main.py` 新增 `fw_text_q` 并在
 `_process_frames` 里按 ERR/FAIL 关键字着色。回归：Qt `test_debugger.py` 新增
 `test_firmware_text_is_surfaced_not_swallowed`、`test_firmware_text_and_vofa_notice_reach_log`、
-`test_serial_worker_resends_vofa_when_silent`，共 31 用例全过。**仍待处理**：CAN1 启动失败
+`test_serial_worker_resends_vofa_when_silent`，共 31 用例全过。**仍待处理**：迁移前 CAN1 启动失败
 本身未解决（DM/S28/S35 全部不可用），且 `CAN_Start` 的失败步骤与 HAL 错误码没有上报，
 无法定位是 `HAL_CAN_ConfigFilter`/`HAL_CAN_ActivateNotification`/`HAL_CAN_Start` 哪一步；
 建议固件改为 CAN 失败**不再关闭遥测**（只报一次错误）并在报错里带上 `ErrorCode`。
@@ -355,8 +370,8 @@ STM32F407VET6_ILHC/
 `Core/Src/main.c` 当前依次执行：
 
 1. `HAL_Init()`、`SystemClock_Config()`。
-2. `MX_GPIO_Init()`、`MX_DMA_Init()`、USART1、CAN1、TIM1、TIM6、USART2、USART3、UART4 初始化。
-3. 在 `USER CODE BEGIN 2` 中调用 `CAN_Start(&hcan1)`，失败进入 `Error_Handler()`。
+2. `MX_GPIO_Init()`、`MX_DMA_Init()`、USART1、CAN2、TIM1、TIM6、USART2、USART3、UART4 初始化。
+3. 在 `USER CODE BEGIN 2` 中调用 `CAN_Start(&hcan2)`，失败进入 `Error_Handler()`。
 4. `OPS_Init()` → `MecanumControl_Init()` → `MecanumControl_Enable()` → `DebugUsart_Init()`。
 5. 初始化 RTOS 内核、创建默认任务、启动调度器。
 
@@ -374,16 +389,17 @@ HAL 毫秒时基由 TIM7 中断和 `HAL_TIM_PeriodElapsedCallback()` 维护；RT
 | USART2 | PD5 TX、PD6 RX；115200、8N1 | OPS；RX DMA1 Stream5 Ch4 + IDLE，命令阻塞发送 |
 | USART3 | PB10 TX、PB11 RX；115200、8N1 | 已初始化，当前业务未接入 |
 | UART4 | PA0 TX、PA1 RX；115200、8N1 | 四个张大头电机，当前阻塞发送，无 UART4 DMA 接收解析 |
-| CAN1 | PA11 RX、PA12 TX；1Mbps | DM 电机；FIFO0 接收中断、全接收滤波 |
+| CAN2 | PB5 RX、PB6 TX；1Mbps | DM、28/35 电机；FIFO0 接收中断、全接收滤波 |
 
 - 外设初始化与 DMA 绑定在 `Core/Src/usart.c`、`can.c`、`dma.c`；IRQ 入口在 `stm32f4xx_it.c`。
 - USART2 使用 `Hardware/ops.c` 中的全局 `HAL_UARTEx_RxEventCallback()`。
 - USART1 通过 `HAL_UART_RegisterRxEventCallback()` 注册 `DebugUsart_RxEventCallback()`；必须保留 `USE_HAL_UART_REGISTER_CALLBACKS=1`。
 - USART1/2 RX DMA 为 NORMAL 模式，回调后重启；当前关闭 HT 半传输中断。新增回调时不能重复定义同名 HAL 回调或覆盖另一串口的入口。
-- CAN 链路：`CAN1_RX0_IRQHandler()` → HAL → `hcan.c` 的 `HAL_CAN_RxFifo0MsgPendingCallback()` → `CAN_Rx_Callback()`。
+- CAN 链路：`CAN2_RX0_IRQHandler()` → HAL → `hcan.c` 的 `HAL_CAN_RxFifo0MsgPendingCallback()` → `CAN_Rx_Callback()`。
 - `CAN_Rx_Callback()` 在 `hcan.c` 为弱实现，在 `debug_usart.c` 被覆盖以解析 DM 反馈。增加 CAN 设备时在现有钩子分派，不要新增第二个强定义。
 - `HCan_GetRxFrame()` 读取并清除“最近一帧”标志，不是接收队列；不能依靠它保证逐帧消费。
-- CAN1 滤波器分区使用 `SlaveStartFilterBank=14`；自动重发和自动 Bus-Off 恢复已开启。
+- CAN2 使用共享滤波器组：`SlaveStartFilterBank=14`，可用 Bank14~27；CAN1 时钟
+  必须保持使能。自动重发和自动 Bus-Off 恢复已开启。
 
 ## 5. 协议与控制约定
 

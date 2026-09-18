@@ -126,7 +126,8 @@ int main(void)
 
   /* OPS 定位模块初始化（USART2 空闲中断 + DMA 接收） */
   OPS_Init();
-  /* 在首次电机使能前启动UART4接收，避免遗漏启动应答。 */
+  /* 先建立UART4中断发送队列和接收回调，再首次使能电机。 */
+  if (ZDT_X42S_InitTx() != HAL_OK) Error_Handler();
   if (ZDT_X42S_InitRx() != HAL_OK) Error_Handler();
   MecanumControl_Init();
   MecanumControl_Enable();

@@ -46,6 +46,9 @@
 
 /* Private variables ---------------------------------------------------------*/
 /* USER CODE BEGIN Variables */
+/* 诊断计数：defaultTask 单次执行超过目标周期 20ms 的次数。
+ * 只累加，不使用 printf，不影响实时性；可在调试器 Watch 窗口查看。 */
+volatile uint32_t g_default_task_overrun_count = 0U;
 
 /* USER CODE END Variables */
 /* Definitions for defaultTask */
@@ -115,16 +118,30 @@ void MX_FREERTOS_Init(void) {
 void StartDefaultTask(void *argument)
 {
   /* USER CODE BEGIN StartDefaultTask */
-  /* Infinite loop */
-  /* 调用 OPS 全局定位移动示例（当前串口输出结构建议每20ms调用）：
-     chassis_move(目标X左右, 目标Y前后, 目标航向角);   // 统一坐标
-     SetMotorVoltageAndDirection(SpeedTarget[0], SpeedTarget[1], SpeedTarget[2], SpeedTarget[3]);
-     对外协议 GOTO=X,Y,Z 原序传入，X/Y 的 cm 先换算为 mm 再进入位置环。
-  */
-  for(;;)
+  /* 固定周期目标：defaultTask 每 20ms 执行一次。
+   *
+   * vTaskDelayUntil 使用“上次唤醒时刻 + 周期”作为绝对节拍，不会把
+   * DebugUsart_Send() 的执行时间累加到下一周期。若某次执行超过 20ms，
+   * 下一绝对唤醒时刻可能已经在过去，vTaskDelayUntil 会立即返回，不会
+   * 产生负 Tick 延时，也不会把多个遗漏周期一次性补跑。若持续超时，任务
+   * 按实际可完成速度运行，g_default_task_overrun_count 记录超时次数。 */
   {
-    DebugUsart_Send();
-    osDelay(20);
+    const TickType_t period = pdMS_TO_TICKS(20U);
+    TickType_t last_wake = xTaskGetTickCount();
+
+    for (;;)
+    {
+      TickType_t start = xTaskGetTickCount();
+
+      DebugUsart_Send();
+
+      if ((TickType_t)(xTaskGetTickCount() - start) > period)
+      {
+        ++g_default_task_overrun_count;
+      }
+
+      vTaskDelayUntil(&last_wake, period);
+    }
   }
   /* USER CODE END StartDefaultTask */
 }

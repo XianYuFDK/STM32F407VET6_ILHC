@@ -151,7 +151,9 @@ assert fsend.index("Debug_ServiceManual();") < fsend.index("Debug_ServiceWheel()
 # 任务体内不得出现未经闸门的停车调用，失能帧才会是该周期UART4上的最后一批帧。
 assert "MecanumControl_Stop()" not in fsend, "任务体必须改用Debug_ChassisStop"
 assert "MecanumControl_MoveVelocity" not in fsend
+# OPS session 变化通过专用取消函数停车，任务体仍只是普通停车路径调用方。
 assert fsend.count("Debug_ChassisStop();") == 6, fsend.count("Debug_ChassisStop();")
+assert "Debug_CancelOpsSessionMotion();" in fsend
 
 # 闸门实现：使能状态走停车，失能状态只清目标。
 chassis_stop = " ".join(function("Debug_ChassisStop").split())

@@ -67,6 +67,14 @@ checks = r'''
 int main(void) {
   char line[64];
 
+  /* GOTO：进程中的第一条解析命令就是两参数形式。此时栈上没有先前的
+   * 三参数 GOTO 或 MANUAL 结果可以掩盖未初始化的 v[2]。 */
+  zangle = 12.0f;
+  strcpy(line, "GOTO=100.0,200.0");
+  Debug_ParseLine(line);
+  assert(s_goto_active == 1U);
+  assert(s_goto_x == 1000.0f && s_goto_y == 2000.0f && s_goto_z == 12.0f);
+
   /* 解析路径只用读写状态，不开关中断；这里显式覆盖三个桩的用法 */
   mask = __get_PRIMASK();
   __disable_irq();
@@ -86,15 +94,16 @@ int main(void) {
   Debug_ParseLine(line);
   assert(s_manual_velocity[0] == -100);
 
-  /* GOTO：X=车左、Y=车头，直接写入同名的统一坐标目标。 */
-  zangle = 12.0f;
+  /* 三参数 GOTO 仍按 Z 参数设置航向。 */
   strcpy(line, "GOTO=100.0,200.0,45.0");
   Debug_ParseLine(line);
-  assert(s_goto_active == 1U);
   assert(s_goto_x == 1000.0f && s_goto_y == 2000.0f && s_goto_z == 45.0f);
-  strcpy(line, "GOTO=100.0,200.0");                  /* 省略Z：保持当前航向 */
+
+  s_goto_active = 0U;
+  strcpy(line, "GOTO=100.0,200.0,3600.1");           /* Z超范围：拒绝新目标 */
   Debug_ParseLine(line);
-  assert(s_goto_x == 1000.0f && s_goto_y == 2000.0f && s_goto_z == 12.0f);
+  assert(s_goto_active == 0U);
+
   strcpy(line, "GOTO=0.1,-0.1,0.0");                 /* 0.1cm必须换算成1mm */
   Debug_ParseLine(line);
   assert(s_goto_x == 1.0f && s_goto_y == -1.0f);
@@ -165,5 +174,9 @@ with tempfile.TemporaryDirectory(prefix="ilhc_parse_axis_") as directory:
     folder = Path(directory)
     src, exe = folder / "test.c", folder / "test.exe"
     src.write_text(code, encoding="utf-8")
-    subprocess.run(["gcc", "-std=c99", "-Wall", "-Wextra", "-Werror", str(src), "-o", str(exe)], check=True)
+    subprocess.run([
+        "gcc", "-std=c99", "-O2", "-Wall", "-Wextra",
+        "-Wuninitialized", "-Wmaybe-uninitialized", "-Werror",
+        str(src), "-o", str(exe),
+    ], check=True)
     subprocess.run([str(exe)], check=True)

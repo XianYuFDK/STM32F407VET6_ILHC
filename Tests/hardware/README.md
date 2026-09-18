@@ -10,6 +10,16 @@ USART1接收恢复专项：`python Tests/hardware/test_debug_rx_recovery.py`。
 半条命令丢弃、不刷新心跳、TX忙时隔离，以及重启后新错误不被覆盖。
 该测试为HAL模拟，不代表实机噪声、DMA寄存器时序已验证。
 
+OPS运行期恢复调用位置专项：`python Tests/hardware/test_ops_runtime_recovery.py`。
+检查每个20ms周期的 `DebugUsart_Send()` 最前面确实调用 `OPS_ServiceRx()`，
+并在OPS会话变化时取消旧GOTO和活动手动运动；运行期测试分别覆盖四轮使能与
+WHEELOFF，失能时不得产生ZDT速度帧。防止恢复逻辑只留在初始化函数中。
+
+ZDT UART4 TX 队列专项：`python Tests/hardware/test_zdt_tx_queue.py`（需要 GCC）。
+编译真实 TX 队列和四轮提交函数，以 HAL 桩触发 TX Complete，验证四轮帧顺序、
+新速度覆盖旧速度、STOP 优先、WHEELOFF 丢弃待发速度且后续速度不重新入队，
+以及 `HAL_Delay(1)` 已从四轮发送路径删除。测试不代表真实 UART 噪声或电机响应。
+
 坐标链路专项：`python Tests/hardware/test_coordinate_chain.py`。
 不编译固件，直接读取 `Hardware/ops.c`、`mecanum_control.c`、`debug_usart.c/.h` 的源码文本，
 核对全工程统一坐标：`+X=车左、+Y=车头、+Z=逆时针`，24 通道遥测 ch0/ch1、ch3/ch4、ch6/ch7 直接输出；
@@ -23,6 +33,12 @@ USART1接收恢复专项：`python Tests/hardware/test_debug_rx_recovery.py`。
 `test_debug_manual.py` 编译真实服务函数覆盖，`OPSOFFSET` 的坐标约定由 `test_ops_offset.py`
 覆盖，Qt 侧轴序由 `python -m unittest -v test_debugger` 的
 `test_telemetry_direction_matches_field_axes` 覆盖。源码文本断言不代表实机运动方向已实测。
+
+chassis_move 坐标旋转与限幅专项：`python Tests/hardware/test_chassis_move.py`（需要 GCC）。
+编译真实的 `MecanumControl_UpdatePose()`、`numerical_limit()`、
+`MecanumControl_CalcWheelSpeed()` 和 `chassis_move()`，运行覆盖 yaw 0/45/90°、
+`mKpx != mKpy`、纯世界 X/Y 误差、最终 `cmd_x/cmd_y` 单次限幅、`XYVmin/ZVmin`
+和正负方向对称性。该测试使用理想 OPS 位姿桩，不代表实车机械响应。
 
 OPS 原始轴方向专项：`python Tests/hardware/test_ops_axis_direction.py`（需要 GCC）。
 编译真实映射函数、坐标清零、位置换算和

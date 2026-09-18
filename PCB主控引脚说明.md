@@ -1,6 +1,6 @@
 # ILHC PCB主控引脚说明
 
-更新：2026-09-11。对应STM32F407VET6_ILHC工程，主控STM32F407VET6，LQFP100封装。
+更新：2026-09-18。对应STM32F407VET6_ILHC工程，主控STM32F407VET6，LQFP100封装。
 
 本文件是新PCB的信号分配和接线约定，不是完成电气审查的原理图。GPIO编号不是连接器脚号；连接器脚序在下文单独建议。MCU物理焊盘号须在EDA中按ST数据手册的LQFP100顶视图核对，不能混用LQFP64/144封装。
 
@@ -18,8 +18,8 @@
 | 摄像头接收 | PB11 | USART3_RX，AF7 | 摄像头的TX | 协议及接收启动尚未实现 |
 | 底盘电机发送 | PA0 | UART4_TX，AF8 | ZDT驱动器RX | Emm协议发送 |
 | 底盘电机接收 | PA1 | UART4_RX，AF8 | ZDT驱动器TX | F3/F6/FE应答接收 |
-| CAN发送 | PA12 | CAN1_TX，AF9 | CAN收发器TXD | 已启用CAN1，1Mbps |
-| CAN接收 | PA11 | CAN1_RX，AF9 | CAN收发器RXD | DM、28/35电机共用总线 |
+| CAN发送 | PB6 | CAN2_TX，AF9 | CAN收发器TXD | 已启用CAN2，1Mbps |
+| CAN接收 | PB5 | CAN2_RX，AF9 | CAN收发器RXD | DM、28/35电机共用总线 |
 | 夹爪舵机信号 | PE9 | TIM1_CH1，AF1 | 舵机信号输入 | PWM资源预留，尚未启动 |
 | 通信指示灯 | PB2 | 推挽输出，低速 | 板载LED，高电平亮 | led on点亮；led off熄灭；默认关闭 |
 | VM电源开关 | PD0 | 推挽输出，低速 | 外部电源开关EN，高电平开启 | 初始化输出低，默认关闭 |
@@ -37,6 +37,9 @@
 | 高速晶振 | PH0、PH1 | HSE | 与固件匹配的8MHz晶振电路 | 系统时钟168MHz |
 
 所有串口当前为115200、8数据位、1停止位、无校验。电机功率供电不从GPIO或MCU的3.3V电源获取。
+
+CAN2 使用 CAN1 的共享 filter bank，CAN2 实际可用 Bank14~27，因此固件同时开启
+CAN1、CAN2 外设时钟；CAN1 仅保留时钟和滤波寄存器资源，业务帧不使用 PA11/PA12。
 
 ## 2. 本次新增GPIO及上电行为
 
@@ -94,7 +97,9 @@ VM_EN与补光灯EN优先连接板内驱动电路；若需外接控制板，接�
 
 ## 5. 重要引脚冲突
 
-1. **PA11/PA12当前用于CAN1，不能同时作为Type-C USB D-/D+。** 新PCB不要把两者直接同时连接到CAN收发器和USB数据接口。若保留当前固件，可把Type-C仅用于电源；若要USB数据，先重新分配CAN并修改固件。当前也没有USB CDC。
+1. **当前 CAN 不使用 PA11/PA12。** CAN2 为 PB5/PB6；CAN1 时钟仍需开启以访问共享
+   filter bank。PA11/PA12 可重新评估为 Type-C USB D-/D+，但当前固件没有 USB CDC，
+   新 PCB 若接 USB 数据接口必须先实现并验证 USB 固件。
 2. 原开发板PD2/PD3连接TF卡电路；新PCB已分配启动按键，不再沿用该TF接线。
 3. 原开发板PA0连接WKUP支路、PB2连接BOOT1/LED。新PCB不必照搬PA0的按键，避免与UART4重复分配。
 4. PB13、PC3、PE2~PE4归OLED，PB10/PB11归摄像头，PE9归舵机，不作为通用空闲接口再次使用。
@@ -106,8 +111,8 @@ VM_EN与补光灯EN优先连接板内驱动电路；若需外接控制板，接�
 
 | 端口 | 未分配GPIO |
 |---|---|
-| A | PA2~PA8、PA15 |
-| B | PB0、PB1、PB3~PB9、PB12、PB14、PB15 |
+| A | PA2~PA8、PA11、PA12、PA15；PA11/PA12 若接 USB 数据需另做固件 |
+| B | PB0、PB1、PB3、PB4、PB7~PB9、PB12、PB14、PB15 |
 | C | PC0~PC2、PC4~PC15 |
 | D | PD4、PD7~PD15 |
 | E | PE0、PE1、PE5~PE8、PE10~PE15 |

@@ -17,7 +17,7 @@ static uint8_t s_zdt_watch, s_zdt_watch_cmd;
 static uint32_t s_zdt_watch_tick;
 static uint8_t ZDT_X42S_PopReply(uint8_t *p){(void)p;return 0;}
 static uint32_t s_zdt_tick,s_zdt_duration,tick,stops,enables,speeds,last_addr,last_dir;
-static uint32_t disables,cstops,cclears;
+static uint32_t disables,cstops,cclears,mecanum_enables;
 static uint8_t s_wheel_enabled=1;
 static void Debug_ZdtAck(uint8_t event){(void)event;}
 static uint32_t __get_PRIMASK(void){return 0;}
@@ -29,6 +29,7 @@ static void ZDT_X42S_Enable(uint8_t a){enables++;last_addr=a;}
 static void ZDT_X42S_Disable(uint8_t a){disables++;last_addr=a;}
 static void MecanumControl_Stop(void){cstops++;}
 static void MecanumControl_ClearTarget(void){cclears++;}
+static void MecanumControl_Enable(void){mecanum_enables++;}
 static void ZDT_X42S_SpeedAcc(uint8_t a,uint8_t d,uint16_t r,uint8_t c)
 {speeds++;last_addr=a;last_dir=d;assert(r==50 && c==100);}
 """+extract("Debug_WheelReady")+extract("Debug_ChassisStop")+extract("Debug_ZdtTestFinish")+extract("Debug_ParseManual")+extract("Debug_ServiceZdt")+r"""
@@ -46,6 +47,7 @@ int main(void){
  tick=2099;Debug_ServiceZdt();assert(stops==1);
  /* 到期结束：被测轮Stop + 四轮恢复(速度0帧=重新锁轴)，与s_wheel_enabled=1一致 */
  tick=2100;Debug_ServiceZdt();assert(stops==2&&cstops==1&&last_addr==3&&!s_zdt_active);
+ assert(mecanum_enables==1);
  s_zdt_args[0]=4;s_zdt_req=1;Debug_ServiceZdt();assert(enables==2);
  s_stop_req=1;Debug_ServiceZdt();assert(!s_zdt_active&&last_addr==4&&speeds==1);
  s_zdt_req=1;Debug_ServiceZdt();assert(!s_zdt_req&&enables==2);
@@ -55,6 +57,7 @@ int main(void){
  tick=3000;Debug_ServiceZdt();assert(s_zdt_active==1&&enables==3&&stops==5);
  tick=3100;Debug_ServiceZdt();assert(speeds==2&&s_zdt_active==2);
  s_wheel_req=2;Debug_ServiceZdt();assert(!s_zdt_active&&speeds==2&&enables==3);
+ assert(mecanum_enables==2);
  return 0;
 }
 """

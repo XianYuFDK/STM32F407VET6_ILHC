@@ -7,7 +7,7 @@
  *          - UART4 速度模式控制 4 个 ZDT_X42S 电机
  *          - SpeedTarget[4] 保存四轮目标速度
  *          - chassis_move() 使用 OPS 全局定位反馈做位置环
- *          - SetMotorVoltageAndDirection() 负责实际下发 UART4 指令
+ *          - SetMotorVoltageAndDirection() 负责向 UART4 非阻塞发送队列提交指令
  *
  *          统一坐标约定（内外一致）：
  *          - pos_x：左右坐标，+ 为车左

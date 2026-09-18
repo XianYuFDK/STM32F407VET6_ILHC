@@ -1,0 +1,24 @@
+
+===== 2026-09-18 17:40:11 启动 pid=37028 =====
+Windows fatal exception: access violation
+
+Current thread 0x00005028 (most recent call first):
+  File "C:\Users\Yuzi\AppData\Local\Programs\Python\Python313\Lib\site-packages\serial\serialwin32.py", line 321 in write
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\core.py", line 393 in _write_line
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\core.py", line 453 in request_stop
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 1995 in toggle_connect
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 940 in <lambda>
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 2538 in main
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 2542 in <module>
+
+===== 2026-09-18 23:58:26 启动 pid=33112 =====
+Windows fatal exception: access violation
+
+Current thread 0x0000ce24 (most recent call first):
+  File "C:\Users\Yuzi\AppData\Local\Programs\Python\Python313\Lib\site-packages\serial\serialwin32.py", line 321 in write
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\core.py", line 393 in _write_line
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\core.py", line 453 in request_stop
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 1995 in toggle_connect
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 940 in <lambda>
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 2538 in main
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 2542 in <module>

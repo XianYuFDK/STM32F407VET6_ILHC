@@ -199,11 +199,9 @@ void SetMotorVoltageAndDirection(int MotorSpeed1, int MotorSpeed2,
       rpm = (uint16_t)motor_speed[i];
     }
 
-    /* Emm 速度模式：地址 + 0xF6 + 方向 + 速度 + 加速度0 + 同步 + 0x6B */
+    /* Emm 速度模式：地址 + 0xF6 + 方向 + 速度 + 加速度0 + 同步 + 0x6B。
+     * ZDT驱动使用UART4中断队列串行发送，并自动覆盖同地址的未发送旧速度。 */
     ZDT_X42S_SpeedAcc(motor_addr[i], dir, rpm, 0U);
-
-    /* 每条命令间隔 1ms，避免粘包 */
-    HAL_Delay(1U);
   }
 }
 
@@ -270,10 +268,8 @@ void numerical_limit(float *value, float max, float min, float dead_zone)
 void chassis_move(int x, int y, int z)
 {
   int speed[4] = {0, 0, 0, 0};
-  float lat_cos = 0.0f;
-  float lat_sin = 0.0f;
-  float fwd_cos = 0.0f;
-  float fwd_sin = 0.0f;
+  float cmd_x = 0.0f;
+  float cmd_y = 0.0f;
   float vz  = 0.0f;
   uint8_t i;
 
@@ -299,31 +295,30 @@ void chassis_move(int x, int y, int z)
   if (devz > 180.0f)       { devz -= 360.0f; }
   else if (devz < -180.0f) { devz += 360.0f; }
 
-  /* 世界坐标误差 → 车体坐标。内部与对外同为 +X=左、+Y=前，
-   * 因此 devx 是左右误差、devy 是前后误差，不再交换或取反。
-   * 按当前航向 θ（逆时针为正）旋转到车体系：
-   *   X_body =  cosθ*mKpx*devx + sinθ*mKpy*devy
-   *   Y_body = -sinθ*mKpx*devx + cosθ*mKpy*devy
-   * 其中 Y_body 的正方向就是车头。 */
+  /* 世界坐标误差 → 车体坐标，再分别应用 X/Y 增益。
+   * 先旋转可以避免 mKpx != mKpy 时两个轴的增益串到另一轴：
+   *   body_x =  cosθ*devx + sinθ*devy
+   *   body_y = -sinθ*devx + cosθ*devy
+   *   cmd_x  = mKpx * body_x
+   *   cmd_y  = mKpy * body_y
+   * 其中 cmd_x 是车体左右控制量，cmd_y 是车体前后控制量。 */
   {
     float c = cosf(zangle * 3.1415926f / 180.0f);
     float s = sinf(zangle * 3.1415926f / 180.0f);
+    float body_x = c * devx + s * devy;
+    float body_y = -s * devx + c * devy;
 
-    lat_cos =  c * mKpx * devx;
-    lat_sin =  s * mKpy * devy;
-    fwd_cos =  c * mKpy * devy;
-    fwd_sin = -s * mKpx * devx;
+    cmd_x = mKpx * body_x;
+    cmd_y = mKpy * body_y;
   }
-  numerical_limit(&lat_cos, XYVmax, XYVmin, 5.0f);
-  numerical_limit(&lat_sin, XYVmax, XYVmin, 5.0f);
-  numerical_limit(&fwd_cos, XYVmax, XYVmin, 5.0f);
-  numerical_limit(&fwd_sin, XYVmax, XYVmin, 5.0f);
+  numerical_limit(&cmd_x, XYVmax, XYVmin, 5.0f);
+  numerical_limit(&cmd_y, XYVmax, XYVmin, 5.0f);
 
   /* 航向环不参与旋转：devz 已在上面 wrap 到 [-180,180]，直接 P 控制。 */
   vz = mKpz * devz;
-  numerical_limit(&vz, ZVmax, 0.0f, 5.0f);
+  numerical_limit(&vz, ZVmax, ZVmin, 5.0f);
 
-  MecanumControl_CalcWheelSpeed(lat_cos + lat_sin, fwd_cos + fwd_sin, vz, speed);
+  MecanumControl_CalcWheelSpeed(cmd_x, cmd_y, vz, speed);
 
   /* 速度斜坡限制 */
   for (i = 0U; i < 4U; ++i)
@@ -424,20 +419,20 @@ void MecanumControl_Init(void)
  */
 void MecanumControl_Enable(void)
 {
+  /* 使能帧只入队；ZDT驱动用非阻塞100ms稳定期保护后续速度帧，不再
+   * 在控制任务中调用HAL_Delay(100U)。 */
   ZDT_X42S_Enable(1U);
   ZDT_X42S_Enable(2U);
   ZDT_X42S_Enable(3U);
   ZDT_X42S_Enable(4U);
-
-  HAL_Delay(100U);
 }
 
 /**
  * @brief  失能四个电机（释放锁轴）
  * @note   只发送驱动器失能帧，不修改SpeedTarget，调用方应先停车再失能。
  *         失能后轮子不再保持位置，重新运动前必须MecanumControl_Enable。
- *         这里不等同于MecanumControl_Enable的100ms等待：失能后不应再发
- *         速度帧，无需等待驱动器进入可接收速度命令的状态。
+ *         失能后不应再发速度帧；ZDT 驱动会拒绝失能地址的普通速度帧，
+ *         无需等待驱动器进入可接收速度命令的状态。
  */
 void MecanumControl_Disable(void)
 {
@@ -449,9 +444,8 @@ void MecanumControl_Disable(void)
 
 /**
  * @brief  只清零底盘运动状态，不向电机下发任何速度帧
- * @note   用于四轮已失能的场合。ZDT_X42S 在速度模式下收到任意速度命令都会
- *         重新使能并锁轴，失能后再下发速度帧会把刚才的失能帧覆盖掉，表现为
- *         "失能了还是锁"，因此失能后只能清理软件目标。
+ * @note   用于四轮已失能的场合；失能后必须只清理软件目标，避免任何可能
+ *         重新使能并锁轴的速度帧。
  */
 void MecanumControl_ClearTarget(void)
 {
@@ -469,8 +463,8 @@ void MecanumControl_ClearTarget(void)
 
 /**
  * @brief  停止底盘并清零目标
- * @note   会向四轮下发速度0帧。四轮已失能时改用 MecanumControl_ClearTarget，
- *         否则速度0帧会重新使能电机并把轮子重新锁住。
+ * @note   会向四轮提交速度0帧。四轮已失能时改用 MecanumControl_ClearTarget，
+ *         避免任何速度帧重新使能电机。
  */
 void MecanumControl_Stop(void)
 {

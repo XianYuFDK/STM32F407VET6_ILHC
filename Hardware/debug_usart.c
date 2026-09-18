@@ -97,7 +97,7 @@ static volatile uint8_t s_manual_active;
 static volatile int16_t s_manual_velocity[3];
 static volatile uint32_t s_manual_tick;
 
-/* 底盘四轮锁轴控制：接收中断只置请求，UART4阻塞发送由任务执行。
+/* 底盘四轮锁轴控制：接收中断只置请求，UART4发送由ZDT驱动非阻塞队列执行。
  * 0无请求、1使能（锁轴）、2失能（不锁轴）；同一周期后到的请求覆盖先到的。
  * s_wheel_enabled 由任务写、中断读：失能后不锁轴，GOTO/MANUAL/ZDT
  * 一律拒绝，必须显式 WHEELEN 恢复。main.c 启动时已使能四轮，初值为1。 */
@@ -625,13 +625,26 @@ static void Debug_ChassisStop(void)
   }
 }
 
+/* OPS 复位/重连后坐标系会更换。旧 GOTO 和仍在生效的手动运动必须
+ * 立即取消，避免继续按旧坐标参考驱动底盘；DM、28/35 步进功能不受影响。
+ * 停车统一走 Debug_ChassisStop，遵守 WHEELOFF 的“只清目标、不发速度帧”。 */
+static void Debug_CancelOpsSessionMotion(void)
+{
+  s_goto_active = 0U;
+  s_manual_active = 0U;
+  Debug_ChassisStop();
+}
+
 /* 结束单轮测试：被测轮发专用停止帧(0xFE 0x98)，四轮再统一恢复。
- * 测试开始时被测轮以外是 Disable（释放锁轴），必须在结束时把它们恢复成
- * "0 转速 + 锁轴"，否则固件以为 s_wheel_enabled=1 而实际有三个轮子是自由状态；
- * 速度帧本身即重新使能锁轴，所以这里走 Debug_ChassisStop 即可（失能状态下
- * 它只清目标，不会反把轮子锁上）。 */
+ * 测试开始时被测轮以外是 Disable（释放锁轴）；新驱动的失能闸门会拒绝
+ * 这些地址的普通速度帧，因此启用状态下必须显式重新使能四轮，再走
+ * Debug_ChassisStop 下发零速度恢复锁轴。失能状态下仍只清目标。 */
 static void Debug_ZdtTestFinish(void)
 {
+  if ((s_wheel_enabled != 0U) && (s_wheel_req != 2U))
+  {
+    MecanumControl_Enable();
+  }
   ZDT_X42S_Stop(s_zdt_addr);
   Debug_ChassisStop();
   s_zdt_active = 0U;
@@ -669,7 +682,7 @@ static void Debug_ServiceManual(void)
   }
 }
 
-/* 任务上下文执行四轮使能/失能：先取消运动并停车，再发UART4阻塞帧。
+/* 任务上下文执行四轮使能/失能：先取消运动并停车，再提交UART4发送队列。
  * 失能只释放锁轴，不改变DM、28/35状态，也不停止串口遥测。
  * 请求在中断中只置位，因此同一周期内只有最后一次状态切换生效。
  * 本函数在每个周期内最后执行，保证失能帧是该周期UART4上的最后一批帧；
@@ -881,7 +894,7 @@ static void Debug_ParseLine(char *line)
     return;
   }
 
-  /* 底盘四轮锁轴/释放：中断只置请求，UART4阻塞发送由任务执行。
+  /* 底盘四轮锁轴/释放：中断只置请求，UART4发送由ZDT驱动非阻塞队列执行。
    * 失能只释放锁轴，不影响DM、28/35和串口遥测；失能期间的运动命令
    * 在本函数后面的MANUAL/GOTO/ZDT分支被丢弃，必须显式WHEELEN恢复。
    * STOP/ZERO/OPSOFFSET不是使能命令，失能后它们只清目标不发速度帧。 */
@@ -950,7 +963,7 @@ static void Debug_ParseLine(char *line)
    * 四轮失能时不接受新目标，避免释放状态下位置环持续输出轮速。 */
   if ((Debug_StrCaseCmpN(line, "GOTO", 4U) == 0U) && (line[4] == '='))
   {
-    float v[3];
+    float v[3] = {0.0f, 0.0f, 0.0f};
     uint8_t n = Debug_ParseFloatList(line + 5U, v, 3U);
 
     if ((n >= 2U) && (Debug_WheelReady() != 0U))
@@ -973,16 +986,23 @@ static void Debug_ParseLine(char *line)
       /* GOTO=X,Y,Z 与底盘统一坐标同序：X=场地左、Y=场地前，单位已换算为 mm。 */
       s_goto_x = v[0];
       s_goto_y = v[1];
-      /* 目标航向必须钳位并拒 NaN/Inf：否则 devz 可能变成 Inf，
-       * 位置环里的回绕会永不退出（20ms 任务永久挂死）。
-       * 取反写法 (!(x >= -3600 && x <= 3600)) 可同时拒绝 NaN。 */
-      if (!(v[2] >= -3600.0f && v[2] <= 3600.0f))
+      if (n >= 3U)
       {
-        s_goto_active = 0U;
-        return;
+        /* 目标航向必须钳位并拒 NaN/Inf：否则 devz 可能变成 Inf，
+         * 位置环里的回绕会永不退出（20ms 任务永久挂死）。
+         * 取反写法 (!(x >= -3600 && x <= 3600)) 可同时拒绝 NaN。 */
+        if (!(v[2] >= -3600.0f && v[2] <= 3600.0f))
+        {
+          s_goto_active = 0U;
+          return;
+        }
+        s_goto_z = v[2];
       }
-      /* 目标航向未给出时保持当前航向 */
-      s_goto_z = (n >= 3U) ? v[2] : zangle;
+      else
+      {
+        /* n == 2：Z 未提供，保持当前航向。 */
+        s_goto_z = zangle;
+      }
       s_goto_active = 1U;
     }
     return;
@@ -1108,14 +1128,6 @@ void DebugUsart_Init(void)
   /* 启动失败也保留恢复请求，由默认任务重试。 */
   s_rx_callbacks_ready = 0U;
   s_rx_recover = 1U;
-  /* OPS 错误恢复和会话变化必须先于遥测/运动服务处理。OPS 重启后
-   * 坐标系原点会变化，继续执行旧 GOTO 会产生错误方向，因此立即取消。 */
-  OPS_ServiceRx();
-  if (OPS_ConsumeSessionChanged() != 0U)
-  {
-    s_goto_active = 0U;
-    Debug_ChassisStop();
-  }
 
   DebugUsart_ServiceRx();
 }
@@ -1133,6 +1145,16 @@ void DebugUsart_Send(void)
   uint32_t len;
   uint32_t primask;
 
+  /* OPS 错误恢复和会话变化必须先于遥测/运动服务处理。OPS 重启后
+   * 坐标系原点会变化，继续执行旧 GOTO 会产生错误方向，因此立即取消。 */
+  OPS_ServiceRx();
+  if (OPS_ConsumeSessionChanged() != 0U)
+  {
+    Debug_CancelOpsSessionMotion();
+  }
+
+  /* UART4发送失败只在任务上下文重试；正常发送由TX完成回调推进。 */
+  ZDT_X42S_ServiceTx();
   DebugUsart_ServiceRx();
   Debug_ServiceZdtReplies();
   Debug_ServiceZdt();

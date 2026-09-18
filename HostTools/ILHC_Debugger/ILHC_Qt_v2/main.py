@@ -13,13 +13,16 @@ from __future__ import annotations
 
 import argparse
 import csv
+import faulthandler
 import html
 import json
 import math
 import os
 import queue
 import sys
+import threading
 import time
+import traceback
 from pathlib import Path
 
 import numpy as np
@@ -95,6 +98,54 @@ PANEL_2 = "#242A33"
 BG = "#14181E"
 PLOT_BG = "#171C23"
 GRID = "#303843"
+
+
+_CRASH_LOG = None
+
+
+def install_crash_log():
+    """把未捕获异常和原生崩溃（访问冲突）写进 logs/ilhc-crash.log。
+
+    上位机崩溃过两次都是访问冲突（0xc0000005），Python 层没有任何 traceback。
+    faulthandler 能在原生崩溃瞬间把每个线程的 Python 调用栈落盘，下次崩溃
+    可以直接看到崩在哪个回调里；Qt 的 warning/critical 也一并记录。
+    """
+    global _CRASH_LOG
+    try:
+        log_dir = BASE_DIR / "logs"
+        log_dir.mkdir(parents=True, exist_ok=True)
+        fh = open(log_dir / "ilhc-crash.log", "a", encoding="utf-8", buffering=1)
+    except OSError:
+        return None
+    _CRASH_LOG = fh  # 必须保持引用，否则文件会关闭、faulthandler 失效。
+    fh.write("\n===== %s 启动 pid=%d =====\n"
+             % (time.strftime("%Y-%m-%d %H:%M:%S"), os.getpid()))
+    faulthandler.enable(file=fh, all_threads=True)
+
+    def _excepthook(exc_type, exc, tb):
+        fh.write("".join(traceback.format_exception(exc_type, exc, tb)))
+        sys.__excepthook__(exc_type, exc, tb)
+
+    sys.excepthook = _excepthook
+
+    def _thread_excepthook(args):
+        fh.write("线程 %s 未捕获异常:\n" % args.thread.name)
+        fh.write("".join(traceback.format_exception(args.exc_type, args.exc_value,
+                                                   args.exc_traceback)))
+
+    threading.excepthook = _thread_excepthook
+
+    def _qt_message(mode, _context, message):
+        name = str(mode).split(".")[-1]
+        if name in ("Warning", "Critical", "Fatal"):
+            fh.write("[Qt %s] %s\n" % (name, message))
+
+    try:
+        from PySide6.QtCore import qInstallMessageHandler
+        qInstallMessageHandler(_qt_message)
+    except Exception:
+        pass
+    return log_dir / "ilhc-crash.log"
 
 
 class UiBridge(QObject):
@@ -426,16 +477,30 @@ class FieldView(QGraphicsView):
         self.dir_item.setLine(sx, sy, ex, self.sy(ey))
 
     def set_trail(self, x: np.ndarray, y: np.ndarray):
+        # NaN/Inf 会让 QPainterPath 的包围盒变成 NaN；QGraphicsScene 用包围盒
+        # 维护 BSP 索引，非有限几何是 Qt 的未定义行为，会在后续绘制/命中测试
+        # 时随机访问冲突崩溃（实测 boundingRect 为 QRectF(nan,nan,nan,nan)）。
+        x = np.asarray(x, dtype=float).ravel()
+        y = np.asarray(y, dtype=float).ravel()
+        if len(x) != len(y):
+            n = min(len(x), len(y))
+            x, y = x[:n], y[:n]
         if len(x) == 0:
             self.trail_item.setPath(QPainterPath())
             return
+        finite = np.isfinite(x) & np.isfinite(y)
+        if not finite.all():
+            x, y = x[finite], y[finite]
+            if len(x) == 0:
+                self.trail_item.setPath(QPainterPath())
+                return
         path = QPainterPath(QPointF(float(x[0]), self.sy(float(y[0]))))
         for xx, yy in zip(x[1:], y[1:]):
             path.lineTo(float(xx), self.sy(float(yy)))
         self.trail_item.setPath(path)
 
     def set_target(self, fx: float | None, fy: float | None):
-        if fx is None or fy is None:
+        if fx is None or fy is None or not (math.isfinite(fx) and math.isfinite(fy)):
             self.target_h.setVisible(False)
             self.target_v.setVisible(False)
             return
@@ -2039,8 +2104,12 @@ class MainWindow(QMainWindow):
                 if not self.paused:
                     self.ring.append(tr, vals)
                     # 遥测为 cm，轨迹缓冲/地图几何仍统一使用 mm。
-                    self.traj_ring.append(tr, (vals[0] * core.OPS_CM_TO_MM,
-                                               vals[1] * core.OPS_CM_TO_MM))
+                    # OPS 未定位/上电初值可能是 NaN/Inf，这种点绝不能进 QGraphicsScene：
+                    # 非有限包围盒会破坏场景索引，导致后续随机崩溃。
+                    tx = vals[0] * core.OPS_CM_TO_MM
+                    ty = vals[1] * core.OPS_CM_TO_MM
+                    if math.isfinite(tx) and math.isfinite(ty):
+                        self.traj_ring.append(tr, (tx, ty))
                 if self.recorder is not None:
                     self.recorder.write(t, vals)
         except queue.Empty:
@@ -2145,6 +2214,12 @@ class MainWindow(QMainWindow):
         stride = max(1, len(d) // 700)
         x = d[::stride, 0]
         y = d[::stride, 1]
+        finite = np.isfinite(x) & np.isfinite(y)
+        if not finite.all():
+            x, y = x[finite], y[finite]
+            if len(x) == 0:
+                self.map_view.set_trail(np.empty(0), np.empty(0))
+                return
         th = math.radians(self.map_theta)
         c, s = math.cos(th), math.sin(th)
         # 与 _ops_to_field 同一变换的向量化副本：协议 X=左右、Y=前后。
@@ -2451,11 +2526,15 @@ def main():
     if args.selftest:
         core.selftest()
         return 0
+    crash_log = install_crash_log()
     app = QApplication(sys.argv)
     app.setApplicationName("ILHC Control Station")
     app.setOrganizationName("ILHC")
     w = MainWindow(args)
     w.show()
+    if crash_log is not None:
+        print("崩溃日志：%s" % crash_log)
+        w.log("崩溃日志：%s" % crash_log, "info")
     return app.exec()
 
 

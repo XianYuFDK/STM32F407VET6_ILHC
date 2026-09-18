@@ -8,7 +8,7 @@
  *          - FIFO0 接收中断，保存最近一帧
  *
  *          CAN2 注意：滤波器寄存器位于共享过滤器寄存器组，且只能使用
- *          Bank14~27；因此 can.c 的 MspInit 同时使能过滤器时钟，
+ *          Bank14~27；因此 can.c 的 MspInit 同时使能 CAN1+CAN2 时钟，
  *          CAN_Start 里的 FilterBank 必须是 14 而不是 0。
  *
  *          使用：

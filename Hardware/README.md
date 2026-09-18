@@ -10,7 +10,10 @@
 
 ## 28 / 35 步进电机 CAN 驱动
 
-`stepper_2835.c/.h` 移植自原工程 `USER_Code/tower/tower.c/.h` 的张大头步进电机部分。复用当前 CAN1（PA11 RX / PA12 TX、1Mbps），不需要新增串口、定时器或重新启动 CAN。它和 UART4 的 `zdt_x42s` 属于不同报文接口。
+`stepper_2835.c/.h` 移植自原工程 `USER_Code/tower/tower.c/.h` 的张大头步进电机部分；
+参考工程使用 CAN1，本项目当前复用 **CAN2**（PB5 RX / PB6 TX、1Mbps），不需要新增串口、
+定时器或重新启动 CAN。CAN2 使用 CAN1 共享 filter bank，CAN1 时钟保持使能；它和 UART4 的
+`zdt_x42s` 属于不同报文接口。
 
 | 接口 | 用途 |
 | --- | --- |
@@ -95,8 +98,10 @@ SoftSPI_OLED_Refresh();
   - 使用：OPS_Init() 初始化；OPS_GetPosition(&x, &y, &z) 读取新坐标；
     OPS_IsOnline() 判断位姿是否在超时窗口内；
     OPS_ConsumeSessionChanged() 读取 V2 复位/重连事件
-  - session_id 运行期变化时，任务层取消旧 GOTO；接收端自动把新会话首帧
-    重设为本地零点参考，避免 OPS 复位后沿用旧原点
+  - session_id 运行期变化时，默认任务每个周期消费变化标志，取消旧 GOTO
+    和活动手动运动，并通过 Debug_ChassisStop 停车；WHEELOFF 时只清目标、
+    不发 ZDT 速度帧。接收端自动把新会话首帧重设为本地零点参考，避免 OPS
+    复位后沿用旧原点
   - USART2 错误回调只置恢复请求，默认任务通过 OPS_ServiceRx() 重挂 DMA
   - 统一轴序：X=左右（+车左）、Y=前后（+车头）、Z 逆时针为正；内部与协议同序同号，
     不再做 X/Y 交换或取反。OPS 原始帧到统一坐标固定为 `X=-raw_y、Y=-raw_x`，
@@ -110,6 +115,8 @@ SoftSPI_OLED_Refresh();
   - UART4（PA0=TX，PA1=RX），115200/8N1
   - Emm 固件速度模式：地址 + 0xF6 + 方向 + 速度 + 加速度 + 同步 + 0x6B
   - 支持使能、失能、立即停止、速度模式控制
+  - UART4 TX 使用中断发送和固定长度优先队列；控制任务只提交目标，TX 完成回调推进下一帧，
+    普通速度按地址覆盖未发送旧值，使能/失能/停止安全帧优先；失能地址拒绝普通速度帧
 - mecanum_control.c / mecanum_control.h：麦克纳姆轮底盘控制
   - O 型麦轮四轮速度解算
   - 速度模式连续移动：MecanumControl_MoveVelocity(vxRpm, vyRpm, vzRpm)，参数顺序为
@@ -123,15 +130,20 @@ SoftSPI_OLED_Refresh();
     形参按统一顺序 x=X=左右、y=Y=前后
   - 通过 OPS_GetPosition() 读取定位反馈，P 比例控制 + 斜坡限制 + 到位判断；误差定义为
     `目标 - 当前`，与 ops.c 置零后的物理正向坐标配套（两者必须成对，否则位置环为正反馈）
+  - `chassis_move()` 先把世界坐标误差旋转到车体坐标：
+    `body_x=cosθ*devx+sinθ*devy`、`body_y=-sinθ*devx+cosθ*devy`，
+    再分别计算 `cmd_x=mKpx*body_x`、`cmd_y=mKpy*body_y`；只对最终的
+    `cmd_x/cmd_y` 各限幅一次，不对旋转分解项分别限幅。航向环使用 `ZVmin`
+    作为最小补偿量。
   - 24 通道遥测直接输出 ch0/ch1=X(左右)/Y(前后)、ch3/ch4、ch6/ch7；位置和误差对外
     以 cm 输出（1 位小数），麦轮混控与 ZDT 方向映射保持上一版逻辑
   - OPS 原始 m/rad 在底盘层统一转换为 mm/deg；GOTO 的 cm 在协议边界换算为 mm 后进入位置环，
     定位数据超过 200ms 未更新自动停车
-  - 四轮锁轴：MecanumControl_Enable() 使能并保持位置（内部等待 100ms）、
-    MecanumControl_Disable() 失能不锁轴（不等待）、MecanumControl_Stop() 停车并下发
-    速度 0 帧、MecanumControl_ClearTarget() 只清目标不发帧
-  - 失能后必须用 ClearTarget：ZDT_X42S 在速度模式下收到速度命令会重新使能锁轴
-  - 调用顺序：MX_UART4_Init -> OPS_Init -> MecanumControl_Init -> MecanumControl_Enable
+  - 四轮锁轴：MecanumControl_Enable() 使能并保持位置（100ms 稳定期由 ZDT 非阻塞队列处理，不阻塞任务）、
+    MecanumControl_Disable() 失能不锁轴（不等待）、MecanumControl_Stop() 停车并提交
+    速度 0 帧到发送队列、MecanumControl_ClearTarget() 只清目标不发帧
+  - 失能后必须用 ClearTarget：ZDT 驱动会拒绝失能地址的普通速度帧，避免重新使能锁轴
+  - 调用顺序：MX_UART4_Init -> OPS_Init -> ZDT_X42S_InitTx -> ZDT_X42S_InitRx -> MecanumControl_Init -> MecanumControl_Enable
 
 ## USART1 调试模块
 
@@ -154,8 +166,9 @@ SoftSPI_OLED_Refresh();
   - 参数表在 debug_usart.c 中集中管理，新增参数只需添加一项
 ## CAN 协议模块
 
-- hcan.c / hcan.h：移植自 tower/hcan.c
-  - CAN1：滤波全接收 + FIFO0 接收中断
+- hcan.c / hcan.h：移植自 tower/hcan.c，当前绑定 CAN2
+  - CAN2（PB5 RX / PB6 TX）：1 Mbps，滤波全接收 + FIFO0 接收中断
+  - CAN2 使用 CAN1 的共享 filter bank，Bank14~27 可用；CAN1 外设时钟必须保持使能
   - 标准帧：CAN_SendData(hcan, ID, data, len)
   - 扩展帧：CAN_SendEXData(hcan, ID, data, len)
   - 长数据分包：Can_SendCmd(ID, data, len)，每包最多 8 字节
@@ -170,7 +183,7 @@ SoftSPI_OLED_Refresh();
   - 参考源码：stm32例程/DMMotor_freertos.rar/User/bsp_can.c
   - 支持 MIT 模式、位置速度模式、使能/失能、零点保存、反馈解析
   - 支持控制模式寄存器 10 切换：MIT=1、位置速度=2
-  - CAN1 1Mbps，标准帧；位置速度模式命令 ID = 电机 ID + 0x100
+  - CAN2（PB5 RX / PB6 TX）1 Mbps，标准帧；位置速度模式命令 ID = 电机 ID + 0x100
   - P_MAX/V_MAX/T_MAX 宏在 dm_j4310.h 中，需与电机调试工具一致
 
 ### 对外接口

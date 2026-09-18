@@ -1,5 +1,6 @@
 """无硬件回归：坐标、导航入口、步进命令和模拟器停止语义。"""
 import argparse
+import math
 import os
 import queue
 import struct
@@ -731,6 +732,57 @@ class DebuggerTests(unittest.TestCase):
                                  frame[1] * core.OPS_CM_TO_MM))
         w._render_ui()
         self.assertEqual(w.map_view.trail_item.path().elementCount(), 1)
+
+    def test_map_trail_never_contains_non_finite_geometry(self):
+        """NaN/Inf 坐标不能进 QPainterPath。
+
+        非有限包围盒会让 QGraphicsScene 的 BSP 索引进入未定义状态，
+        之后在绘制或命中测试时随机访问冲突崩溃（现场 boundingRect 为 NaN）。
+        """
+        w = self.window
+        w._select_page(2)
+        w.traj_ring.clear()
+        w.traj_ring.append(0.00, (float("nan"), 100.0))
+        w.traj_ring.append(0.02, (100.0, float("inf")))
+        w.traj_ring.append(0.04, (float("-inf"), float("nan")))
+        w.traj_ring.append(0.06, (300.0, 400.0))
+        w.latest_t = 0.06
+        w._render_ui()
+        path = w.map_view.trail_item.path()
+        self.assertEqual(path.elementCount(), 1)
+        rect = path.boundingRect()
+        self.assertTrue(math.isfinite(rect.x()) and math.isfinite(rect.y()))
+        for i in range(path.elementCount()):
+            el = path.elementAt(i)
+            self.assertTrue(math.isfinite(el.x) and math.isfinite(el.y))
+        # 全部点都非法时清空轨迹，而不是留下 NaN 路径。
+        w.traj_ring.clear()
+        w.traj_ring.append(0.10, (float("nan"), float("nan")))
+        w.latest_t = 0.10
+        w._render_ui()
+        self.assertEqual(w.map_view.trail_item.path().elementCount(), 0)
+
+    def test_non_finite_telemetry_does_not_enter_trail(self):
+        w = self.window
+        w.traj_ring.clear()
+        w.frame_q.put((0.00, (float("nan"), 1.0) + (0.0,) * 22))
+        w.frame_q.put((0.01, (float("inf"), 1.0) + (0.0,) * 22))
+        w.frame_q.put((0.02, (2.0, 3.0) + (0.0,) * 22))
+        w._process_frames()
+        view = w.traj_ring.view()
+        self.assertIsNotNone(view)
+        _t, d = view
+        self.assertEqual(len(d), 1)
+        self.assertEqual(tuple(d[0]), (20.0, 30.0))
+
+    def test_map_target_ignores_non_finite_click(self):
+        view = self.window.map_view
+        view.set_target(float("nan"), 10.0)
+        self.assertFalse(view.target_h.isVisible())
+        view.set_target(10.0, 20.0)
+        self.assertTrue(view.target_h.isVisible())
+        line = view.target_h.line()
+        self.assertTrue(math.isfinite(line.x1()) and math.isfinite(line.y1()))
 
     def test_activation_guard_keeps_keyboard_remote_in_detached_window(self):
         w = self.window
