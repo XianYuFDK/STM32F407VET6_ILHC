@@ -593,6 +593,160 @@ class DebuggerTests(unittest.TestCase):
         w._send_console()
         self.assertIs(w.wheel_state, True)
 
+    def test_page_header_button_detaches_page(self):
+        from PySide6.QtTest import QTest
+        w = self.window
+        w.show()
+        page = w.pages[6]
+        buttons = [b for b in page.findChildren(main.QPushButton) if b.text() == "独立窗口"]
+        self.assertTrue(buttons)
+        QTest.mouseClick(buttons[0], main.Qt.LeftButton)
+        self.assertIn(6, w.detached)
+        self.assertIs(w.detached[6].page(), page)
+        self.assertIs(w.pages[6].window(), w.detached[6])
+        self.assertIs(w.slots[6].currentWidget(), w.placeholders[6])
+        # 换父窗口后控件不能被 Qt 因 setParent 而留在隐藏状态。
+        self.assertFalse(page.isHidden())
+        self.app.processEvents()
+        self.assertTrue(page.isVisible())
+        w._reattach_page(6)
+        self.app.processEvents()
+        self.assertFalse(page.isHidden())
+        self.assertIs(w.slots[6].currentWidget(), page)
+        w._select_page(6)          # 主界面回到该页后才应该可见
+        self.app.processEvents()
+        self.assertTrue(page.isVisible())
+
+    def test_page_detach_keeps_stack_index_and_returns_page(self):
+        w = self.window
+        self.assertEqual(w.stack.count(), len(w.pages))
+        w._select_page(2)
+        w._detach_page(3)
+        # 拆窗口不能改变主界面下标：导航、_render_ui 都按固定下标工作。
+        self.assertEqual(w.stack.count(), len(w.pages))
+        self.assertEqual(w.stack.currentIndex(), 2)
+        win = w.detached[3]
+        self.assertIs(win.page(), w.pages[3])
+        self.assertIs(w.pages[3].window(), win)
+        self.assertIs(w.slots[3].currentWidget(), w.placeholders[3])
+        self.assertTrue(w.nav_buttons[3].property("detached"))
+        # 导航按钮指向已拆出的页面时，主界面显示占位卡而不是空白。
+        w._select_page(3)
+        self.assertEqual(w.stack.currentIndex(), 3)
+        self.assertIs(w.slots[3].currentWidget(), w.placeholders[3])
+        w._reattach_page(3)
+        self.assertNotIn(3, w.detached)
+        self.assertIs(w.slots[3].currentWidget(), w.pages[3])
+        self.assertIs(w.pages[3].parent(), w.slots[3])
+        self.assertFalse(w.nav_buttons[3].property("detached"))
+
+    def test_detached_window_topmost_and_close_returns_page(self):
+        w = self.window
+        w._detach_page(4)
+        win = w.detached[4]
+        self.assertFalse(win.is_topmost())
+        win.top_btn.setChecked(True)       # 等价于点击独立窗口里的“置顶”
+        self.assertTrue(win.is_topmost())
+        self.assertTrue(bool(win.windowFlags() & main.Qt.WindowStaysOnTopHint))
+        self.assertEqual(win.top_btn.text(), "已置顶")
+        self.assertTrue(w.placeholder_top_checks[4].isChecked())
+        win.top_btn.setChecked(False)
+        self.assertFalse(win.is_topmost())
+        self.assertEqual(win.top_btn.text(), "置顶")
+        self.assertFalse(w.placeholder_top_checks[4].isChecked())
+        win.close()                        # 关闭独立窗口 = 页面回到主窗口
+        self.assertNotIn(4, w.detached)
+        self.assertIs(w.slots[4].currentWidget(), w.pages[4])
+
+    def test_placeholder_checkbox_and_menu_action_set_topmost_pref(self):
+        w = self.window
+        w._set_page_topmost(5, True)
+        self.assertTrue(w.topmost_pref[5])
+        w._detach_page(5)
+        # 分离时沿用预置的置顶偏好。
+        self.assertTrue(w.detached[5].is_topmost())
+        w._reattach_all()
+        self.assertFalse(w.detached)
+        self.assertIs(w.slots[5].currentWidget(), w.pages[5])
+
+    def test_topmost_toggle_keeps_window_visible_and_placed(self):
+        """setWindowFlag 会隐藏窗口，置顶/取消置顶都必须重新显示。"""
+        w = self.window
+        w.show()
+        w._detach_page(3)
+        win = w.detached[3]
+        self.app.processEvents()
+        self.assertTrue(win.isVisible())
+        geometry = win.geometry()
+        win.top_btn.setChecked(True)
+        self.app.processEvents()
+        self.assertTrue(win.is_topmost())
+        self.assertTrue(win.isVisible())
+        self.assertEqual(win.geometry(), geometry)
+        win.top_btn.setChecked(False)
+        self.app.processEvents()
+        self.assertFalse(win.is_topmost())
+        self.assertTrue(win.isVisible())
+        self.assertEqual(win.geometry(), geometry)
+        # 非活动状态下的重复调用不应把窗口藏起来。
+        win.set_topmost(False)
+        self.assertTrue(win.isVisible())
+
+    def test_detached_window_is_not_owned_by_main_window(self):
+        """独立窗口不能挂主窗口做父级。
+
+        Windows 上带父级的顶层窗口是 owned window，会永久压在主窗口上面，
+        用户无法把独立窗口换到主窗口下面；无父级窗口必须自带样式表补回外观。
+        """
+        w = self.window
+        w._detach_page(3)
+        win = w.detached[3]
+        self.assertIsNone(win.parentWidget())
+        self.assertTrue(win.isWindow())
+        self.assertTrue(win.styleSheet())
+        self.assertEqual(win.styleSheet(), w.styleSheet())
+        # 拆出去的页面控件本身仍属于独立窗口。
+        self.assertIs(w.pages[3].window(), win)
+
+    def test_main_close_closes_detached_windows(self):
+        w = self.window
+        w.show()
+        w._detach_page(2)
+        win = w.detached[2]
+        self.app.processEvents()
+        self.assertTrue(win.isVisible())
+        w.close()                       # 关主窗口不能让独立窗口留在桌面上
+        self.app.processEvents()
+        self.assertFalse(w.detached)
+        self.assertFalse(win.isVisible())
+
+    def test_detached_page_keeps_rendering_while_other_page_selected(self):
+        w = self.window
+        w._detach_page(2)                  # 比赛地图拆出去后仍要画轨迹
+        w._select_page(6)
+        frame = (140.0, -260.0, 15.0) + (0.0,) * 21
+        w.latest = frame
+        w.traj_ring.clear()
+        w.traj_ring.append(0.0, (frame[0] * core.OPS_CM_TO_MM,
+                                 frame[1] * core.OPS_CM_TO_MM))
+        w._render_ui()
+        self.assertEqual(w.map_view.trail_item.path().elementCount(), 1)
+
+    def test_activation_guard_keeps_keyboard_remote_in_detached_window(self):
+        w = self.window
+        w._detach_page(3)
+        win = w.detached[3]
+        w.isActiveWindow = lambda: False
+        win.isActiveWindow = lambda: True
+        self.assertTrue(w._own_window_active())
+        w._manual_start((10, 10, 0), raw=True)
+        self.assertIsNotNone(w.manual_vector)
+        w._activation_guard()
+        self.assertIsNotNone(w.manual_vector)   # 焦点在独立窗口：不误停
+        win.isActiveWindow = lambda: False
+        w._activation_guard()
+        self.assertIsNone(w.manual_vector)      # 整个应用失焦才停车
+
 
 if __name__ == "__main__":
     unittest.main()

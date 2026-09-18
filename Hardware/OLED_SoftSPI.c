@@ -3,8 +3,6 @@
 #include "main.h"
 #include <string.h>
 
-/* 移植自物流车 V2.7.4 软件 SPI 驱动；字库保留原始数据。 */
-
 // 全局显存（128x64分辨率，按列存储）
 uint8_t SoftSPI_OLED_GRAM[144][8];
 /* 单实例滚动状态；清屏或改变滚动参数后从首个字模重新开始。 */

@@ -99,8 +99,9 @@ SoftSPI_OLED_Refresh();
     重设为本地零点参考，避免 OPS 复位后沿用旧原点
   - USART2 错误回调只置恢复请求，默认任务通过 OPS_ServiceRx() 重挂 DMA
   - 统一轴序：X=左右（+车左）、Y=前后（+车头）、Z 逆时针为正；内部与协议同序同号，
-    不再做 X/Y 交换或取反。OPS 原始帧 `+x_raw=车右、+y_raw=车头` 只在 ops.c 内映射为
-    `X=-x_raw、Y=+y_raw`
+    不再做 X/Y 交换或取反。OPS 原始帧到统一坐标固定为 `X=-raw_y、Y=-raw_x`，
+    不存在方向模式或其他分支。位置、绝对坐标、ZERO、`OPS_SetOrigin()` 和
+    安装偏心补偿共用这组固定映射。
   - 坐标清零：OPS_ZeroCoordinates() 以当前位置和航向为原点，OPS_ClearZero() 恢复绝对 X/Y/Z，OPS_SetOrigin(x, y) 手动设 X/Y 零点并归零航向
 
 ## 底盘移动控制
@@ -122,8 +123,6 @@ SoftSPI_OLED_Refresh();
     形参按统一顺序 x=X=左右、y=Y=前后
   - 通过 OPS_GetPosition() 读取定位反馈，P 比例控制 + 斜坡限制 + 到位判断；误差定义为
     `目标 - 当前`，与 ops.c 置零后的物理正向坐标配套（两者必须成对，否则位置环为正反馈）
-  - 世界坐标误差先旋转到车体坐标，再分别应用 `mKpx`（X 左右）和 `mKpy`（Y 前后），
-    避免车辆有航向角时两轴 P 增益串扰
   - 24 通道遥测直接输出 ch0/ch1=X(左右)/Y(前后)、ch3/ch4、ch6/ch7；位置和误差对外
     以 cm 输出（1 位小数），麦轮混控与 ZDT 方向映射保持上一版逻辑
   - OPS 原始 m/rad 在底盘层统一转换为 mm/deg；GOTO 的 cm 在协议边界换算为 mm 后进入位置环，

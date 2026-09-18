@@ -13,12 +13,9 @@
 - `pos_x` 就是 X（左右，+左），`pos_y` 就是 Y（前后，+前）；
 - `MANUAL/GOTO/OPSOFFSET` 的 X/Y 原义传递，不再交换；
 - `KPX -> mKpx`、`KPY -> mKpy`；
-- 位置环 P 增益在“世界误差旋转到车体坐标”之后应用：
-  `cmd_x = mKpx*(c*devx+s*devy)`、`cmd_y = mKpy*(-s*devx+c*devy)`，
-  避免航向不为 0 时 X/Y 增益串轴；
 - 麦轮公式：`[+Y-X-Z, -Y-X-Z, +Y+X-Z, -Y+X-Z]`；
-- OPS 原始帧实车标定 `+x_raw=车右`、`+y_raw=车头`，唯一映射为
-  `X=-x_raw`、`Y=+y_raw`；
+- OPS 原始帧到统一坐标固定为 `X=-raw_y`、`Y=-raw_x`，不保留方向模式或分支；
+  位置、置零、原点设置和偏心补偿必须共用该固定映射；
 - OPS 默认安装统一坐标 `(X=左60, Y=后-50)mm`，协议下发
   `OPSOFFSET=60.0,-50.0`；
 - Qt `manual_vector` 与控件偏移也使用 `(X,Y,Z)`，不保留旧的
@@ -116,8 +113,8 @@ rx/ry 取号互换并把输出 y 一并取反（两行）。确认前**不要跑
 near 100mm/30°)、`devx=目标-当前` 的负反馈配对、轮序（俯视车头朝上：左前1/右前2/左后3/右后4）、
 ZDT F6/Emm 帧格式、USART1 的 DMA+空闲接收与行缓冲边界、Qt 的 JustFloat/ASCII 双模式解析
 （`_scan_text` 遇到二进制字节即丢弃候选行）与地图单次交换（`field_to_layout` 只做显示旋转+偏移）。
-**已修复**：a) P 增益原先乘在旋转之前，`KPX≠KPY` 时行进方向会有偏差；现已改为先把世界误差旋转到
-车体坐标，再分别乘 `mKpx/mKpy`，并由 `Tests/hardware/test_chassis_pid.py` 运行时锁定。**仍在观察**：b) `ZDT_X42S_SpeedAcc` 内仍保留
+**已知遗留（未改，需实车确认）**：a) P 增益乘在旋转之前，`KPX≠KPY` 时行进方向会有偏差（默认两者
+都是 2.3 时精确等价，故未动公式，已在 `chassis_move` 注明）；b) `ZDT_X42S_SpeedAcc` 内仍保留
 单轮裁剪（现在因上游整体限幅而不会触发，属于最后一道保险）；c) `vKpx/vKpy/vKpz/cvKpz` 四个全局量
 声明后全工程未使用；d) OPS 的 `s_mount_x_mm` 符号结论依赖"传感器 +x 与车头同向"这一安装假设，
 若实车旋转测试仍画圆，把 `ops.c` 补偿矩阵的两个 rx 项符号再翻一次即可（一行）。

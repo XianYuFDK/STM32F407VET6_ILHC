@@ -270,8 +270,10 @@ void numerical_limit(float *value, float max, float min, float dead_zone)
 void chassis_move(int x, int y, int z)
 {
   int speed[4] = {0, 0, 0, 0};
-  float cmd_x = 0.0f;
-  float cmd_y = 0.0f;
+  float lat_cos = 0.0f;
+  float lat_sin = 0.0f;
+  float fwd_cos = 0.0f;
+  float fwd_sin = 0.0f;
   float vz  = 0.0f;
   uint8_t i;
 
@@ -297,27 +299,31 @@ void chassis_move(int x, int y, int z)
   if (devz > 180.0f)       { devz -= 360.0f; }
   else if (devz < -180.0f) { devz += 360.0f; }
 
-  /* 世界坐标误差 → 车体坐标，再分别应用轴 P 增益：
-   *   X_body_error =  cosθ*devx + sinθ*devy
-   *   Y_body_error = -sinθ*devx + cosθ*devy
-   *   cmd_x = mKpx * X_body_error
-   *   cmd_y = mKpy * Y_body_error
-   * P 必须在旋转之后应用，否则航向不为 0 时 X/Y 增益会互相串轴。 */
+  /* 世界坐标误差 → 车体坐标。内部与对外同为 +X=左、+Y=前，
+   * 因此 devx 是左右误差、devy 是前后误差，不再交换或取反。
+   * 按当前航向 θ（逆时针为正）旋转到车体系：
+   *   X_body =  cosθ*mKpx*devx + sinθ*mKpy*devy
+   *   Y_body = -sinθ*mKpx*devx + cosθ*mKpy*devy
+   * 其中 Y_body 的正方向就是车头。 */
   {
     float c = cosf(zangle * 3.1415926f / 180.0f);
     float s = sinf(zangle * 3.1415926f / 180.0f);
 
-    cmd_x = mKpx * ( c * devx + s * devy);
-    cmd_y = mKpy * (-s * devx + c * devy);
+    lat_cos =  c * mKpx * devx;
+    lat_sin =  s * mKpy * devy;
+    fwd_cos =  c * mKpy * devy;
+    fwd_sin = -s * mKpx * devx;
   }
-  numerical_limit(&cmd_x, XYVmax, XYVmin, 5.0f);
-  numerical_limit(&cmd_y, XYVmax, XYVmin, 5.0f);
+  numerical_limit(&lat_cos, XYVmax, XYVmin, 5.0f);
+  numerical_limit(&lat_sin, XYVmax, XYVmin, 5.0f);
+  numerical_limit(&fwd_cos, XYVmax, XYVmin, 5.0f);
+  numerical_limit(&fwd_sin, XYVmax, XYVmin, 5.0f);
 
   /* 航向环不参与旋转：devz 已在上面 wrap 到 [-180,180]，直接 P 控制。 */
   vz = mKpz * devz;
   numerical_limit(&vz, ZVmax, 0.0f, 5.0f);
 
-  MecanumControl_CalcWheelSpeed(cmd_x, cmd_y, vz, speed);
+  MecanumControl_CalcWheelSpeed(lat_cos + lat_sin, fwd_cos + fwd_sin, vz, speed);
 
   /* 速度斜坡限制 */
   for (i = 0U; i < 4U; ++i)

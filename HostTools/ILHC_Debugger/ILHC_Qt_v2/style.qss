@@ -134,11 +134,23 @@ QPushButton[nav="true"]:hover {
     background: #202630;
     color: #E2E8EF;
 }
+QPushButton[nav="true"][detached="true"] {
+    color: #65CCF5;
+    border-left: 3px solid #2E6A85;
+}
 QPushButton[nav="true"][active="true"] {
     background: #203442;
     color: #65CCF5;
     font-weight: 700;
     border-left: 3px solid #4FC3F7;
+}
+QFrame#DetachBar {
+    background: #1B2129;
+    border-bottom: 1px solid #2A313A;
+}
+QLabel#DetachTitle {
+    font-weight: 700;
+    color: #E6EDF5;
 }
 QPushButton#PrimaryButton,
 QPushButton#SmallPrimary,

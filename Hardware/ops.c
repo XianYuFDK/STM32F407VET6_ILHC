@@ -30,6 +30,14 @@
 #include <math.h>
 #include <string.h>
 
+/* OPS 原始帧到统一坐标的唯一固定映射：
+ *   X = -raw_y
+ *   Y = -raw_x
+ *
+ * 位置、绝对位置、SetOrigin 和安装偏心补偿必须共用这组映射，
+ * 不再提供方向模式配置。
+ */
+
 /* ---------------------------- 私有变量 ---------------------------- */
 static uint8_t             s_rx_buf[OPS_RX_BUFFER_SIZE];   /* DMA 接收缓冲区 */
 static uint8_t             s_parse_buf[OPS_RX_BUFFER_SIZE];/* 流式解析缓冲   */
@@ -195,11 +203,37 @@ static HAL_StatusTypeDef OPS_RestartReceive(void)
 }
 
 /**
+ * @brief  将 OPS 原始帧 X/Y 映射为统一坐标 X=左、Y=前
+ * @param  raw_x OPS 原始帧 x
+ * @param  raw_y OPS 原始帧 y
+ * @param  x     统一 X 输出
+ * @param  y     统一 Y 输出
+ */
+static void OPS_MapRawToUnified(float raw_x, float raw_y, float *x, float *y)
+{
+  *x = -raw_y;
+  *y = -raw_x;
+}
+
+/**
+ * @brief  将统一坐标 X=左、Y=前映射回 OPS 原始帧 X/Y
+ * @param  x     统一 X
+ * @param  y     统一 Y
+ * @param  raw_x OPS 原始帧 x 输出
+ * @param  raw_y OPS 原始帧 y 输出
+ */
+static void OPS_MapUnifiedToRaw(float x, float y, float *raw_x, float *raw_y)
+{
+  *raw_x = -y;
+  *raw_y = -x;
+}
+
+/**
  * @brief  拷贝坐标并支持绝对/清零两种方式
  * @param  x X 坐标输出
  * @param  y Y 坐标输出
  * @param  z Z 坐标输出
- * @param  absolute 1 返回 OPS 原始绝对坐标，0 返回清零后坐标
+ * @param  absolute 1 返回统一坐标的绝对位置（不补偿），0 返回补偿和清零后坐标
  * @retval 1 有新数据，0 无新数据或参数为空
  */
 static uint8_t OPS_CopyPosition(float *x, float *y, float *z, uint8_t absolute)
@@ -215,6 +249,7 @@ static uint8_t OPS_CopyPosition(float *x, float *y, float *z, uint8_t absolute)
   /* 只在短临界区快照；三角运算在恢复中断后执行。 */
   {
     float px, py, yaw, ox, oy, ref, zero_yaw, rx, ry;
+    float mount_x, mount_y;
     uint8_t zero, valid;
     primask = __get_PRIMASK();
     __disable_irq();
@@ -224,11 +259,9 @@ static uint8_t OPS_CopyPosition(float *x, float *y, float *z, uint8_t absolute)
     zero = s_ops.zero_enabled;
     valid = ((s_ops.pose_valid != 0U) && (s_ops.valid_count != 0U)) ? 1U : 0U;
     ref = zero ? s_origin_yaw : s_reference_yaw;
-    /* 实车标定：OPS 原始帧 +x_raw=车右、+y_raw=车头。
-     * 统一坐标是 +X=车左、+Y=车头，因此安装偏移换到原始帧：
-     *   +x_raw = 车右 = -X；+y_raw = 车头 = +Y。 */
-    rx = -s_mount_x_mm * 0.001f;
-    ry = s_mount_y_mm * 0.001f;
+    mount_x = s_mount_x_mm * 0.001f;
+    mount_y = s_mount_y_mm * 0.001f;
+    OPS_MapUnifiedToRaw(mount_x, mount_y, &rx, &ry);
     is_new = s_new_flag;
     s_new_flag = 0U;
     if (primask == 0U) __enable_irq();
@@ -240,32 +273,36 @@ static uint8_t OPS_CopyPosition(float *x, float *y, float *z, uint8_t absolute)
       if (*z > 3.1415926536f)       { *z -= 2.0f * 3.1415926536f; }
       else if (*z < -3.1415926536f) { *z += 2.0f * 3.1415926536f; }
     }
-    *x = -px; *y = py;           /* 原始帧 → 统一坐标 X=左、Y=前 */
+    OPS_MapRawToUnified(px, py, x, y);
     if (valid == 0U)
     {
       *x = 0.0f;
       *y = 0.0f;
       return 0U;
     }
-    /* 原始绝对接口保持线缆数据，避免补偿叠加。 */
+    /* 绝对接口只做轴映射，不叠加安装偏心补偿。 */
     if (!absolute)
     {
       /* 安装偏心补偿：先在 OPS 原始帧内把安装点换算回车体旋转中心，
-       * 再映射到统一坐标 X=左、Y=前。原始帧为 +x_raw=车右、+y_raw=车头。 */
+       * 再按固定映射转换到统一坐标 X=左、Y=前。 */
       float dc = cosf(yaw) - cosf(ref);
       float ds = sinf(yaw) - sinf(ref);
       float dx = dc * rx - ds * ry;
       float dy = ds * rx + dc * ry;
+      float raw_cx;
+      float raw_cy;
+
       if (zero)
       {
-        *x = -(px - ox) + dx;
-        *y =  (py - oy) - dy;
+        raw_cx = (px - ox) - dx;
+        raw_cy = (py - oy) - dy;
       }
       else
       {
-        *x = -px + dx;
-        *y =  py - dy;
+        raw_cx = px - dx;
+        raw_cy = py - dy;
       }
+      OPS_MapRawToUnified(raw_cx, raw_cy, x, y);
     }
   }
 
@@ -493,11 +530,14 @@ void OPS_ClearZero(void)
  */
 void OPS_SetOrigin(float x, float y)
 {
+  float raw_x;
+  float raw_y;
   uint32_t primask = __get_PRIMASK();
 
   __disable_irq();
-  s_ops.origin_x     = -x;   /* 统一 X=左 → 原始 x=车右 */
-  s_ops.origin_y     = y;    /* 统一 Y=前 → 原始 y=车头 */
+  OPS_MapUnifiedToRaw(x, y, &raw_x, &raw_y);
+  s_ops.origin_x     = raw_x;
+  s_ops.origin_y     = raw_y;
   s_origin_yaw       = s_ops.frame.z;
   s_ops.zero_enabled = 1U;
   if (primask == 0U)

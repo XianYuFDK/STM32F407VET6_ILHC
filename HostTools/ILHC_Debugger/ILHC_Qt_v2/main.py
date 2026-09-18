@@ -63,6 +63,7 @@ try:
         QLabel,
         QLineEdit,
         QMainWindow,
+        QMenu,
         QMessageBox,
         QPushButton,
         QScrollArea,
@@ -603,6 +604,104 @@ class WavePage(QWidget):
             plot.setYRange(lo, hi, padding=0)
 
 
+class DetachedPageWindow(QMainWindow):
+    """把一个调参页拆成独立顶层窗口，并提供窗口置顶开关。
+
+    页面控件仍是主窗口里的同一个对象（信号、定时器、键盘遥控都不重建），
+    只是父窗口改成这里；关闭窗口时通过 reattachRequested 交还主窗口。
+
+    注意：本窗口刻意不带 Qt 父级。带父级的顶层窗口在 Windows 上是 owned window，
+    会永久压在主窗口上面无法换层；代价是要自己复制一份主窗口样式表。
+    """
+
+    reattachRequested = Signal(int)
+    topmostToggled = Signal(int, bool)
+
+    def __init__(self, index: int, name: str, parent=None):
+        super().__init__(parent, Qt.Window)
+        self.page_index = index
+        self.page_name = name
+        self._page = None
+        self.setWindowTitle("%s · ILHC 独立窗口" % name)
+        self.setMinimumSize(520, 360)
+
+        root = QWidget()
+        self.setCentralWidget(root)
+        self.root_lay = QVBoxLayout(root)
+        self.root_lay.setContentsMargins(0, 0, 0, 0)
+        self.root_lay.setSpacing(0)
+
+        bar = QFrame()
+        bar.setObjectName("DetachBar")
+        bl = QHBoxLayout(bar)
+        bl.setContentsMargins(12, 6, 8, 6)
+        bl.setSpacing(8)
+        title = QLabel(name)
+        title.setObjectName("DetachTitle")
+        bl.addWidget(title)
+        bl.addStretch(1)
+
+        # 标题栏按钮全部 NoFocus：点击置顶/取回不会把焦点从键盘遥控区抢走。
+        self.top_btn = QPushButton("置顶")
+        self.top_btn.setCheckable(True)
+        self.top_btn.setFocusPolicy(Qt.NoFocus)
+        self.top_btn.setToolTip("让该窗口保持在其他窗口之上")
+        self.top_btn.toggled.connect(self._on_top_toggled)
+        bl.addWidget(self.top_btn)
+
+        back = QPushButton("取回主窗口")
+        back.setFocusPolicy(Qt.NoFocus)
+        back.setToolTip("把页面放回主窗口并关闭本窗口")
+        back.clicked.connect(lambda: self.reattachRequested.emit(self.page_index))
+        bl.addWidget(back)
+        self.root_lay.addWidget(bar)
+
+    def take_page(self, page: QWidget):
+        self._page = page
+        self.root_lay.addWidget(page, 1)
+        # setParent 会把控件置为隐藏，换父窗口后必须显式 show。
+        page.show()
+
+    def page(self) -> QWidget | None:
+        return self._page
+
+    def is_topmost(self) -> bool:
+        return bool(self.windowFlags() & Qt.WindowStaysOnTopHint)
+
+    def set_topmost(self, on: bool):
+        """程序设置置顶（不触发 topmostToggled，避免重复日志）。"""
+        on = bool(on)
+        self.top_btn.blockSignals(True)
+        self.top_btn.setChecked(on)
+        self.top_btn.blockSignals(False)
+        self._apply_topmost(on)
+
+    def _on_top_toggled(self, on: bool):
+        self._apply_topmost(bool(on))
+        self.topmostToggled.emit(self.page_index, bool(on))
+
+    def _apply_topmost(self, on: bool):
+        on = bool(on)
+        self.top_btn.setText("已置顶" if on else "置顶")
+        if self.is_topmost() == on:
+            return
+        # setWindowFlag 会重建原生窗口并把它隐藏，所以必须先记下可见性和焦点，
+        # 改完标志后再恢复；否则取消置顶后窗口会直接“消失”。
+        was_visible = self.isVisible()
+        focus = QApplication.focusWidget()
+        focus_inside = focus is not None and self.isAncestorOf(focus)
+        self.setWindowFlag(Qt.WindowStaysOnTopHint, on)
+        if was_visible:
+            self.show()
+            self.raise_()
+        if focus_inside and focus is not None:
+            focus.setFocus(Qt.OtherFocusReason)
+
+    def closeEvent(self, event: QCloseEvent):
+        self.reattachRequested.emit(self.page_index)
+        super().closeEvent(event)
+
+
 class MainWindow(QMainWindow):
     def __init__(self, args):
         super().__init__()
@@ -668,6 +767,26 @@ class MainWindow(QMainWindow):
 
     # ---------------- UI ----------------
     def _build_ui(self):
+        self.page_names = [
+            "总览",
+            "实时波形",
+            "比赛地图",
+            "底盘调参",
+            "DM 电机",
+            "数据记录",
+            "命令终端",
+            "28 / 35 步进",
+        ]
+        # 每个页面固定占一个槽位（QStackedWidget）；页面被拆到独立窗口时，
+        # 槽位里换成占位卡，槽位下标永远等于页面下标。
+        self.slots = []
+        self.placeholders = []
+        self.placeholder_top_checks = {}
+        self.detached = {}
+        self.page_windows = {}
+        self.topmost_pref = {}
+        self._reattaching = set()
+
         root = QWidget()
         self.setCentralWidget(root)
         main = QVBoxLayout(root)
@@ -703,8 +822,15 @@ class MainWindow(QMainWindow):
             self._build_console_page(),
             self._build_stepper_page(),
         ]
-        for page in self.pages:
-            self.stack.addWidget(page)
+        for i, page in enumerate(self.pages):
+            slot = QStackedWidget()
+            placeholder = self._build_detach_placeholder(i)
+            slot.addWidget(placeholder)
+            slot.addWidget(page)
+            slot.setCurrentWidget(page)
+            self.slots.append(slot)
+            self.placeholders.append(placeholder)
+            self.stack.addWidget(slot)
         self._select_page(0)
 
     def _build_topbar(self):
@@ -781,12 +907,15 @@ class MainWindow(QMainWindow):
         sec.setObjectName("SidebarSection")
         lay.addWidget(sec)
 
-        names = ["总览", "实时波形", "比赛地图", "底盘调参", "DM 电机", "数据记录", "命令终端", "28 / 35 步进"]
         self.nav_buttons = []
-        for i, name in enumerate(names):
+        for i, name in enumerate(self.page_names):
             btn = QPushButton(name)
             btn.setProperty("nav", True)
             btn.setCursor(Qt.PointingHandCursor)
+            btn.setToolTip("左键切换页面；右键可拆成独立窗口、设置窗口置顶")
+            btn.setContextMenuPolicy(Qt.CustomContextMenu)
+            btn.customContextMenuRequested.connect(
+                lambda pos, x=i: self._show_nav_menu(x, pos))
             btn.clicked.connect(lambda _=False, x=i: self._select_page(x))
             lay.addWidget(btn)
             self.nav_buttons.append(btn)
@@ -822,15 +951,25 @@ class MainWindow(QMainWindow):
         lay.setSpacing(12)
         head = QFrame()
         head.setObjectName("PageHeader")
-        hl = QVBoxLayout(head)
+        hl = QHBoxLayout(head)
         hl.setContentsMargins(2, 0, 2, 4)
-        hl.setSpacing(2)
+        hl.setSpacing(10)
+        text = QVBoxLayout()
+        text.setSpacing(2)
         t = QLabel(title)
         t.setObjectName("PageTitle")
         s = QLabel(subtitle)
         s.setObjectName("PageSubtitle")
-        hl.addWidget(t)
-        hl.addWidget(s)
+        text.addWidget(t)
+        text.addWidget(s)
+        hl.addLayout(text)
+        hl.addStretch(1)
+        detach = QPushButton("独立窗口")
+        detach.setToolTip("把该页面拆成可移动的独立窗口；独立窗口中可勾选「置顶」")
+        detach.setCursor(Qt.PointingHandCursor)
+        # 构建时 self.pages 尚未填好，点击时再解析下标。
+        detach.clicked.connect(lambda _=False, w=page: self._detach_page(self._page_index_of(w)))
+        hl.addWidget(detach)
         lay.addWidget(head)
         return page, lay
 
@@ -1393,8 +1532,19 @@ class MainWindow(QMainWindow):
 
     def changeEvent(self, event):
         if event.type() == QEvent.ActivationChange and not self.isActiveWindow():
-            self._manual_stop()
+            # 焦点可能只是转到独立窗口（例如在分离的底盘页里按 WASD），
+            # 等事件循环走完再看哪个窗口真正在前台。
+            QTimer.singleShot(0, self._activation_guard)
         super().changeEvent(event)
+
+    def _own_window_active(self) -> bool:
+        if self.isActiveWindow():
+            return True
+        return any(win.isActiveWindow() for win in getattr(self, "detached", {}).values())
+
+    def _activation_guard(self):
+        if not self._own_window_active():
+            self._manual_stop()
 
     def _build_dm_page(self):
         page, lay = self._page_shell("DM 电机", "MIT / 位置速度模式，实时反馈与故障状态")
@@ -1535,10 +1685,187 @@ class MainWindow(QMainWindow):
         if path.exists():
             self.setStyleSheet(path.read_text(encoding="utf-8"))
 
+    # ---------------- 独立窗口（页面拆分 + 窗口置顶） ----------------
+    def _page_index_of(self, page: QWidget) -> int:
+        try:
+            return self.pages.index(page)
+        except (AttributeError, ValueError):
+            return -1
+
+    def _build_detach_placeholder(self, idx: int) -> QWidget:
+        holder = QWidget()
+        lay = QVBoxLayout(holder)
+        lay.setContentsMargins(0, 0, 0, 0)
+        lay.setSpacing(12)
+        panel = QFrame()
+        panel.setObjectName("Panel")
+        pl = QVBoxLayout(panel)
+        pl.setContentsMargins(18, 18, 18, 18)
+        pl.setSpacing(10)
+        title = QLabel("「%s」正在独立窗口中显示" % self.page_names[idx])
+        title.setObjectName("SectionTitle")
+        title.setWordWrap(True)
+        hint = QLabel("关闭独立窗口或点击「取回主窗口」，页面会回到主界面这个位置。")
+        hint.setObjectName("HintLabel")
+        hint.setWordWrap(True)
+        row = QHBoxLayout()
+        back = QPushButton("取回主窗口")
+        back.setObjectName("PrimaryButton")
+        back.clicked.connect(lambda _=False, i=idx: self._reattach_page(i))
+        top = QCheckBox("窗口置顶")
+        top.setToolTip("让该独立窗口保持在其他窗口之上")
+        top.toggled.connect(lambda on, i=idx: self._set_page_topmost(i, on))
+        row.addWidget(back)
+        row.addWidget(top)
+        row.addStretch(1)
+        pl.addWidget(title)
+        pl.addWidget(hint)
+        pl.addLayout(row)
+        lay.addWidget(panel)
+        lay.addStretch(1)
+        self.placeholder_top_checks[idx] = top
+        return holder
+
+    def _detach_page(self, idx: int, topmost: bool | None = None):
+        if idx < 0 or idx >= len(getattr(self, "pages", [])):
+            return
+        win = self.detached.get(idx)
+        if win is not None:
+            if topmost:
+                win.set_topmost(True)
+            win.show()
+            win.raise_()
+            win.activateWindow()
+            return
+        page = self.pages[idx]
+        win = self.page_windows.get(idx)
+        if win is None:
+            # 不传 parent：带父级的顶层窗口在 Windows 上是 owned window，
+            # 会永久压在主窗口上面；独立窗口之间才能换层。
+            win = DetachedPageWindow(idx, self.page_names[idx])
+            win.reattachRequested.connect(
+                lambda i, w=win: self._reattach_page(i, source=w))
+            win.topmostToggled.connect(self._on_detached_topmost_toggled)
+            self.page_windows[idx] = win
+        # 无父级窗口不会继承主窗口样式表，每次拆出时复制一份。
+        win.setStyleSheet(self.styleSheet())
+        # 页面控件直接换父窗口：信号、定时器和键盘遥控都不重建。
+        win.take_page(page)
+        self.detached[idx] = win
+        want_top = bool(topmost) if topmost is not None else bool(self.topmost_pref.get(idx, False))
+        win.set_topmost(want_top)
+        self._sync_placeholder_topmost(idx)
+        self.slots[idx].setCurrentWidget(self.placeholders[idx])
+        self._place_detached_window(win, idx)
+        win.show()
+        win.raise_()
+        win.activateWindow()
+        self._refresh_nav_state()
+        self.log("「%s」已拆成独立窗口%s" %
+                 (self.page_names[idx], "（窗口置顶）" if win.is_topmost() else ""), "info")
+
+    def _place_detached_window(self, win: DetachedPageWindow, idx: int):
+        if getattr(win, "_placed", False):
+            return
+        win._placed = True
+        win.resize(860, 660)
+        if self.isVisible():
+            base = self.pos()
+            win.move(base.x() + 120 + 26 * idx, base.y() + 70 + 22 * idx)
+
+    def _reattach_page(self, idx: int, source=None):
+        if not hasattr(self, "detached"):
+            return
+        # win.close() 会再发一次 reattachRequested，避免重入重复加回页面。
+        if idx in self._reattaching:
+            return
+        win = self.detached.pop(idx, None)
+        if win is None and source is None:
+            return
+        if idx < 0 or idx >= len(self.pages):
+            return
+        self._reattaching.add(idx)
+        try:
+            page = self.pages[idx]
+            slot = self.slots[idx]
+            # addWidget 自动换回主窗口父级，独立窗口的布局会随之移除该项。
+            if slot.indexOf(page) < 0:
+                slot.addWidget(page)
+            slot.setCurrentWidget(page)
+            if win is not None and win is not source:
+                win.close()
+        finally:
+            self._reattaching.discard(idx)
+        self._refresh_nav_state()
+        self.log("「%s」已回到主窗口" % self.page_names[idx], "info")
+
+    def _reattach_all(self):
+        for idx in list(getattr(self, "detached", {})):
+            self._reattach_page(idx)
+
+    def _set_page_topmost(self, idx: int, on: bool):
+        on = bool(on)
+        self.topmost_pref[idx] = on
+        win = self.detached.get(idx)
+        if win is not None:
+            win.set_topmost(on)
+        self._sync_placeholder_topmost(idx)
+
+    def _sync_placeholder_topmost(self, idx: int):
+        check = self.placeholder_top_checks.get(idx)
+        if check is None:
+            return
+        win = self.detached.get(idx)
+        on = win.is_topmost() if win is not None else bool(self.topmost_pref.get(idx, False))
+        if check.isChecked() != on:
+            check.blockSignals(True)
+            check.setChecked(on)
+            check.blockSignals(False)
+
+    def _on_detached_topmost_toggled(self, idx: int, on: bool):
+        self.topmost_pref[idx] = bool(on)
+        self._sync_placeholder_topmost(idx)
+        self.log("「%s」独立窗口%s" % (self.page_names[idx], "已置顶" if on else "取消置顶"), "info")
+
+    def _refresh_nav_state(self):
+        if not hasattr(self, "nav_buttons"):
+            return
+        for i, b in enumerate(self.nav_buttons):
+            b.setProperty("detached", i in getattr(self, "detached", {}))
+            b.style().unpolish(b)
+            b.style().polish(b)
+
+    def _show_nav_menu(self, idx: int, pos):
+        btn = self.nav_buttons[idx]
+        win = self.detached.get(idx)
+        menu = QMenu(self)
+        act_detach = menu.addAction("拆成独立窗口")
+        act_detach.setEnabled(win is None)
+        act_detach.triggered.connect(lambda _=False, i=idx: self._detach_page(i))
+        act_back = menu.addAction("取回主窗口")
+        act_back.setEnabled(win is not None)
+        act_back.triggered.connect(lambda _=False, i=idx: self._reattach_page(i))
+        menu.addSeparator()
+        act_top = menu.addAction("窗口置顶")
+        act_top.setCheckable(True)
+        act_top.setChecked(win.is_topmost() if win is not None else bool(self.topmost_pref.get(idx, False)))
+        act_top.setEnabled(win is not None)
+        act_top.triggered.connect(lambda on, i=idx: self._set_page_topmost(i, on))
+        if self.detached:
+            menu.addSeparator()
+            act_all = menu.addAction("取回全部独立窗口")
+            act_all.triggered.connect(lambda _=False: self._reattach_all())
+        menu.exec(btn.mapToGlobal(pos))
+
     def _select_page(self, idx: int):
         self._manual_stop()
-        if hasattr(self, "stack") and idx < self.stack.count():
+        if hasattr(self, "stack") and 0 <= idx < self.stack.count():
             self.stack.setCurrentIndex(idx)
+        # 页面已拆出去时，导航按钮同时把独立窗口抬到最前。
+        win = getattr(self, "detached", {}).get(idx)
+        if win is not None and win.isVisible():
+            win.raise_()
+            win.activateWindow()
         for i, b in enumerate(self.nav_buttons):
             b.setProperty("active", i == idx)
             b.style().unpolish(b)
@@ -1773,13 +2100,13 @@ class MainWindow(QMainWindow):
                                       % (ux / core.OPS_CM_TO_MM,
                                          uy / core.OPS_CM_TO_MM, heading))
 
-        # 仅绘制当前页；键盘控制页不复制整段波形、也不重建隐藏地图轨迹。
-        page = self.stack.currentIndex()
-        if page == 1:
+        # 只绘制可见页面：主窗口当前页 + 已拆到独立窗口的页面。
+        active = {self.stack.currentIndex()} | set(self.detached)
+        if 1 in active:
             self.wave_page.update_data(self.ring.view(), self.latest_t, self.window_s)
-        elif page == 0:
+        if 0 in active:
             self._update_dashboard_plots(self.ring.view())
-        elif page == 2:
+        if 2 in active:
             self._update_map_trail()
         if self.map_target is None:
             self.map_view.set_target(None, None)
@@ -2095,6 +2422,8 @@ class MainWindow(QMainWindow):
     def closeEvent(self, event: QCloseEvent):
         self._manual_stop()
         try:
+            # 先把页面收回主窗口，独立窗口不会再拦截退出。
+            self._reattach_all()
             if self.recorder is not None:
                 self.recorder.close()
                 self.recorder = None

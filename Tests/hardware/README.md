@@ -15,13 +15,19 @@ USART1接收恢复专项：`python Tests/hardware/test_debug_rx_recovery.py`。
 核对全工程统一坐标：`+X=车左、+Y=车头、+Z=逆时针`，24 通道遥测 ch0/ch1、ch3/ch4、ch6/ch7 直接输出；
 位置/误差由内部 mm 在打包边界转换为 cm（1 位小数）；
 `MANUAL`/`GOTO`/`OPSOFFSET` 三个入参直接使用 X/Y；`KPX` 写 `mKpx`、`KPY` 写 `mKpy`；
-以及 OPS 原始帧唯一映射 `X=-x_raw、Y=+y_raw`、置零物理正向和 `chassis_move` 的
+以及 OPS 原始帧通过固定映射 `X=-raw_y、Y=-raw_x` 统一转换、
+置零物理正向和 `chassis_move` 的
 `目标 - 当前` 误差（两者必须成对，否则位置环变成正反馈）。同时断言 24 通道 JustFloat 帧格式、
 麦轮解算公式和既有命令未被本次改动波及。
 沿用 `test_debug_wheel.py` 的文本核对方式，不编译整条解析链；`MANUAL` 超时与原序输出由
 `test_debug_manual.py` 编译真实服务函数覆盖，`OPSOFFSET` 的坐标约定由 `test_ops_offset.py`
 覆盖，Qt 侧轴序由 `python -m unittest -v test_debugger` 的
 `test_telemetry_direction_matches_field_axes` 覆盖。源码文本断言不代表实机运动方向已实测。
+
+OPS 原始轴方向专项：`python Tests/hardware/test_ops_axis_direction.py`（需要 GCC）。
+编译真实映射函数、坐标清零、位置换算和
+`OPS_SetOrigin()`，验证固定映射的前向/反向换算、绝对输出、安装偏心补偿以及
+向前只增加 Y、向左只增加 X。该测试为合成坐标，不代表实车安装方向已实测。
 
 解析层轴序专项：`python Tests/hardware/test_parse_line_axes.py`（需要 GCC）。
 抽取真实 `Debug_ParseLine`、解析辅助函数和 `s_params` 参数表，用桩替身提供 HAL 与状态变量后编译运行，
@@ -31,11 +37,6 @@ USART1接收恢复专项：`python Tests/hardware/test_debug_rx_recovery.py`。
 `KPX` 写 `mKpx`、`KPY` 写 `mKpy`（超限钳位到 50）；`MANUAL` 按协议原序暂存并原样传给
 `MoveVelocity`（由 `test_debug_manual.py` 覆盖）；
 以及 `WHEELOFF` 失能后解析层仍丢弃 `MANUAL`/`GOTO`。该测试不连接设备，也不验证机械运动方向。
-
-X/Y 轴 P 闭环专项：`python Tests/hardware/test_chassis_pid.py`（需要 GCC）。
-提取真实 `chassis_move()`、位置刷新、限幅和麦轮混控，在 yaw=0 与 yaw=90° 下验证
-`devx=目标-当前` 的符号、X 只使用 `mKpx`、Y 只使用 `mKpy`，并锁定“先旋转到车体坐标，
-再应用轴 P 增益”的顺序。测试用 20ms 周期的两轮计算跨过速度斜坡，不连接 OPS 或电机。
 
 使用主机 GCC 直接编译 `hcan.c`、`stepper_2835.c`、`OLED_SoftSPI.c`，以本目录 HAL 替身代替寄存器访问，不连接设备。测试头文件只能用于本测试，禁止加入固件包含路径。
 

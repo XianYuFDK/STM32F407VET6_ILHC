@@ -1,8 +1,8 @@
 """运行真实 OPS 坐标换算和补偿命令解析，使用统一坐标系合成数据。
 
-OPS 原始帧实测为 +x_raw=车右、+y_raw=车头，因此统一输出：
-    X(车左) = -x_raw
-    Y(车头) = +y_raw
+OPS 原始帧固定映射到统一坐标：
+    X(车左) = -raw_y
+    Y(车头) = -raw_x
 
 默认安装：OPS 在车体中心左 60mm、后 50mm，即统一坐标 (60,-50) mm。
 """
@@ -54,14 +54,14 @@ static void near(float a,float b) {
 }
 
 /* 合成物理位姿 (tx,ty)：中心 X=左、Y=前，单位 m。
- * 安装偏移在原始帧里 rx=-0.06、ry=-0.05：
- *   原始 x=车右、原始 y=车头，所以左60/后50 对应 (-0.06,-0.05)。
- * 传感器原始坐标 = 中心原始坐标 + R(angle)*r_raw，
- * 其中中心原始坐标 = (-tx,ty)。 */
+ * 固定逆映射为 raw_x=-Y、raw_y=-X，因此：
+ *   中心原始坐标 = (-ty,-tx)
+ *   左60/后50 的安装偏移在原始帧为 (+0.05,-0.06)
+ * 传感器原始坐标 = 中心原始坐标 + R(angle)*r_raw。 */
 static void pose(float angle,float tx,float ty) {
   float c=cosf(angle), s=sinf(angle);
-  s_ops.frame.x=-tx - 0.06f*c + 0.05f*s;
-  s_ops.frame.y= ty - 0.06f*s - 0.05f*c;
+  s_ops.frame.x=-ty + 0.05f*c + 0.06f*s;
+  s_ops.frame.y=-tx + 0.05f*s - 0.06f*c;
   s_ops.frame.z=angle;
   s_ops.valid_count=1;
   s_ops.pose_valid=1;
@@ -90,8 +90,8 @@ int main(void) {
     for(i=0;i<5;++i) {
       pose(angles[i],0,0);
       OPS_CopyPosition(&x,&y,&z,1);
-      near(x,-s_ops.frame.x);
-      near(y,s_ops.frame.y);
+      near(x,-s_ops.frame.y);
+      near(y,-s_ops.frame.x);
       near(z,angles[i]);
     }
   }
@@ -152,7 +152,14 @@ int main(void) {
 '''
 
 
-names = ["OPS_CopyPosition", "OPS_ZeroCoordinates", "OPS_ClearZero", "OPS_SetMountOffset"]
+names = [
+    "OPS_MapRawToUnified",
+    "OPS_MapUnifiedToRaw",
+    "OPS_CopyPosition",
+    "OPS_ZeroCoordinates",
+    "OPS_ClearZero",
+    "OPS_SetMountOffset",
+]
 code = (prelude
         + "\n".join(function(ops, name) for name in names)
         + function(debug, "Debug_ParseFloat")

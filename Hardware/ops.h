@@ -66,8 +66,8 @@ typedef struct
   uint16_t seq;         /* V2 发包序号                 */
   uint32_t session_id;  /* V2 会话号                   */
   uint32_t timestamp_ms;/* V2 发送端毫秒时基            */
-  float    x;           /* 原始帧 x（实车标定：+车右）[m] */
-  float    y;           /* 原始帧 y（实车标定：+车头）[m] */
+  float    x;           /* OPS 原始帧 x；统一映射见 ops.c [m] */
+  float    y;           /* OPS 原始帧 y；统一映射见 ops.c [m] */
   float    z;           /* 航向角/偏航角 [rad]         */
   uint16_t checksum;    /* V1 CRC8 或 V2 CRC16          */
 } OPS_Frame_t;
