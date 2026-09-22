@@ -34,6 +34,7 @@ prelude = r'''
 static int out_dir[4];
 static int out_rpm[4];
 static int out_calls;
+static int last_Speed[4];
 
 static void HAL_Delay(uint32_t delay_ms)
 {
@@ -65,6 +66,7 @@ static void reset_output(void)
   {
     out_dir[i] = -1;
     out_rpm[i] = -1;
+    last_Speed[i] = 0;
   }
 }
 
@@ -77,6 +79,10 @@ int main(void)
   assert(out_dir[0] == ZDT_X42S_DIR_CW && out_dir[1] == ZDT_X42S_DIR_CCW);
   assert(out_dir[2] == ZDT_X42S_DIR_CW && out_dir[3] == ZDT_X42S_DIR_CCW);
   assert(out_rpm[0] == 60 && out_rpm[1] == 60 && out_rpm[2] == 60 && out_rpm[3] == 60);
+  assert(last_Speed[0] == (int)(60.0f / 0.238f));
+  assert(last_Speed[1] == (int)(-60.0f / 0.238f));
+  assert(last_Speed[2] == (int)(60.0f / 0.238f));
+  assert(last_Speed[3] == (int)(-60.0f / 0.238f));
 
   /* A：X=+60（向车左），最终 ZDT 方向为 [CCW,CCW,CW,CW]。 */
   reset_output();

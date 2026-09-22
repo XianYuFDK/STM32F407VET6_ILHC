@@ -16,7 +16,7 @@
  *                          XVMAX=1600 / ZVMAX=750
  *                          STOP / ZERO
  *                          PING（上位机运行心跳）
- *                          DMID=1 / DMEN / DMOFF / DMZERO
+ *                          DMID=3 / DMEN / DMOFF / DMZERO
  *                          DMMODE=1 (MIT) / DMMODE=2 (位置速度)
  *                          DMPOS=3.14 / DMVEL=2 / DMKP=2 / DMKD=1 / DMTOR=0.5
  *          - 调试动作超过 1s 未收到任何命令/PING 时，底盘停车且 DM 失能

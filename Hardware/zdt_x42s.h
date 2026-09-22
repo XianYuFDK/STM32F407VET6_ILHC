@@ -38,24 +38,27 @@ void ZDT_X42S_ServiceRx(void);
  * reply至少4字节；队列最多缓存15帧，满时丢弃新帧。 */
 uint8_t ZDT_X42S_PopReply(uint8_t reply[4]);
 
+/** 获取累计发送失败帧数；用于诊断UART4发送超时或总线占用。 */
+uint32_t ZDT_X42S_GetTxErrorCount(void);
+
 
 /**
  * @brief  使能指定地址电机
  * @param  addr 电机地址，1~255；0 为广播地址
  */
-void ZDT_X42S_Enable(uint8_t addr);
+HAL_StatusTypeDef ZDT_X42S_Enable(uint8_t addr);
 
 /**
  * @brief  失能指定地址电机
  * @param  addr 电机地址，1~255；0 为广播地址
  */
-void ZDT_X42S_Disable(uint8_t addr);
+HAL_StatusTypeDef ZDT_X42S_Disable(uint8_t addr);
 
 /**
  * @brief  立即停止指定地址电机
  * @param  addr 电机地址，1~255；0 为广播地址
  */
-void ZDT_X42S_Stop(uint8_t addr);
+HAL_StatusTypeDef ZDT_X42S_Stop(uint8_t addr);
 
 /**
  * @brief  速度模式控制电机连续转动（使用默认加速度）
@@ -63,7 +66,7 @@ void ZDT_X42S_Stop(uint8_t addr);
  * @param  dir  方向：ZDT_X42S_DIR_CW / ZDT_X42S_DIR_CCW
  * @param  rpm  速度，单位 RPM，范围 0~3000
  */
-void ZDT_X42S_Speed(uint8_t addr, uint8_t dir, uint16_t rpm);
+HAL_StatusTypeDef ZDT_X42S_Speed(uint8_t addr, uint8_t dir, uint16_t rpm);
 
 /**
  * @brief  速度模式控制电机连续转动（自定义加速度）
@@ -72,7 +75,7 @@ void ZDT_X42S_Speed(uint8_t addr, uint8_t dir, uint16_t rpm);
  * @param  rpm  速度，单位 RPM，范围 0~3000
  * @param  acc  加速度档位，0~255；0 为直接启动
  */
-void ZDT_X42S_SpeedAcc(uint8_t addr, uint8_t dir, uint16_t rpm, uint8_t acc);
+HAL_StatusTypeDef ZDT_X42S_SpeedAcc(uint8_t addr, uint8_t dir, uint16_t rpm, uint8_t acc);
 
 #ifdef __cplusplus
 }

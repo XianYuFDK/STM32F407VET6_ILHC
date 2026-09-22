@@ -44,7 +44,7 @@ HAL_StatusTypeDef Motor_Homing(uint16_t id)
 /**
  * @brief   步进电机绝对位置模式，对应原工程 Motor_AbsPosition()。
  * @param   dir 目标位置方向，0 / 1；实际机械正反方向由接线和驱动配置决定。
- * @param   id 35 电机为 0x300，28 电机为 0x400（以头文件配置为准）。
+ * @param   id 35 电机为 0x100，28 电机为 0x200（以头文件配置为准）。
  * @param   step 目标位置计数，范围 0..UINT32_MAX，不是高度或长度。
  * @param   speed 电机转速，单位 RPM，16 位字段；不是线速度 mm/s。
  * @return  HAL_OK 两包已提交；HAL_BUSY 无足够邮箱；HAL_ERROR 参数或提交错误。
@@ -138,7 +138,7 @@ HAL_StatusTypeDef Motor28_AbsPosition(uint32_t r, uint16_t speed)
 /* ======================= 公共回复：按电机 ID 分开缓存 ======================= */
 
 /**
- * @brief   接收回调内部缓存回复：0x300 更新35电机，0x400 更新28电机。
+ * @brief   接收回调内部缓存回复：0x100 更新35电机，0x200 更新28电机。
  * @param   id 已由外层确认的扩展数据帧 ID。
  * @param   data 回复内容，至少包含 length 字节；函数内复制，不保留指针。
  * @param   length 有效字节数，范围1..8。

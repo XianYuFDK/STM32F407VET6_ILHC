@@ -11,8 +11,9 @@
  *          接收方式：USART2 空闲中断 + DMA 流式接收
  *
  *          统一坐标约定：+X=车左、+Y=车头、+Z=逆时针。
- *          坐标清零：与 ops9-main 的底盘偏移标定方式一致，
- *          不清除 OPS 模块本身，而是在本地记录“零点”并换算相对坐标。
+ *          坐标清零：不清除 OPS 模块本身，而是在本地记录零点。
+ *          ZERO 同时建立平移原点和 XY 轴旋转基准，清零后 +Y 表示
+ *          ZERO 时的车头方向。
  ******************************************************************************
  */
 #ifndef __OPS_H__
@@ -42,7 +43,6 @@ extern "C" {
 
 #define OPS_CMD_HEADER              0xC5U /* MCU -> OPS 命令帧头         */
 #define OPS_CMD_MODE_INIT           0x22U /* OPS 初始化/复位命令         */
-#define OPS_CMD_MODE_START          0x30U /* 旧协议启动命令，兼容旧 OPS */
 #define OPS_CMD_DIR_0               0x30U /* 新协议方向 0                 */
 #define OPS_CMD_DIR_1               0x31U /* 新协议方向 1                 */
 #define OPS_CMD_DIR_2               0x32U /* 新协议方向 2                 */
@@ -89,8 +89,8 @@ typedef struct
   volatile uint32_t last_update_tick; /* 最近有效位姿的本地 tick，ms */
 
   /* 坐标清零相关参数 */
-  float             origin_x;     /* 零点对应的绝对 X 坐标  */
-  float             origin_y;     /* 零点对应的绝对 Y 坐标  */
+  float             origin_x;     /* 零点对应的 OPS 原始 x  */
+  float             origin_y;     /* 零点对应的 OPS 原始 y  */
   volatile uint8_t  zero_enabled; /* 1 已清零，0 未清零     */
 } OPS_Data_t;
 
@@ -112,8 +112,9 @@ uint8_t OPS_ConsumeSessionChanged(void);                   /* 读取并清除会
 /* 安装偏移，单位 mm，±500，统一坐标：
  *   x_mm : X=左右，+ 为车左（+60 = 装在中心左侧 60mm）
  *   y_mm : Y=前后，+ 为车头（-50 = 装在中心后方 50mm）
- * 有效帧存在时同时以当前位置重新置零。 */
+ * 只更新安装偏移，不自动执行 ZERO；OPSOFFSET 与 ZERO 是独立动作。 */
 uint8_t OPS_SetMountOffset(float x_mm, float y_mm);
+void OPS_GetMountOffset(float *x_mm, float *y_mm); /* 已应用的安装参数，单位mm */
 
 void OPS_ZeroCoordinates(void);                            /* 当前 X/Y/Z 同时置零                   */
 void OPS_ClearZero(void);                                   /* 取消清零，恢复绝对 X/Y/Z              */

@@ -1,6 +1,6 @@
 """编译真实 Debug_ParseLine，运行时验证统一 X/Y 协议与钳位，不连接设备。
 
-对外协议：MANUAL=X(左右),Y(前后),W；GOTO=X(场地左右),Y(场地前后),Z，X/Y 单位 cm；
+对外协议：MANUAL=X(左右),Y(前后),W；GOTO/GOTOHOLD=X(场地左右),Y(场地前后),Z，X/Y 单位 cm；
 OPSOFFSET=X(左右偏移),Y(前后偏移)；KPX=左右轴增益、KPY=前后轴增益。
 协议、固件内部和底盘控制变量使用同一轴序、同一符号，不再交换或取反。
 """
@@ -43,24 +43,37 @@ static float zangle = 0.0f;
 static volatile uint8_t s_stop_req, s_zero_req, s_offset_req, s_manual_active;
 static volatile float s_offset_x, s_offset_y;
 static volatile uint8_t s_goto_active;
+static uint32_t s_goto_generation;
 static float s_goto_x, s_goto_y, s_goto_z;
 static volatile int16_t s_manual_velocity[3];
 static volatile uint32_t s_manual_tick;
+static uint8_t s_wheel_enable_pending, s_wheel_fault, s_stop_in_progress;
 static uint8_t s_wheel_enabled = 1U;
 static volatile uint8_t s_wheel_req;
 static int16_t s_zdt_args[3];
 static volatile uint8_t s_zdt_active, s_zdt_req, s_zdt_text_mode;
 static volatile uint8_t s_dm_enable_req, s_dm_disable_req, s_dm_zero_req;
 static uint32_t tick, mask;
+#define DEBUG_GOTO_MOVE 1U
+#define DEBUG_GOTO_HOLD 2U
 static uint32_t HAL_GetTick(void) {return tick;}
 static uint32_t __get_PRIMASK(void) {return mask;}
 static void __disable_irq(void) {mask=1;}
 static void __enable_irq(void) {mask=0;}
-/* 与本用例无关的分支：步进/CAN拒绝/DM参数/ZDT应答 */
+/* 与本用例无关的分支：步进/CAN拒绝/DM参数/ZDT应答/参数回读 */
 static uint8_t Debug_ParseStepper(const char *line) {(void)line; return 0U;}
 static uint8_t Debug_RejectCanCommand(const char *line) {(void)line; return 0U;}
 static void Debug_SetDmValue(const char *n, float v) {(void)n; (void)v;}
 static void Debug_ZdtAck(uint8_t e) {(void)e;}
+/* 参数回读只做名称转交（查表与文本格式化在 test_param_readback.py 里验） */
+static char reply_name[32];
+static uint32_t reply_calls;
+static void Debug_ReplyParam(const char *name)
+{
+  reply_calls++;
+  strncpy(reply_name, name, sizeof(reply_name) - 1U);
+  reply_name[sizeof(reply_name) - 1U] = '\0';
+}
 '''
 
 checks = r'''
@@ -105,6 +118,20 @@ int main(void) {
   Debug_ParseLine(line);
   assert(s_goto_x == -3000.0f && s_goto_y == 250.0f);
 
+  /* GOTOHOLD：目标格式与 GOTO 相同，但进入持续位置闭环保持模式。 */
+  zangle = 12.0f;
+  strcpy(line, "GOTOHOLD=10.0,20.0,30.0");
+  Debug_ParseLine(line);
+  assert(s_goto_active == DEBUG_GOTO_HOLD);
+  assert(s_goto_x == 100.0f && s_goto_y == 200.0f && s_goto_z == 30.0f);
+  strcpy(line, "GOTOHOLD=10.0,20.0");                 /* 省略Z：保持当前航向 */
+  Debug_ParseLine(line);
+  assert(s_goto_active == DEBUG_GOTO_HOLD);
+  assert(s_goto_z == 12.0f);
+  strcpy(line, "GOTO=10.0,20.0,30.0");                /* 普通GOTO可退出保持模式 */
+  Debug_ParseLine(line);
+  assert(s_goto_active == DEBUG_GOTO_MOVE);
+
   /* OPSOFFSET：X=车左、Y=车头，直接暂存同轴量。 */
   strcpy(line, "OPSOFFSET=60,-50");                  /* 车左60mm、车后50mm */
   Debug_ParseLine(line);
@@ -140,15 +167,44 @@ int main(void) {
   strcpy(line, "GOTO=100.0,200.0,45.0");
   Debug_ParseLine(line);
   assert(s_goto_active == 0U && s_goto_x == 0.0f && s_goto_y == 0.0f);
+  strcpy(line, "GOTOHOLD=100.0,200.0,45.0");
+  Debug_ParseLine(line);
+  assert(s_goto_active == 0U && s_goto_x == 0.0f && s_goto_y == 0.0f);
   s_wheel_enabled = 1U;
 
+  /* 非法命令不得解除运动状态却漏发停车。 */
+  s_manual_active=1; s_goto_active=0;
+  strcpy(line,"GOTO=0,0,3601"); Debug_ParseLine(line);
+  assert(s_manual_active==1 && s_goto_active==0);
+  strcpy(line,"GOTO=1oops,2,0"); Debug_ParseLine(line);
+  assert(s_manual_active==1);
+  strcpy(line,"GOTO=1,2,bad"); Debug_ParseLine(line);
+  assert(s_manual_active==1);
+  strcpy(line,"GOTO=1,2,0,4"); Debug_ParseLine(line);
+  assert(s_manual_active==1);
+  strcpy(line,"GOTO=1,2,"); Debug_ParseLine(line);
+  assert(s_manual_active==1);
+  s_stop_req=1; strcpy(line,"GOTO=1,2,0"); Debug_ParseLine(line);
+  assert(s_goto_active==0); s_stop_req=0;
+  mKpx=7; strcpy(line,"KPX=8junk"); Debug_ParseLine(line); assert(mKpx==7);
+  strcpy(line,"KPX=8,9"); Debug_ParseLine(line); assert(mKpx==7);
   /* 与坐标无关的既有命令仍可用 */
   strcpy(line, "STOP");
   Debug_ParseLine(line);
   assert(s_stop_req == 1U);
 
+  /* GET <名称>：只把名称交给回读实现，大小写不敏感；GETX 不是回读命令 */
+  reply_calls = 0U; reply_name[0] = '\0';
+  strcpy(line, "get xvmin");
+  Debug_ParseLine(line);
+  assert(reply_calls == 1U && strcmp(reply_name, "xvmin") == 0);
+  reply_calls = 0U;
+  strcpy(line, "GETX=1");
+  Debug_ParseLine(line);
+  assert(reply_calls == 0U);
+
   puts("ParseLine unified X/Y protocol passed:");
-  puts("  GOTO/OPSOFFSET/MANUAL use X=left,Y=front directly");
+  puts("  GOTO/GOTOHOLD/OPSOFFSET/MANUAL use X=left,Y=front directly");
   puts("  KPX->mKpx, KPY->mKpy");
   return 0;
 }

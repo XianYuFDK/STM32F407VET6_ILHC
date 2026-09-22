@@ -8,14 +8,16 @@
  *              V1 14B：0x5C | float x | float y | float z | CRC8
  *              V2 28B：0x5D | ver | len | flags | seq | session_id |
  *                      timestamp_ms | float x/y/z | CRC16
- *          - 发送 2 字节命令：0xC5 0x22 复位、0xC5 0x30（旧启动兼容）、
- *            0xC5 0x32（新协议方向 2）
+ *          - 发送 2 字节命令：0xC5 0x22 复位、0xC5 0x32（新协议方向 2）
  *          - CRC8/CRC16 与 ops9-main 工程实现一致
- *          - 统一坐标约定：+X=车左、+Y=车头、+Z=逆时针。
- *            坐标清零采用“本地零点偏移”方式，与 ops9-main 底盘标定一致：
- *              清零后 X/Y = 相对原点位移 - 偏心旋转位移
- *              Z = 当前航向 - 清零时航向，航向也归零
- *            偏心旋转位移把"OPS 安装点"换算回"车体旋转中心"，见 OPS_CopyPosition()。
+ *          - OPS direction=2 原始坐标：raw -X=车左、raw +Y=车前。
+ *            统一坐标：+X=车左、+Y=车头、+Z=逆时针。
+ *            raw -> unified 固定为 X=-raw_x、Y=raw_y。
+ *          - 坐标清零采用完整二维刚体变换：
+ *              先补偿 OPS 安装点到车体旋转中心，再映射到统一世界坐标；
+ *              ZERO 后减去 ZERO 原点，并按 ZERO 时航向旋转 X/Y 轴；
+ *              Z = 当前航向 - ZERO 时航向。
+ *            因此 ZERO 后 +Y 始终表示 ZERO 时的车头方向。
  *
  * 使用方法：
  *     OPS_Init();                    // 在 MX_USART2_UART_Init() 之后调用
@@ -30,9 +32,9 @@
 #include <math.h>
 #include <string.h>
 
-/* OPS 原始帧到统一坐标的唯一固定映射：
- *   X = -raw_y
- *   Y = -raw_x
+/* OPS direction=2 原始帧到统一坐标的唯一固定映射：
+ *   X = -raw_x   // raw -X=车左
+ *   Y =  raw_y   // raw +Y=车前
  *
  * 位置、绝对位置、SetOrigin 和安装偏心补偿必须共用这组映射，
  * 不再提供方向模式配置。
@@ -43,6 +45,8 @@ static uint8_t             s_rx_buf[OPS_RX_BUFFER_SIZE];   /* DMA 接收缓冲�
 static uint8_t             s_parse_buf[OPS_RX_BUFFER_SIZE];/* 流式解析缓冲   */
 static uint16_t            s_parse_len;              /* 解析缓冲有效长度      */
 static volatile uint8_t    s_rx_recover;             /* USART2 错误恢复请求   */
+static uint8_t             s_continuity_lost;
+static uint32_t            s_last_frame_tick;
 static uint8_t             s_session_pending;        /* 新会话等待首个有效位姿 */
 static OPS_Data_t          s_ops;                    /* 解析结果              */
 /* OPS 光学中心相对底盘中心的安装偏移，单位 mm，统一坐标：
@@ -187,18 +191,21 @@ static HAL_StatusTypeDef OPS_RestartReceive(void)
 {
   HAL_StatusTypeDef status;
 
+  uint32_t mask = __get_PRIMASK();
+  __disable_irq();
+  s_rx_recover = 0U;
   status = HAL_UARTEx_ReceiveToIdle_DMA(&huart2, s_rx_buf, sizeof(s_rx_buf));
   if ((status == HAL_OK) && (huart2.hdmarx != NULL))
   {
     /* 流式解析不需要半传输回调，避免高帧率时产生额外中断 */
     __HAL_DMA_DISABLE_IT(huart2.hdmarx, DMA_IT_HT);
-    s_rx_recover = 0U;
   }
   else if (status != HAL_OK)
   {
     s_rx_recover = 1U;
   }
 
+  if (mask == 0U) __enable_irq();
   return status;
 }
 
@@ -211,8 +218,8 @@ static HAL_StatusTypeDef OPS_RestartReceive(void)
  */
 static void OPS_MapRawToUnified(float raw_x, float raw_y, float *x, float *y)
 {
-  *x = -raw_y;
-  *y = -raw_x;
+  *x = -raw_x;
+  *y = raw_y;
 }
 
 /**
@@ -224,8 +231,28 @@ static void OPS_MapRawToUnified(float raw_x, float raw_y, float *x, float *y)
  */
 static void OPS_MapUnifiedToRaw(float x, float y, float *raw_x, float *raw_y)
 {
-  *raw_x = -y;
-  *raw_y = -x;
+  *raw_x = -x;
+  *raw_y =  y;
+}
+
+/**
+ * @brief  将统一世界坐标位移旋转到 ZERO 时建立的二维坐标系
+ * @param  world_x 世界 X 位移
+ * @param  world_y 世界 Y 位移
+ * @param  zero_yaw ZERO 时航向角，单位 rad
+ * @param  x ZERO 坐标 X 输出
+ * @param  y ZERO 坐标 Y 输出
+ */
+static void OPS_RotateWorldToZero(float world_x, float world_y,
+                                  float zero_yaw, float *x, float *y)
+{
+  float c = cosf(zero_yaw);
+  float s = sinf(zero_yaw);
+
+  /* 项目统一坐标以 (X=左,Y=前) 表示，theta=+90° 时车头为世界 +X，
+   * 故车体到世界为 [[c,s],[-s,c]]；本式是其转置，世界 -> ZERO 车体。 */
+  *x = c * world_x - s * world_y;
+  *y = s * world_x + c * world_y;
 }
 
 /**
@@ -285,6 +312,9 @@ static uint8_t OPS_CopyPosition(float *x, float *y, float *z, uint8_t absolute)
     {
       /* 安装偏心补偿：先在 OPS 原始帧内把安装点换算回车体旋转中心，
        * 再按固定映射转换到统一坐标 X=左、Y=前。 */
+      /* 令 J=diag(-1,1) 为 fixed raw->unified 映射，raw 安装矢量 r=J*r_unified。
+       * 统一坐标下 body->world 为 B(theta)=[[c,s],[-s,c]]，而
+       * J*B(theta)*J=[[c,-s],[s,c]]，故 raw 内仍使用标准旋转。 */
       float dc = cosf(yaw) - cosf(ref);
       float ds = sinf(yaw) - sinf(ref);
       float dx = dc * rx - ds * ry;
@@ -303,6 +333,13 @@ static uint8_t OPS_CopyPosition(float *x, float *y, float *z, uint8_t absolute)
         raw_cy = py - dy;
       }
       OPS_MapRawToUnified(raw_cx, raw_cy, x, y);
+      if (zero != 0U)
+      {
+        /* raw_cx/raw_cy 已是相对 ZERO 车体中心的统一世界位移；
+         * 再把世界轴旋转到 ZERO 时的车体轴，保证 ZERO 后 +Y 永远
+         * 表示 ZERO 时车头方向。 */
+        OPS_RotateWorldToZero(*x, *y, zero_yaw, x, y);
+      }
     }
   }
 
@@ -335,10 +372,6 @@ void OPS_Start(void)
   if (OPS_RestartReceive() != HAL_OK)
   {
     s_rx_recover = 1U;
-  }
-  else
-  {
-    s_rx_recover = 0U;
   }
 }
 
@@ -382,16 +415,11 @@ void OPS_ServiceRx(void)
   {
     s_rx_recover = 1U;
   }
-  else
-  {
-    s_rx_recover = 0U;
-  }
 }
 
 /**
  * @brief  初始化 OPS 模块并开始接收
- * @note   等待 OPS 模块上电稳定后，依次发送初始化/启动命令，
- *         与 ops9-main 示例工程保持一致
+ * @note   等待 OPS 模块上电稳定后复位，再等待重启并固定方向 2
  */
 void OPS_Init(void)
 {
@@ -399,6 +427,8 @@ void OPS_Init(void)
   s_parse_len = 0U;
   s_rx_recover = 0U;
   s_session_pending = 0U;
+  s_continuity_lost = 0U;
+  s_last_frame_tick = 0U;
   s_mount_x_mm = 60.0f;
   s_mount_y_mm = -50.0f;
   s_reference_yaw = s_origin_yaw = 0.0f;
@@ -410,10 +440,6 @@ void OPS_Init(void)
   (void)OPS_SendCommand(OPS_CMD_MODE_INIT);
   /* 0x22 会触发 OPS 控制器复位，等待其重新启动 */
   HAL_Delay(500U);
-  /* 旧 OPS 用 0x30 启动；新 OPS 同时把 0x30 解释为方向 0。
-   * 先兼容旧启动，再显式切回新协议文档中的方向 2，避免坐标轴被 180° 翻转。 */
-  (void)OPS_SendCommand(OPS_CMD_MODE_START);
-  HAL_Delay(20U);
   (void)OPS_SendCommand(OPS_CMD_DIR_2);
 
   /* 启动空闲中断 + DMA 接收 */
@@ -489,9 +515,10 @@ uint8_t OPS_IsOnline(uint32_t timeout_ms)
 
 /**
  * @brief  以当前 OPS 位置作为坐标零点
- * @note   必须收到过有效 OPS 帧后调用；清零后：
- *          X/Y为统一物理正向（左→+X增大、前→+Y增大）并加偏心旋转补偿，
- *          Z同时以当前航向为零点（+ 为逆时针）；是否置零不再改变X/Y的符号方向
+ * @note   必须收到过有效 OPS 帧后调用；清零同时保存：
+ *          当前位置原始 X/Y 作为平移零点，
+ *          当前航向作为 XY 坐标轴旋转基准和 Z 零点。
+ *          清零后 +X=ZERO 时车左、+Y=ZERO 时车头、+Z=逆时针。
  */
 void OPS_ZeroCoordinates(void)
 {
@@ -611,12 +638,23 @@ static void OPS_PublishFrame(const OPS_Frame_t *frame, uint8_t pose_valid)
 
   if (frame->header == OPS_FRAME_HEADER_V2)
   {
-    if (s_ops.session_id != frame->session_id)
+    if (s_ops.frame_count != 0U && frame->session_id == s_ops.session_id &&
+        frame->seq == s_ops.seq && frame->timestamp_ms == s_ops.timestamp_ms)
+      return; /* 重复帧无论间隔多久均不能刷新在线时刻。 */
+    /* 同 ID 的冷启动也必须识别。无数据超过在线窗口即视为连续性中断；
+     * 时间戳用模差处理正常 32 位回绕，重复帧不能刷新在线时刻。 */
+    uint8_t restart = (s_ops.frame_count != 0U &&
+      ((uint32_t)(HAL_GetTick() - s_last_frame_tick) > 200U ||
+       (int32_t)(frame->timestamp_ms - s_ops.timestamp_ms) < 0)) ? 1U : 0U;
+    if (s_ops.session_id != frame->session_id || restart != 0U)
     {
       if (s_ops.session_id != 0U)
       {
         session_changed = 1U;
       }
+      if (s_ops.session_id != frame->session_id ||
+          (int32_t)(frame->timestamp_ms - s_ops.timestamp_ms) < 0)
+        s_continuity_lost = 0U;
       s_ops.session_id = frame->session_id;
       s_session_pending = 1U;
     }
@@ -631,6 +669,14 @@ static void OPS_PublishFrame(const OPS_Frame_t *frame, uint8_t pose_valid)
     session_changed = 1U;
   }
 
+  s_last_frame_tick = HAL_GetTick();
+  if (frame->header == OPS_FRAME_HEADER_V2 && s_session_pending == 0U &&
+      s_ops.valid_count != 0U && (frame->flags & OPS_FLAG_IMU_REBASED) != 0U)
+  {
+    s_continuity_lost = 1U;
+    session_changed = 1U;
+  }
+  if (s_continuity_lost != 0U) pose_valid = 0U;
   s_ops.frame_count++;
 
   if (pose_valid != 0U)
@@ -859,23 +905,36 @@ void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart)
   }
 }
 
-/* 成对更新安装偏移；参数为统一坐标 X=左右(+左)、Y=前后(+前)，由任务停车后调用。未写入Flash。 */
+/* 成对更新安装偏移；统一坐标 X=左、Y=前。调试任务负责持久化。 */
 uint8_t OPS_SetMountOffset(float x_mm, float y_mm)
 {
-  uint32_t mask;
-  if (!(x_mm >= -500.0f && x_mm <= 500.0f &&
-        y_mm >= -500.0f && y_mm <= 500.0f)) return 0U;
-  mask = __get_PRIMASK();
-  __disable_irq();
-  s_mount_x_mm = x_mm;
-  s_mount_y_mm = y_mm;
-  if ((s_ops.pose_valid != 0U) && (s_ops.valid_count != 0U))
-  {
-    s_ops.origin_x = s_ops.frame.x;
-    s_ops.origin_y = s_ops.frame.y;
-    s_origin_yaw = s_ops.frame.z;
-    s_ops.zero_enabled = 1U;
-  }
-  if (mask == 0U) __enable_irq();
-  return 1U;
+    uint32_t mask;
+
+    if (!(x_mm >= -500.0f && x_mm <= 500.0f &&
+          y_mm >= -500.0f && y_mm <= 500.0f))
+    {
+        return 0U;
+    }
+
+    mask = __get_PRIMASK();
+    __disable_irq();
+
+    s_mount_x_mm = x_mm;
+    s_mount_y_mm = y_mm;
+
+    if (mask == 0U)
+    {
+        __enable_irq();
+    }
+
+    return 1U;
+}
+
+void OPS_GetMountOffset(float *x_mm, float *y_mm)
+{
+    uint32_t mask = __get_PRIMASK();
+    __disable_irq();
+    if (x_mm) *x_mm = s_mount_x_mm;
+    if (y_mm) *y_mm = s_mount_y_mm;
+    if (mask == 0U) __enable_irq();
 }

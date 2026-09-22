@@ -1,0 +1,81 @@
+[ INFO ] start building at 2026-09-21 17:06:23
+
+[ TOOL ] Component: ARM Compiler 5.06 update 7 (build 960)
+
+[ INFO ] file statistics (incremental mode)
+
++---------+-----------+-----------+---------------+--------+
+| C Files | Cpp Files | Asm Files | Lib/Obj Files | Totals |
++---------+-----------+-----------+---------------+--------+
+| 5       | 0         | 0         | 0             | 5      |
++---------+-----------+-----------+---------------+--------+
+
+[ INFO ] start compiling ...
+
+>> [ 20%] CC '../Core/Src/freertos.c'
+>> [ 40%] CC '../Core/Src/main.c'
+>> [ 60%] CC '../Hardware/debug_param_store.c'
+>> [ 80%] CC '../Hardware/debug_usart.c'
+>> [100%] CC '../Hardware/stepper_2835.c'
+
+[ INFO ] start linking ...
+
+Program Size: Code=38764 RO-data=10072 RW-data=472 ZI-data=24536  
+
+Total RO  Size (Code + RO Data)                48836 (  47.69kB)
+Total RW  Size (RW Data + ZI Data)             25008 (  24.42kB)
+Total ROM Size (Code + RO Data + RW Data)      48872 (  47.73kB)
+
+Total Memory Usage:
+
+  RAM: [####                ] 19.1%     24.4KB/128.0KB
+  ROM: [##                  ] 9.3%      47.7KB/512.0KB
+
+Section Memory Usage:
+
+  LR_IROM1 (0x08000000): [##                  ] 9.4%      48.2KB/512.0KB
+    - ER_IROM1 (0x08000000): [##                  ] 9.3%      47.7KB/512.0KB
+    - RW_IRAM1 (0x20000000): [####                ] 19.1%     24.4KB/128.0KB
+
+[ INFO ] start outputting files ...
+
+>> output hex file		[done]
+
+file path: "build/STM32F407VET6_ILHC/STM32F407VET6_ILHC.hex"
+
+>> output s19 file		[done]
+
+file path: "build/STM32F407VET6_ILHC/STM32F407VET6_ILHC.s19"
+
+[ DONE ] build successfully !, elapsed time 0:0:3
+
+
+--- BUILD LOG: E:\STM32\STM32F407VET6_ILHC\MDK-ARM\build\STM32F407VET6_ILHC\compiler.log ---
+>>> info
+
+Compiler Full Name: Component: ARM Compiler 5.06 update 7 (build 960)
+Compiler Version: 5.06
+Builder Mode: Incremental
+The amount of C files: 5
+The amount of C++ files: 0
+The amount of Asm files: 0
+
+>>> prebuild
+
+
+
+>>> cc
+
+
+
+
+
+
+
+>>> ld
+
+Program Size: Code=38764 RO-data=10072 RW-data=472 ZI-data=24536  
+
+
+>>> postbuild
+

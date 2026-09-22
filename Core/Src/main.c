@@ -129,7 +129,9 @@ int main(void)
   /* 在首次电机使能前启动UART4接收，避免遗漏启动应答。 */
   if (ZDT_X42S_InitRx() != HAL_OK) Error_Handler();
   MecanumControl_Init();
+  MecanumControl_Stop(); /* MCU复位后先清掉驱动器可能保持的旧速度。 */
   MecanumControl_Enable();
+  HAL_Delay(100U); /* 启动阶段等待；运行期使用非阻塞状态机。 */
   DebugUsart_Init();
 
   /* USER CODE END 2 */

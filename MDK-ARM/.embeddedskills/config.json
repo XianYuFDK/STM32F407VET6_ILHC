@@ -1,0 +1,7 @@
+{
+  "eide": {
+    "project": ".",
+    "config": "STM32F407VET6_ILHC",
+    "log_dir": ".embeddedskills/build"
+  }
+}

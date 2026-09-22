@@ -79,6 +79,7 @@ void chassis_turn(int z);
 
 /* 封装接口 */
 void MecanumControl_Init(void);
+void MecanumControl_SetPeriod(uint32_t dt_ms);
 void MecanumControl_Enable(void);
 void MecanumControl_Disable(void);
 void MecanumControl_Stop(void);

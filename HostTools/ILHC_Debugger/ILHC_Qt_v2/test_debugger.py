@@ -387,6 +387,7 @@ class DebuggerTests(unittest.TestCase):
 
             def write(self, data):
                 writes.append(data)
+                return len(data)
 
             def close(self):
                 self.is_open = False
@@ -429,6 +430,7 @@ class DebuggerTests(unittest.TestCase):
                 writes.append(data)
                 if data.startswith(b"MANUAL="):
                     worker.stop_flag = True
+                return len(data)
             def close(self):
                 self.is_open = False
 
@@ -508,8 +510,41 @@ class DebuggerTests(unittest.TestCase):
         self.assertEqual(w.ops_offset_y.value(), -50)
         self.assertIn("迁移", w.ops_offset_status.text())
 
+    def test_simulator_heading_and_zero_physical_axes(self):
+        sim = self.window.sim
+        sim.handle_line("ZERO")
+        sim.zval = 90
+        sim.handle_line("MANUAL=0,60,0")
+        with patch.object(core.random, "gauss", return_value=0):
+            frame = sim.make_frame(0)
+        self.assertGreater(frame[0], 0)  # +90°车头朝世界+X
+        self.assertAlmostEqual(frame[1], 0)
+        sim.handle_line("ZERO")
+        sim.handle_line("MANUAL=0,60,0")
+        with patch.object(core.random, "gauss", return_value=0):
+            frame = sim.make_frame(0)
+        self.assertAlmostEqual(frame[0], 0)
+        self.assertGreater(frame[1], 0)  # ZERO后按新车头建立+Y
+
+    def test_simulator_hold_and_invalid_goto(self):
+        sim = self.window.sim
+        sim.handle_line("ZERO")
+        sim.handle_line("MANUAL=0,60,0")
+        for line in ("GOTO=0,0,3601", "GOTO=1,2,bad", "GOTO=1,2,", "GOTO=1,2,0,4"):
+            sim.handle_line(line)
+            self.assertEqual(sim.manual, (0, 60, 0))
+        sim.handle_line("GOTOHOLD=0,0,0")
+        sim.make_frame(0)
+        self.assertIsNotNone(sim.goto)
+        sim.hold = (100, 0)
+        sim.make_frame(0)
+        self.assertLess(sim.hold[0], 100)
+        sim.handle_line("STOP")
+        self.assertIsNone(sim.goto)
+
     def test_offset_simulator_residual_and_validation(self):
         sim = self.window.sim
+        sim.handle_line("ZERO")
         sim.handle_line("MANUAL=0,0,30")
         sim.handle_line("OPSOFFSET=0,0")
         self.assertIsNone(sim.manual)
@@ -566,6 +601,15 @@ class DebuggerTests(unittest.TestCase):
         w._goto_field(2150, 2250)
         self.assertEqual(w.line_q.get_nowait(), "WHEELEN")
         self.assertEqual(w.line_q.get_nowait(), "GOTO=0.0,10.0,0.0")
+
+    def test_gotohold_stops_manual_and_is_queued(self):
+        w = self.window
+        w._manual_start((60, 0, 0))
+        w.send_line("GOTOHOLD=10.0,20.0,30.0")
+        self.assertIsNone(w.manual_vector)
+        self.assertFalse(w.manual_timer.isActive())
+        self.assertEqual(w.urgent_q.get_nowait(), "STOP")
+        self.assertEqual(w.line_q.get_nowait(), "GOTOHOLD=10.0,20.0,30.0")
 
     def test_simulator_wheel_gate_and_freeze(self):
         sim = self.window.sim
@@ -746,6 +790,92 @@ class DebuggerTests(unittest.TestCase):
         win.isActiveWindow = lambda: False
         w._activation_guard()
         self.assertIsNone(w.manual_vector)      # 整个应用失焦才停车
+
+
+    def test_param_reply_parsed_and_repeated_values_delivered(self):
+        """GET <名称> 的文字应答要能和 24 通道遥测共存，且重复值不能被去重吃掉。
+
+        XVMIN/ZVMIN 没有遥测通道，回读值只能来自这条文本行；日志用的
+        _seen_text 去重会把"连续两次相同数值"的第二条丢掉，所以参数行必须
+        走独立通路。
+        """
+        parser = core.FrameParser()
+        frame = struct.pack("<24f", *range(24)) + core.FRAME_TAIL
+        self.assertEqual(len(parser.feed(frame)), 1)
+        reply = b"XVMIN=5.000\r\n"
+        parser.feed(reply)
+        self.assertEqual(parser.take_params(), [("XVMIN", 5.0)])
+        self.assertEqual(parser.take_text(), [])            # 参数行不进日志文本
+        self.assertEqual(parser.take_params(), [])          # 取走后清空
+        # 数值相同的重复回读同样要交付（日志去重不适用于状态量）
+        parser.feed(reply)
+        parser.feed(reply)
+        self.assertEqual(parser.take_params(), [("XVMIN", 5.0), ("XVMIN", 5.0)])
+        # 名字大小写在固件里统一回显大写，数值支持负号与小数
+        parser.feed(b"zvmin=-2.500\r\n")
+        self.assertEqual(parser.take_params(), [("ZVMIN", -2.5)])
+        # 非"名称=数值"的可读行仍按固件文本处理
+        parser.feed(b"ERR PARAM UNKNOWN; GET KPX|KPY|KPY\r\n")
+        self.assertEqual(parser.take_params(), [])
+        self.assertIn("ERR PARAM UNKNOWN", parser.take_text()[0])
+
+    def test_serial_worker_routes_param_replies_to_param_queue(self):
+        """工作线程把参数回读行分流转发，不能混进"固件文本"日志。"""
+        param_q = queue.Queue()
+        text_q = queue.Queue()
+        worker = core.SerialWorker("COM_NONE", 115200, queue.Queue(), queue.Queue(),
+                                   text_q=text_q, param_q=param_q)
+        worker.parser.feed(b"ZVMIN=7.500\r\n")
+        worker._flush_firmware_text()
+        self.assertEqual(param_q.get_nowait(), ("ZVMIN", 7.5))
+        self.assertTrue(text_q.empty())
+
+    def test_param_readback_updates_row_without_channel(self):
+        """没有遥测通道的参数行必须由文字回读点亮"回读"栏。"""
+        w = self.window
+        self.assertIsNone(w.chassis_rows["XVMIN"].readback_channel)
+        self.assertIsNone(w.chassis_rows["ZVMIN"].readback_channel)
+        self.assertEqual(w.chassis_rows["XVMIN"].readback.text(), "回读 —")
+        w.param_q.put(("XVMIN", 7.5))
+        w.param_q.put(("ZVMIN", 0.0))
+        w._process_frames()
+        self.assertEqual(w.chassis_rows["XVMIN"].readback.text(), "回读 7.5")
+        self.assertEqual(w.chassis_rows["ZVMIN"].readback.text(), "回读 0")
+        self.assertTrue(w.param_q.empty())
+        # 未知名称不得抛异常，也不改动任何行
+        w.param_q.put(("NOSUCH", 1.0))
+        w._process_frames()
+        self.assertEqual(w.chassis_rows["KPX"].readback.text(), "回读 —")
+
+    def test_poll_queries_only_params_without_telemetry_channel(self):
+        """轮询只问没有通道位的参数，一次一条，避免挤占遥测帧。"""
+        w = self.window
+        self.assertTrue(w.line_q.empty())
+        w._poll_param_readback()
+        self.assertEqual(w.line_q.get_nowait(), "GET XVMIN")
+        w._poll_param_readback()
+        self.assertEqual(w.line_q.get_nowait(), "GET ZVMIN")
+        w._poll_param_readback()
+        self.assertEqual(w.line_q.get_nowait(), "GET XVMIN")
+        self.assertTrue(w.line_q.empty())
+
+    def test_sending_param_requests_immediate_readback(self):
+        """写入后立刻回读一次：这两个参数没有波形可以对照。"""
+        w = self.window
+        w.chassis_rows["XVMIN"].spin.setValue(8.0)
+        w.chassis_rows["XVMIN"]._send()
+        self.assertEqual(w.line_q.get_nowait(), "XVMIN=8")
+        self.assertEqual(w.line_q.get_nowait(), "GET XVMIN")
+
+    def test_simulator_answers_param_query(self):
+        """演示模式也要给出回读值，否则界面在 --simulate 下永远显示"—"。"""
+        w = self.window
+        w.sim.param_q = w.param_q
+        w.sim.handle_line("GET xvmin")
+        self.assertEqual(w.param_q.get_nowait(), ("XVMIN", 5.0))
+        # 固件里没有的参数不回任何内容
+        w.sim.handle_line("GET NOSUCH")
+        self.assertTrue(w.param_q.empty())
 
 
 if __name__ == "__main__":

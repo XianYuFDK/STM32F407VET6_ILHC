@@ -26,9 +26,13 @@ wheel_prelude = r'''
 #include <assert.h>
 #include <stdio.h>
 static volatile uint8_t s_wheel_req;
+static uint8_t s_wheel_enable_pending, s_wheel_fault, s_stop_in_progress;
 static uint8_t s_wheel_enabled = 1U;
 static volatile uint8_t s_manual_active;
 static volatile uint8_t s_goto_active;
+static uint32_t tick, s_wheel_enable_tick;
+static uint8_t s_wheel_disable_pending;
+static uint32_t HAL_GetTick(void) {return tick;}
 static uint32_t mask, calls, order[8], order_len;
 static uint32_t __get_PRIMASK(void) {return mask;}
 static void __disable_irq(void) {mask = 1U;}
@@ -54,7 +58,9 @@ int main(void) {
  assert(s_wheel_req == 0U);
  assert(calls == 2U && order[0] == 1U && order[1] == 2U);
  assert(s_manual_active == 0U && s_goto_active == 0U);
- assert(s_wheel_enabled == 1U && Debug_WheelReady() == 1U);
+ assert(s_wheel_enabled == 0U && Debug_WheelReady() == 0U);
+ tick+=99; Debug_ServiceWheel(); assert(!Debug_WheelReady());
+ tick++; Debug_ServiceWheel(); assert(Debug_WheelReady());
  assert(mask == 1U);
 
  /* 失能请求：先停车再失能，闸门关闭，恢复调用前的中断状态 */
@@ -75,7 +81,8 @@ int main(void) {
  /* 失能后重新使能仍先停车 */
  s_wheel_req = 1U; calls = 0U; order_len = 0U;
  Debug_ServiceWheel();
- assert(calls == 2U && order[0] == 1U && order[1] == 2U && s_wheel_enabled == 1U);
+ assert(calls == 2U && order[0] == 1U && order[1] == 2U && !s_wheel_enabled);
+ tick+=100; Debug_ServiceWheel(); assert(s_wheel_enabled);
 
  puts("Wheel enable/disable service / ordering / gate tests passed");
  return 0;
@@ -87,7 +94,9 @@ stop_prelude = r'''
 #include <stdint.h>
 #include <assert.h>
 #include <stdio.h>
+static uint8_t s_wheel_enable_pending, s_wheel_fault, s_stop_in_progress;
 static uint8_t s_wheel_enabled = 1U;
+static uint8_t s_wheel_req;
 static uint32_t speed_frames, clear_calls;
 static void MecanumControl_Stop(void) {speed_frames++;}
 static void MecanumControl_ClearTarget(void) {clear_calls++;}
@@ -95,6 +104,7 @@ static void MecanumControl_ClearTarget(void) {clear_calls++;}
 
 stop_checks = r'''
 int main(void) {
+ assert(Debug_WheelReady());
  /* 使能状态：正常停车，允许下发速度0帧 */
  s_wheel_enabled = 1U; speed_frames = 0U; clear_calls = 0U;
  Debug_ChassisStop();
@@ -146,16 +156,21 @@ assert "s_wheel_req = 0U; s_wheel_enabled = 1U;" in " ".join(init.split())
 # 任务体：失能切换必须最后执行，且所有停车路径都走带闸门的Debug_ChassisStop。
 fsend = " ".join(source[source.index("void DebugUsart_Send(void)"):].split())
 assert 0 < fsend.index("Debug_ServiceZdt();") < fsend.index("Debug_ServiceWheel();")
-assert fsend.index("if (s_stop_req != 0U)") < fsend.index("Debug_ServiceManual();")
+assert fsend.index("i = s_stop_req;") < fsend.index("Debug_ServiceManual();")
 assert fsend.index("Debug_ServiceManual();") < fsend.index("Debug_ServiceWheel();")
 # 任务体内不得出现未经闸门的停车调用，失能帧才会是该周期UART4上的最后一批帧。
 assert "MecanumControl_Stop()" not in fsend, "任务体必须改用Debug_ChassisStop"
 assert "MecanumControl_MoveVelocity" not in fsend
-assert fsend.count("Debug_ChassisStop();") == 6, fsend.count("Debug_ChassisStop();")
+assert fsend.count("Debug_ChassisStop();") == 5, fsend.count("Debug_ChassisStop();")
+assert "Debug_ServiceGoto();" in fsend
+
+# GOTO服务自身的两条停车路径：到位结束和OPS掉线。
+goto_service = " ".join(function("Debug_ServiceGoto").split())
+assert goto_service.count("Debug_ChassisStop();") == 2
 
 # 闸门实现：使能状态走停车，失能状态只清目标。
 chassis_stop = " ".join(function("Debug_ChassisStop").split())
-assert "if (Debug_WheelReady() != 0U)" in chassis_stop
+assert "if (s_wheel_enabled != 0U && s_wheel_fault == 0U)" in chassis_stop
 assert "MecanumControl_Stop();" in chassis_stop
 assert "MecanumControl_ClearTarget();" in chassis_stop
 
@@ -169,9 +184,11 @@ assert "MecanumControl_ClearTarget();" in manual
 arr = source[source.index("static const char * const s_ack_text[] = {"):]
 arr = arr[:arr.index("};")]
 elements = re.findall(r'NULL|"(?:[^"\\]|\\.)*"', arr)
-assert len(elements) == 12, elements
+# 2026-09-22 新增事件19（参数名非法的GET应答），事件号仍以本表下标为准。
+assert len(elements) == 20, elements
 assert elements[7] == "NULL", elements
 assert "ERR WHEEL DISABLED" in elements[10], elements[10]
+assert "ERR PARAM UNKNOWN" in elements[19], elements[19]
 # 事件11：单轮测试收到的回包状态码不是 0x02（参数/保护错误）时必须报错而不是当成功。
 assert "ERR ZDT REPLY STATUS" in elements[11], elements[11]
 

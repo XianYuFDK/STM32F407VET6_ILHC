@@ -12,6 +12,7 @@
 
 import csv
 from collections import deque
+import re
 import math
 import os
 import queue
@@ -65,6 +66,9 @@ OPS_CM_TO_MM = 10.0
 VOFA_RETRY_GAP_S = 1.5      # 超过该秒数没有可解析帧就补发一次 VOFA
 VOFA_MAX_RETRIES = 6        # 每次中断最多补发次数；收到任意一帧后重新计数
 FIRMWARE_TEXT_MAX = 160     # 单行固件文本长度上限
+PARAM_POLL_S = 1.0          # 无遥测通道参数的文字回读轮询周期
+# 固件参数回读应答行：GET <名称> 的回复固定为 "<名称>=<值>"。
+PARAM_ECHO_RE = re.compile(r"^([A-Za-z][A-Za-z0-9_]{0,15})=(-?(?:\d+(?:\.\d+)?|\.\d+))$")
 
 # ======================================================================
 # 通道定义（与 debug_usart.c 中 data[0..23] 严格一致）
@@ -136,13 +140,20 @@ CHASSIS_PARAMS = [
 
 # DM 可调参数：(命令, 显示名, 最小, 最大, 默认, 回读通道, 是否整数)
 DM_PARAMS = [
-    ("DMID",  "电机 ID",     1.0, 1791.0,  1.0,  12, True),
+    ("DMID",  "电机 ID",     1.0, 1791.0,  3.0,  12, True),
     ("DMPOS", "目标位置 rad", -12.5, 12.5, 0.0,  19, False),
     ("DMVEL", "目标速度 rad/s", -30.0, 30.0, 0.0, 20, False),
     ("DMKP",  "MIT Kp",      0.0, 500.0,   2.0,  21, False),
     ("DMKD",  "MIT Kd",      0.0, 5.0,     0.5,  22, False),
     ("DMTOR", "前馈力矩 Nm",  -10.0, 10.0,  0.0,  23, False),
 ]
+
+# 模拟器参数回读用的 命令名 -> 属性名 映射（与固件 s_params 同名）。
+SIM_PARAM_ATTRS = {
+    "KPX": "kpx", "KPY": "kpy", "KPZ": "kpz",
+    "XVMAX": "xyvmax", "ZVMAX": "zvmax",
+    "XVMIN": "xyvmin", "ZVMIN": "zvmin",
+}
 
 # 曲线配色（24 色）
 COLORS = ["#4fc3f7", "#ffb74d", "#81c784", "#e57373", "#ba68c8", "#fff176",
@@ -175,8 +186,8 @@ def field_to_layout(x, y):
 
 
 STEPPER_CONFIG = {
-    35: ("35 升降电机", "目标高度", 43.0, 203.0, 203.0, 1, 2184, 0x300),
-    28: ("28 伸缩电机", "目标半径", 120.0, 286.0, 120.0, 2, 65535, 0x400),
+    35: ("35 升降电机", "目标高度", 43.0, 203.0, 203.0, 1, 2184, 0x100),
+    28: ("28 伸缩电机", "目标半径", 120.0, 286.0, 120.0, 2, 65535, 0x200),
 }
 
 
@@ -228,6 +239,7 @@ class FrameParser:
         self._carry = bytearray()
         self._text_lines = []
         self._seen_text = []
+        self._param_lines = []
 
     def _scan_text(self, data):
         """从字节流里拾取可读 ASCII 行（固件的文字应答/错误行）。
@@ -249,6 +261,16 @@ class FrameParser:
             raw = bytes(self._carry[:i])
             del self._carry[:i + 1]
             line = raw.replace(b"\r", b"").strip().decode("ascii", "ignore")
+            # 参数回读行是状态而不是日志：GET XVMIN 连续两次值相同也必须每次都
+            # 交付，因此先于 _seen_text 去重判断，单独收集。
+            echo = PARAM_ECHO_RE.match(line)
+            if echo:
+                try:
+                    self._param_lines.append((echo.group(1).upper(), float(echo.group(2))))
+                except ValueError:
+                    pass
+                del self._param_lines[:-64]
+                continue
             if len(line) >= 6 and any(c.isalpha() for c in line) and line not in self._seen_text:
                 self._seen_text.append(line)
                 del self._seen_text[:-32]
@@ -258,6 +280,12 @@ class FrameParser:
         """取出累积的固件文字行（取走后清空）。"""
         lines = self._text_lines
         self._text_lines = []
+        return lines
+
+    def take_params(self):
+        """取出累积的固件参数回读行 [(名称, 数值), ...]（取走后清空）。"""
+        lines = self._param_lines
+        self._param_lines = []
         return lines
 
     def _accept(self, payload):
@@ -367,7 +395,8 @@ class RingBuffer:
 # 串口工作线程：收（解析遥测）+ 发（ASCII 命令）
 # ======================================================================
 class SerialWorker(threading.Thread):
-    def __init__(self, port, baud, frame_q, line_q, urgent_q=None, err_cb=None, text_q=None):
+    def __init__(self, port, baud, frame_q, line_q, urgent_q=None, err_cb=None,
+                 text_q=None, param_q=None):
         super().__init__(daemon=True)
         self.port, self.baud = port, baud
         self.frame_q, self.line_q = frame_q, line_q
@@ -375,13 +404,17 @@ class SerialWorker(threading.Thread):
         self.err_cb = err_cb
         # 固件文字应答与上位机提示都走这个队列，界面只做显示。
         self.text_q = text_q
+        # 参数回读（"名称=值"行）单独走一个队列，界面用来刷"回读"栏而不刷日志。
+        self.param_q = param_q
         self.parser = FrameParser()
         self.stop_flag = False
         self.ser = None
         self.opened = threading.Event()
         self.last_frame_monotonic = 0.0
         self.opened_monotonic = 0.0
-        self._write_lock = threading.Lock()
+        self._safe_stop = False
+        self._write_timeouts = 0
+        self._tx_resync = False
         self._vofa_last = 0.0
         self._vofa_tries = 0
 
@@ -389,8 +422,23 @@ class SerialWorker(threading.Thread):
         if not self.ser or not self.ser.is_open:
             return False
         data = str(line).encode("ascii", "ignore") + b"\n"
-        with self._write_lock:
-            self.ser.write(data)
+        # 超时可能只发出半条命令；先用非法后缀终结残行，禁止重放运动命令。
+        if self._tx_resync:
+            data = b"!\n" + data
+        try:
+            written = self.ser.write(data)
+            if written != len(data):
+                raise serial.SerialTimeoutException("串口短写")
+        except serial.SerialTimeoutException:
+            self._write_timeouts += 1
+            self._tx_resync = True
+            self.ser.reset_output_buffer()
+            self._note("上位机: 写入超时，命令未确认且不重发：%s" % line)
+            if self._write_timeouts >= 3:
+                raise serial.SerialException("连续 3 次写入超时，停止连接")
+            return False
+        self._write_timeouts = 0
+        self._tx_resync = False
         return True
 
     @staticmethod
@@ -410,6 +458,14 @@ class SerialWorker(threading.Thread):
             pass
 
     def _flush_firmware_text(self):
+        # 参数回读行先分流：它们是周期性状态，进日志会把提示刷掉。
+        for name, value in self.parser.take_params():
+            if self.param_q is None:
+                continue
+            try:
+                self.param_q.put_nowait((name, value))
+            except queue.Full:
+                pass
         for line in self.parser.take_text():
             self._note("固件文本: " + line)
 
@@ -430,29 +486,21 @@ class SerialWorker(threading.Thread):
             return
         self._vofa_last = now
         self._vofa_tries += 1
-        try:
-            if not self._write_line("VOFA"):
-                return
-        except Exception:
+        if not self._write_line("VOFA"):
             return
         self._note("上位机: %.1fs 未收到遥测，已补发 VOFA 恢复波形（第 %d/%d 次）"
                    % (now - last, self._vofa_tries, VOFA_MAX_RETRIES))
 
     def request_stop(self, safe=True):
         """请求工作线程退出；真实串口断开前 best-effort 主动停车/失能。"""
-        # 先置退出标志并清除普通队列，避免安全指令之后又发送旧 GOTO/调参命令。
+        # 调用方只提交停止请求；所有串口操作（含停车和close）只在工作线程执行。
+        self._safe_stop = self._safe_stop or safe
         self.stop_flag = True
         while True:
             try:
                 self.line_q.get_nowait()
             except queue.Empty:
                 break
-        if safe:
-            for cmd in ("STOP", "DMSTOP", "DMOFF"):
-                try:
-                    self._write_line(cmd)
-                except Exception:
-                    break
 
     def run(self):
         try:
@@ -472,7 +520,7 @@ class SerialWorker(threading.Thread):
                 self._vofa_last = time.monotonic()
             while not self.stop_flag:
                 # 急停/失能命令优先于读数据和普通参数命令。
-                while True:
+                while not self.stop_flag:
                     line = self._drain_one(self.urgent_q)
                     if line is None:
                         break
@@ -492,7 +540,7 @@ class SerialWorker(threading.Thread):
                 self._maybe_resend_vofa()
 
                 # 读完后再次检查急停，读取引入的额外等待最多约10ms。
-                while True:
+                while not self.stop_flag:
                     line = self._drain_one(self.urgent_q)
                     if line is None:
                         break
@@ -514,6 +562,12 @@ class SerialWorker(threading.Thread):
                 self.err_cb("串口异常断开：%s" % e)
         finally:
             self.opened.clear()
+            if self._safe_stop:
+                for cmd in ("STOP", "DMSTOP", "DMOFF"):
+                    try:
+                        self._write_line(cmd)
+                    except Exception:
+                        break
             try:
                 if self.ser and self.ser.is_open:
                     self.ser.close()
@@ -534,6 +588,11 @@ class SerialWorker(threading.Thread):
 # ======================================================================
 # 模拟器：复刻 debug_usart.c 的命令解析 / 参数回读行为（无硬件演示用）
 # ======================================================================
+def param_query(name: str) -> str:
+    """参数回读命令：固件回复"<名称>=<值>"文字行。"""
+    return "GET " + str(name).strip().upper()
+
+
 def ops_offset_command(left_mm, forward_mm):
     """安装偏移协议命令：X=左右安装偏移(左+ / 右−)、Y=前后安装偏移(前+ / 后−)，单位mm。
     例如 OPSOFFSET=60.0,-50.0 表示 OPS 装在车左60mm、车后50mm。"""
@@ -544,17 +603,19 @@ def ops_offset_command(left_mm, forward_mm):
 
 
 class Simulator(threading.Thread):
-    def __init__(self, frame_q, line_q, urgent_q=None):
+    def __init__(self, frame_q, line_q, urgent_q=None, param_q=None):
         super().__init__(daemon=True)
         self.frame_q, self.line_q = frame_q, line_q
         self.urgent_q = urgent_q if urgent_q is not None else queue.Queue()
+        # 演示模式的参数回读直接给出数值，不经过串口字节流。
+        self.param_q = param_q
         self.stop_flag = False
         # 底盘参数（与固件默认值一致）
         self.kpx, self.kpy, self.kpz = 2.3, 2.3, 9.0
         self.xyvmax, self.zvmax = 1600.0, 750.0
         self.xyvmin, self.zvmin = 5.0, 5.0
         # DM 参数
-        self.dm_id, self.dm_mode, self.dm_active = 1, 1, 0
+        self.dm_id, self.dm_mode, self.dm_active = 3, 1, 0
         self.dm_pos = self.dm_vel = self.dm_tor = 0.0
         self.dm_kp, self.dm_kd = 2.0, 0.5
         # 模拟反馈
@@ -563,6 +624,7 @@ class Simulator(threading.Thread):
         self.zero_x, self.zero_y, self.zero_z = 0.0, 0.0, 0.0
         # GOTO 定位移动模拟（点击场地地图后小车驶向目标）
         self.hold = None        # (X=左, Y=前)，单位 mm；None = 演示巡航
+        self.goto_hold = False
         self.goto = None        # (X=左, Y=前, Z=逆时针)，单位 mm/deg
         self.zval = 0.0         # 当前航向（deg）
         self.ops_offset = (60.0, -50.0)  # 统一坐标：车左60mm、车后50mm
@@ -623,8 +685,8 @@ class Simulator(threading.Thread):
             # OPSOFFSET 与统一坐标完全同序：X=车左、Y=车头。
             self.ops_offset = (left, forward)
             self.manual = self.goto = None
-            self.hold = (0.0, 0.0)
-            self.ops_reference_yaw = self.zval
+            if self.hold is None:
+                self.hold = (600.0 * math.sin(0.25 * self._t), 450.0 * math.cos(0.19 * self._t))
             return
         if line.startswith("MANUAL="):
             if not self.wheel_enabled:             # 与固件一致：失能不运动
@@ -662,14 +724,20 @@ class Simulator(threading.Thread):
                              450.0 * math.cos(0.19 * self._t))
             self.hold = (0.0, 0.0)                 # 以当前位置为新原点
             return
-        if line.startswith("GOTO="):
+        if line.startswith(("GOTO=", "GOTOHOLD=")):
             if not self.wheel_enabled:             # 与固件一致：失能不接受新目标
                 return
             try:
-                parts = [float(p) for p in line[5:].split(",") if p.strip()]
+                fields = line.split("=", 1)[1].split(",")
+                if any(not re.fullmatch(r"[+-]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)", p.strip()) for p in fields):
+                    return
+                parts = [float(p) for p in fields]
             except ValueError:
                 return
-            if len(parts) >= 2 and all(math.isfinite(p) for p in parts):
+            if len(parts) in (2, 3) and all(math.isfinite(p) for p in parts):
+                if len(parts) == 3 and not -3600 <= parts[2] <= 3600:
+                    return
+                self.goto_hold = line.startswith("GOTOHOLD=")
                 self.manual = None
                 if self.hold is None:              # 从演示巡航位置切入定位模式
                     self.hold = (600.0 * math.sin(0.25 * self._t),
@@ -677,7 +745,7 @@ class Simulator(threading.Thread):
                 # 协议 X/Y 为 cm；模拟器内部 hold/位置仍用 mm。
                 self.goto = (self._clamp(parts[0], -300.0, 300.0) * OPS_CM_TO_MM,
                              self._clamp(parts[1], -300.0, 300.0) * OPS_CM_TO_MM,
-                             parts[2] if len(parts) >= 3 else self.zval)
+                             parts[2] if len(parts) >= 3 else self._relative_heading())
             return
         if line == "DMEN":
             self.dm_active = 1
@@ -689,6 +757,17 @@ class Simulator(threading.Thread):
             return
         if line == "DMZERO":
             self.fb_pos = 0.0
+            return
+        if line.startswith("GET "):
+            # 与固件一致：只回读参数表里的可调参数，名称非法不回任何内容。
+            target = line[4:].strip()
+            attr = SIM_PARAM_ATTRS.get(target)
+            if attr is None or self.param_q is None:
+                return
+            try:
+                self.param_q.put_nowait((target, float(getattr(self, attr))))
+            except queue.Full:
+                pass
             return
         if "=" not in line:
             return
@@ -725,11 +804,11 @@ class Simulator(threading.Thread):
             else:
                 # MANUAL 与 hold 都是统一坐标：X=车左、Y=车头、W=逆时针。
                 left_rpm, forward_rpm, wz = self.manual
-                angle = math.radians(self.zval)
+                angle = math.radians(self._relative_heading())
                 px, py = self.hold
                 # 演示换算，不代表实车轮径、轮距标定结果。
-                self.hold = (px + (left_rpm * math.cos(angle) - forward_rpm * math.sin(angle)) / 0.238 / SEND_HZ,
-                             py + (left_rpm * math.sin(angle) + forward_rpm * math.cos(angle)) / 0.238 / SEND_HZ)
+                self.hold = (px + (left_rpm * math.cos(angle) + forward_rpm * math.sin(angle)) / 0.238 / SEND_HZ,
+                             py + (-left_rpm * math.sin(angle) + forward_rpm * math.cos(angle)) / 0.238 / SEND_HZ)
                 self.zval += wz / SEND_HZ
         n = lambda a=1.0: random.gauss(0, a)     # noqa: E731
         if self.goto is not None and self.hold is not None:
@@ -749,12 +828,12 @@ class Simulator(threading.Thread):
                 self.zval += self._clamp(dz, -120.0 / SEND_HZ, 120.0 / SEND_HZ)
             else:
                 self.zval = self.ops_reference_yaw + tz
-                if dist <= 6.0:
+                if dist <= 6.0 and not self.goto_hold:
                     self.goto = None             # 到位，原地保持
             pos_x = px + 3 * n()
             pos_y = py + 3 * n()
             zangle = (self.zval + 0.5 * n() + 180.0) % 360.0 - 180.0
-            devx, devy = px - tx, py - ty        # 真实目标误差
+            devx, devy = tx - px, ty - py        # 真实目标误差
             devz = dz
             spd0 = self._clamp(dist * 0.5, -500.0, 500.0) + 10 * n()
         elif self.hold is not None:
@@ -800,8 +879,10 @@ class Simulator(threading.Thread):
             # 统一坐标下：pos = 真实中心相对位移 + [R(-yaw)-R(-ref)]*(m_phys-m_cfg)。
             dx = 60.0 - self.ops_offset[0]
             dy = -50.0 - self.ops_offset[1]
-            pos_x += (ca * dx + sa * dy) - (cr * dx + sr * dy)
-            pos_y += (-sa * dx + ca * dy) - (-sr * dx + cr * dy)
+            ex = (ca * dx + sa * dy) - (cr * dx + sr * dy)
+            ey = (-sa * dx + ca * dy) - (-sr * dx + cr * dy)
+            pos_x += cr * ex - sr * ey
+            pos_y += sr * ex + cr * ey
         zangle = self._relative_heading(zangle)
         # 与 debug_usart.c 完全同序：ch0=X=车左、ch1=Y=车头、ch3/ch4 误差、
         # ch6/ch7 分别回读 mKpx/mKpy；位置/误差对外为 cm，hold 仍为 mm。

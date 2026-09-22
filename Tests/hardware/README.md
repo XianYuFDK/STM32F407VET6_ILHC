@@ -1,5 +1,10 @@
 # 驱动主机回归测试
 
+Flash参数保存：`test_spi_flash.py` 编译真实SPI驱动验证命令、ID、页边界、忙位和超时；
+`test_param_store.py` 编译真实存储状态机，模拟逐字节掉电、擦除中断、扇区轮换、CRC回退及故障；
+`test_param_integration.py` 编译真实调试桥接函数，验证16字段映射、恢复和临界区边界。
+均为主机模拟，未连接实际Flash。
+
 OPS 协议回放专项：`python Tests/hardware/test_ops_protocol.py`。
 提取真实 `Hardware/ops.c` 的 V1/V2 解析函数，以合成字节流验证 V2 flags、
 CRC16、拆包、噪声后重同步、CRC 失败恢复、V1 兼容和 session_id 变化。
@@ -15,7 +20,7 @@ USART1接收恢复专项：`python Tests/hardware/test_debug_rx_recovery.py`。
 核对全工程统一坐标：`+X=车左、+Y=车头、+Z=逆时针`，24 通道遥测 ch0/ch1、ch3/ch4、ch6/ch7 直接输出；
 位置/误差由内部 mm 在打包边界转换为 cm（1 位小数）；
 `MANUAL`/`GOTO`/`OPSOFFSET` 三个入参直接使用 X/Y；`KPX` 写 `mKpx`、`KPY` 写 `mKpy`；
-以及 OPS 原始帧通过固定映射 `X=-raw_y、Y=-raw_x` 统一转换、
+以及 OPS 原始帧通过固定映射 `X=-raw_x、Y=raw_y` 统一转换、
 置零物理正向和 `chassis_move` 的
 `目标 - 当前` 误差（两者必须成对，否则位置环变成正反馈）。同时断言 24 通道 JustFloat 帧格式、
 麦轮解算公式和既有命令未被本次改动波及。
@@ -28,6 +33,11 @@ OPS 原始轴方向专项：`python Tests/hardware/test_ops_axis_direction.py`�
 编译真实映射函数、坐标清零、位置换算和
 `OPS_SetOrigin()`，验证固定映射的前向/反向换算、绝对输出、安装偏心补偿以及
 向前只增加 Y、向左只增加 X。该测试为合成坐标，不代表实车安装方向已实测。
+
+OPS ZERO 坐标系专项：`python Tests/hardware/test_ops_zero_frame.py`（需要 GCC）。
+提取真实映射、偏心补偿、`OPS_ZeroCoordinates()` 和 `OPS_CopyPosition()` 编译运行，
+覆盖 ZERO 时航向 0°/+30°/−30°/+90°、非原点 ZERO、ZERO 后左传、
+原地旋转偏心补偿及映射可逆性。该测试不连接设备。
 
 解析层轴序专项：`python Tests/hardware/test_parse_line_axes.py`（需要 GCC）。
 抽取真实 `Debug_ParseLine`、解析辅助函数和 `s_params` 参数表，用桩替身提供 HAL 与状态变量后编译运行，

@@ -69,6 +69,15 @@ int last_Speed[4] = {0, 0, 0, 0};
 uint8_t in_pos     = 0;
 uint8_t near_pos   = 0;
 uint8_t delay_pos  = 0;
+static uint32_t s_control_dt_ms = 20U;
+static uint32_t s_settle_ms;
+
+/* 长时间失调度不累计到位时间，斜坡最多采用100ms，避免恢复时突跳。 */
+void MecanumControl_SetPeriod(uint32_t dt_ms)
+{
+  if (dt_ms > 100U) s_settle_ms = 0U;
+  s_control_dt_ms = (dt_ms > 100U) ? 100U : dt_ms;
+}
 
 /* 当前误差，便于调试 */
 float devx = 0.0f;
@@ -126,10 +135,10 @@ void SpeedTarget_stop(void)
  *         正确做法是按 max|speed| 求一个公共系数 scale，四轮同乘，比例与方向不变。
  *         全程用 float 运算：整数除法会把 scale 截断成 0，导致"限幅后反而停车"。
  *
- *         量级说明：车体两轴分量在 numerical_limit 里是被"分别"限幅的
- *         （vx1/vx2/vy1/vy2 各自 ≤ XYVmax），因此 VX=vx1+vx2、VY=vy1-vy2
- *         最大可到 2*XYVmax，四轮最大约 (4*XYVmax + ZVmax)*0.238 ≈ 1701 RPM
- *         （默认 1600/750），超过 ZDT 单轮上限时就必须整体缩放。
+ *         量级说明：位置环先完成世界坐标到车体坐标旋转，再分别对最终的
+ *         cmd_x/cmd_y 各限幅一次，因此 |cmd_x|、|cmd_y| ≤ XYVmax，
+ *         四轮最大约 (2*XYVmax + ZVmax)*0.238 ≈ 940 RPM（默认 1600/750）。
+ *         四轮结果仍由本函数做整体同比缩放，绝不对单轮硬裁剪。
  */
 void Mecanum_NormalizeWheelSpeed(int speed[4], int limit)
 {
@@ -270,10 +279,8 @@ void numerical_limit(float *value, float max, float min, float dead_zone)
 void chassis_move(int x, int y, int z)
 {
   int speed[4] = {0, 0, 0, 0};
-  float lat_cos = 0.0f;
-  float lat_sin = 0.0f;
-  float fwd_cos = 0.0f;
-  float fwd_sin = 0.0f;
+  float cmd_x = 0.0f;
+  float cmd_y = 0.0f;
   float vz  = 0.0f;
   uint8_t i;
 
@@ -299,43 +306,46 @@ void chassis_move(int x, int y, int z)
   if (devz > 180.0f)       { devz -= 360.0f; }
   else if (devz < -180.0f) { devz += 360.0f; }
 
-  /* 世界坐标误差 → 车体坐标。内部与对外同为 +X=左、+Y=前，
-   * 因此 devx 是左右误差、devy 是前后误差，不再交换或取反。
-   * 按当前航向 θ（逆时针为正）旋转到车体系：
-   *   X_body =  cosθ*mKpx*devx + sinθ*mKpy*devy
-   *   Y_body = -sinθ*mKpx*devx + cosθ*mKpy*devy
-   * 其中 Y_body 的正方向就是车头。 */
+  /* 世界坐标误差 → 车体坐标，再分别应用 X/Y 增益。
+   * 先旋转可以避免 mKpx != mKpy 时两个轴的增益串到另一轴：
+   *   body_x =  cosθ*devx - sinθ*devy
+   *   body_y = sinθ*devx + cosθ*devy
+   *   cmd_x  = mKpx * body_x
+   *   cmd_y  = mKpy * body_y
+   * 其中 cmd_x 是车体左右控制量，cmd_y 是车体前后控制量。 */
   {
     float c = cosf(zangle * 3.1415926f / 180.0f);
     float s = sinf(zangle * 3.1415926f / 180.0f);
+    float body_x = c * devx - s * devy;
+    float body_y = s * devx + c * devy;
 
-    lat_cos =  c * mKpx * devx;
-    lat_sin =  s * mKpy * devy;
-    fwd_cos =  c * mKpy * devy;
-    fwd_sin = -s * mKpx * devx;
+    cmd_x = mKpx * body_x;
+    cmd_y = mKpy * body_y;
   }
-  numerical_limit(&lat_cos, XYVmax, XYVmin, 5.0f);
-  numerical_limit(&lat_sin, XYVmax, XYVmin, 5.0f);
-  numerical_limit(&fwd_cos, XYVmax, XYVmin, 5.0f);
-  numerical_limit(&fwd_sin, XYVmax, XYVmin, 5.0f);
+  numerical_limit(&cmd_x, XYVmax, XYVmin, 5.0f);
+  numerical_limit(&cmd_y, XYVmax, XYVmin, 5.0f);
 
   /* 航向环不参与旋转：devz 已在上面 wrap 到 [-180,180]，直接 P 控制。 */
   vz = mKpz * devz;
-  numerical_limit(&vz, ZVmax, 0.0f, 5.0f);
+  numerical_limit(&vz, ZVmax, ZVmin, 5.0f);
 
-  MecanumControl_CalcWheelSpeed(lat_cos + lat_sin, fwd_cos + fwd_sin, vz, speed);
+  MecanumControl_CalcWheelSpeed(cmd_x, cmd_y, vz, speed);
 
-  /* 速度斜坡限制 */
+  /* 速度斜坡限制：正反向、升速和降速按实际周期限制变化量，避免
+   * “同方向降速”绕过斜坡造成突变。 */
   for (i = 0U; i < 4U; ++i)
   {
-    if ((speed[i] > 0) && (speed[i] > last_Speed[i]))
+    int delta = speed[i] - last_Speed[i];
+
+    if (delta > (int)s_control_dt_ms)
     {
-      speed[i] = last_Speed[i] + 20;
+      delta = (int)s_control_dt_ms;
     }
-    else if ((speed[i] < 0) && (speed[i] < last_Speed[i]))
+    else if (delta < -(int)s_control_dt_ms)
     {
-      speed[i] = last_Speed[i] - 20;
+      delta = -(int)s_control_dt_ms;
     }
+    speed[i] = last_Speed[i] + delta;
 
     SpeedTarget[i] = (int)(speed[i] * 0.238f);
     last_Speed[i]  = speed[i];
@@ -353,10 +363,11 @@ void chassis_move(int x, int y, int z)
     near_pos = 0U;
   }
 
-  if ((devx < 60.0f) && (devx > -60.0f) &&
-      (devy < 60.0f) && (devy > -60.0f) &&
-      (devz < 15.0f) && (devz > -15.0f))
+  if ((devx < 20.0f) && (devx > -20.0f) &&
+      (devy < 20.0f) && (devy > -20.0f) &&
+      (devz < 1.0f) && (devz > -1.0f))
   {
+    if (s_settle_ms < 220U) s_settle_ms += s_control_dt_ms;
     if (delay_pos < 255U)
     {
       ++delay_pos;
@@ -365,9 +376,10 @@ void chassis_move(int x, int y, int z)
   else
   {
     delay_pos = 0U;
+    s_settle_ms = 0U;
   }
 
-  if (delay_pos > 10U)
+  if (s_settle_ms >= 220U)
   {
     in_pos = 1U;
   }
@@ -413,6 +425,7 @@ void MecanumControl_Init(void)
   in_pos    = 0U;
   near_pos  = 0U;
   delay_pos = 0U;
+  s_settle_ms = 0U;
 
   devx = 0.0f;
   devy = 0.0f;
@@ -429,7 +442,7 @@ void MecanumControl_Enable(void)
   ZDT_X42S_Enable(3U);
   ZDT_X42S_Enable(4U);
 
-  HAL_Delay(100U);
+  /* 运行期由上层状态机等待100ms，不阻塞控制服务。 */
 }
 
 /**
@@ -465,6 +478,7 @@ void MecanumControl_ClearTarget(void)
   in_pos    = 0U;
   near_pos  = 0U;
   delay_pos = 0U;
+  s_settle_ms = 0U;
 }
 
 /**
@@ -490,8 +504,18 @@ void MecanumControl_Stop(void)
 void MecanumControl_MoveVelocity(float vxRpm, float vyRpm, float vzRpm)
 {
   int wheel[4];
+  uint8_t i;
 
   MecanumControl_CalcWheelSpeed(vxRpm, vyRpm, vzRpm, wheel);
+
+  /* MANUAL 不走 chassis_move() 的斜坡分支，必须把实际手动轮速同步到
+   * last_Speed，保证下一次 GOTO 的斜坡从当前运动状态继续，而不是从
+   * 上一次 GOTO 遗留的旧速度继续。0.238 是 mm/s 到 RPM 的换算系数，
+   * 与 chassis_move() 中 SpeedTarget 的换算保持一致。 */
+  for (i = 0U; i < 4U; ++i)
+  {
+    last_Speed[i] = (int)((float)wheel[i] / 0.238f);
+  }
 
   SetMotorVoltageAndDirection(wheel[0], wheel[1], wheel[2], wheel[3]);
 }

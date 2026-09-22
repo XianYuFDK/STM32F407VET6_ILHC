@@ -10,6 +10,8 @@ virtualFolder:
   folders:
     - name: Hardware
       files:
+        - path: ../Hardware/spi_flash.c
+        - path: ../Hardware/debug_param_store.c
         - path: ../Hardware/stepper_2835.c
         - path: ../Hardware/OLED_SoftSPI.c
         - path: ../Hardware/ops.c
@@ -47,6 +49,7 @@ virtualFolder:
       folders:
         - name: STM32F4xx_HAL_Driver
           files:
+            - path: ../Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_spi.c
             - path: ../Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_tim.c
             - path: ../Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_tim_ex.c
             - path: ../Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_can.c

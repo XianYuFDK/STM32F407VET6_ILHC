@@ -15,17 +15,17 @@
 | 接口 | 用途 |
 | --- | --- |
 | `Motor_Homing(MOTOR35_CAN_ID)` / `Motor_Homing(MOTOR28_CAN_ID)` | 发送原协议多圈回零命令，可能产生运动 |
-| `Motor_AbsPosition(dir,id,step,speed)` | 方向 0/1、原协议位置计数、RPM；默认支持 0x300/0x400 |
+| `Motor_AbsPosition(dir,id,step,speed)` | 方向 0/1、原协议位置计数、RPM；默认支持 0x100/0x200 |
 | `Motor35_AbsPosition(h,speed)` | 原车 Z 高度换算，h 单位 0.1mm、speed 单位 mm/s |
 | `Motor28_AbsPosition(r,speed)` | 原车伸缩半径换算，r 单位 0.1mm、speed 单位 mm/s |
 | `Stepper2835_GetReply(id,&reply)` | 读取原始回复、计数、时间戳快照，不代表到位 |
 
-位置指令保留原始 16 字节格式，通过 `Can_SendCmd()` 发送两个 8 字节扩展帧（ID 与 ID+1）。示例 `Motor_AbsPosition(0,0x300,1000,1000)` 的报文为：
+位置指令保留原始 16 字节格式，通过 `Can_SendCmd()` 发送两个 8 字节扩展帧（ID 与 ID+1）。示例 `Motor_AbsPosition(0,0x100,1000,1000)` 的报文为：
 
 ```text
-扩展 ID 0x300：FD 00 AF FF AF FF 03 E8
-扩展 ID 0x301：FD 00 00 03 E8 01 00 6B
-回零扩展 ID 0x300/0x400：9A 02 00 6B（DLC=4）
+扩展 ID 0x100：FD 00 AF FF AF FF 03 E8
+扩展 ID 0x101：FD 00 00 03 E8 01 00 6B
+回零扩展 ID 0x100/0x200：9A 02 00 6B（DLC=4）
 ```
 
 换算保留原车参数：35 的行程为 `clamp(2030-h,0,1600)`，每单位行程乘 44.94 得到协议位置计数，RPM=`speed*30`；28 的行程为 `clamp(r-1200,0,1660)`，计数乘 3.189，RPM=`speed*0.53`，整数结果向下截断。原车注释中的机械范围和这里的实际限幅不完全一致，必须以新机构标定为准，不能直接认定为新车安全行程。
@@ -90,8 +90,8 @@ SoftSPI_OLED_Refresh();
   - 上行 V1：0x5C | float x | float y | float z | CRC8（14 字节，兼容旧 OPS）
   - 上行 V2：0x5D | ver=1 | len=28 | flags | seq | session_id | timestamp |
     float x/y/z | CRC16，小端；要求 POS_VALID/IMU_ONLINE/ENC_VALID 同时有效
-  - 下行命令：0xC5 0x22（复位）；兼容旧 OPS 先发 0xC5 0x30，
-    再发 0xC5 0x32 选择新协议方向 2，避免方向命令生效后坐标轴翻转
+  - 下行命令：0xC5 0x22（复位），等待 OPS 重启后发 0xC5 0x32
+    选择新协议方向 2；不再发送旧的 0xC5 0x30 启动握手
   - 使用：OPS_Init() 初始化；OPS_GetPosition(&x, &y, &z) 读取新坐标；
     OPS_IsOnline() 判断位姿是否在超时窗口内；
     OPS_ConsumeSessionChanged() 读取 V2 复位/重连事件
@@ -99,10 +99,12 @@ SoftSPI_OLED_Refresh();
     重设为本地零点参考，避免 OPS 复位后沿用旧原点
   - USART2 错误回调只置恢复请求，默认任务通过 OPS_ServiceRx() 重挂 DMA
   - 统一轴序：X=左右（+车左）、Y=前后（+车头）、Z 逆时针为正；内部与协议同序同号，
-    不再做 X/Y 交换或取反。OPS 原始帧到统一坐标固定为 `X=-raw_y、Y=-raw_x`，
+    不再做 X/Y 交换或取反。OPS 原始帧到统一坐标固定为 `X=-raw_x、Y=raw_y`，
     不存在方向模式或其他分支。位置、绝对坐标、ZERO、`OPS_SetOrigin()` 和
     安装偏心补偿共用这组固定映射。
-  - 坐标清零：OPS_ZeroCoordinates() 以当前位置和航向为原点，OPS_ClearZero() 恢复绝对 X/Y/Z，OPS_SetOrigin(x, y) 手动设 X/Y 零点并归零航向
+  - 坐标清零：OPS_ZeroCoordinates() 以当前位置为平移原点，并把 X/Y 轴旋转到
+    ZERO 时的车体方向，同时归零 Z；OPS_ClearZero() 恢复绝对 X/Y/Z，
+    OPS_SetOrigin(x, y) 手动设 X/Y 零点并归零航向
 
 ## 底盘移动控制
 
@@ -117,8 +119,8 @@ SoftSPI_OLED_Refresh();
     实车轮序为俯视左前1、右前2、左后3、右后4；麦轮矩阵保持 O 型逻辑轮速公式，
     SetMotorVoltageAndDirection() 只把逻辑轮速正号转 CW、负号转 CCW，不再额外翻转
     2/4 号电机。W 的最终下发图案为 `[+ - + -]`，A 左移为 `[- - + +]`
-  - OPS 全局定位 GOTO：MecanumControl_GotoOPS(x, y, yaw, maxRpm)，x=X=左右、y=Y=前后；
-    协议 `GOTO=X,Y,Z` 原序传入
+  - OPS 全局定位 GOTO/GOTOHOLD：MecanumControl_GotoOPS(x, y, yaw, maxRpm)，
+    x=X=左右、y=Y=前后；`GOTO=X,Y,Z` 到位后停止，`GOTOHOLD=X,Y,Z` 到位后持续位置闭环保持
   - 参考开源底盘：chassis_move(x, y, z) + SetMotorVoltageAndDirection(SpeedTarget[0..3])，
     形参按统一顺序 x=X=左右、y=Y=前后
   - 通过 OPS_GetPosition() 读取定位反馈，P 比例控制 + 斜坡限制 + 到位判断；误差定义为
@@ -141,13 +143,13 @@ SoftSPI_OLED_Refresh();
   - RX：DMA 空闲中断接收 ASCII 命令
   - 命令示例：KPX=3.0、KPY=3.0、KPZ=10.0、XVMAX=1600、ZVMAX=750、STOP、ZERO
   - 轴归属：KPX 写 mKpx（X 左右）、KPY 写 mKpy（Y 前后），范围仍 0~50
-  - MANUAL=X,Y,W、GOTO=X,Y,Z、OPSOFFSET=X(左右偏移),Y(前后偏移)，
-    三者均按统一坐标直接使用；GOTO 的 X/Y 与遥测 ch0/ch1、ch3/ch4 使用 cm（1 位小数），
+  - MANUAL=X,Y,W、GOTO=X,Y,Z、GOTOHOLD=X,Y,Z、OPSOFFSET=X(左右偏移),Y(前后偏移)，
+    这些命令均按统一坐标直接使用；GOTO/GOTOHOLD 的 X/Y 与遥测 ch0/ch1、ch3/ch4 使用 cm（1 位小数），
     OPSOFFSET 仍使用 mm
   - 四轮锁轴命令：WHEELEN（使能/锁轴）、WHEELOFF（失能/不锁轴），失能期间拒绝
-    GOTO/MANUAL/ZDT；锁轴切换排在每周期最后，失能后所有停车路径只清目标不发速度帧
+    GOTO/GOTOHOLD/MANUAL/ZDT；锁轴切换排在每周期最后，失能后所有停车路径只清目标不发速度帧
     （Debug_ChassisStop），见调试指令手册
-  - DM 电机命令：DMID=1、DMEN、DMOFF、DMSTOP、DMZERO
+  - DM 电机命令：DMID=3、DMEN、DMOFF、DMSTOP、DMZERO
   - DM 控制命令：DMMODE=1/2、DMPOS=3.14、DMVEL=2、DMKP=2、DMKD=1、DMTOR=0.5
   - VOFA+ 通道：0~11 为底盘，12~23 为 DM（ID/位置/速度/力矩/状态/温度/目标值）
   - 标准 JustFloat：24×float32 + 4 字节帧尾；上位机每 200ms 自动发送 PING 心跳
@@ -186,3 +188,12 @@ SoftSPI_OLED_Refresh();
 ## PCB接口分配（2026-09-11）
 
 USART3用于摄像头预留，PE9 PWM用于夹爪舵机预留；PD0/PD1分别为VM开关/补光灯，高有效、默认关；PD2/PD3上拉按键输入，低有效。接口宏在Core/Inc/main.h，初始化在Core/Src/gpio.c。完整接线、上电行为及CAN/USB冲突见根目录PCB主控引脚说明.md。
+
+
+2026-09-19：当前坐标/故障恢复/任务时序修复见 [修复说明](../修复说明_20260919.md)。
+# SPI Flash 参数持久化（2026-09-20）
+
+天空星板载W25Q128已接入：PA4片选、PA5/6/7=SPI1，新增独立
+`spi_flash.c/.h`与`debug_param_store.c/.h`。在线调参稳定2秒后自动保存，
+重启自动恢复；仅使用最后8KB，双扇区日志+CRC32+提交标记。
+详见[Flash参数保存说明](Flash参数保存说明.md)。

@@ -8,8 +8,8 @@ extern "C" {
 #endif
 
 /* 移植自物流车 V2.7.4 的 USER_Code/tower/tower.c，仅保留 28/35 驱动。 */
-#define MOTOR35_CAN_ID       0x0300U  /* 35升降电机：CAN扩展帧基础ID */
-#define MOTOR28_CAN_ID       0x0400U  /* 28伸缩电机：CAN扩展帧基础ID */
+#define MOTOR35_CAN_ID       0x0100U  /* 35升降：节点1，CAN扩展帧基础ID */
+#define MOTOR28_CAN_ID       0x0200U  /* 28伸缩：节点2，CAN扩展帧基础ID */
 #define MOTOR35_DIR          0U       /* 35：从高处零点向下的协议方向 */
 #define MOTOR28_DIR          0U       /* 28：从最小半径向外的协议方向 */
 /* 以下是原车机械标定，单位为 0.1mm，换机构必须重新标定。 */

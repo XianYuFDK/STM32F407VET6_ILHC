@@ -21,6 +21,7 @@ static volatile uint8_t s_manual_active;
 static volatile int16_t s_manual_velocity[3];
 static volatile uint32_t s_manual_tick;
 /* 四轮锁轴闸门：失能后手动服务只清目标，不产生速度帧。 */
+static uint8_t s_wheel_enable_pending, s_wheel_fault, s_wheel_req, s_stop_in_progress;
 static uint8_t s_wheel_enabled = 1U;
 static uint32_t tick, mask, stops, moves, clears;
 static int16_t output[3];

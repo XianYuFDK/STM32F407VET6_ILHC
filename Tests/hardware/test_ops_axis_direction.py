@@ -1,8 +1,8 @@
 """Runtime checks for the single fixed OPS raw-axis mapping.
 
 The raw-to-unified mapping is fixed at:
-    X = -raw_y
-    Y = -raw_x
+    X = -raw_x
+    Y =  raw_y
 
 The test verifies the forward/inverse mapping, absolute output, zeroing,
 mount-offset compensation, and OPS_SetOrigin conversion.
@@ -65,26 +65,29 @@ static void nearf(float actual, float expected, const char *label) {
 }
 
 static void expected_map(float raw_x, float raw_y, float *x, float *y) {
-  *x = -raw_y;
-  *y = -raw_x;
+  *x = -raw_x;
+  *y =  raw_y;
 }
 
 static void expected_inverse(float x, float y, float *raw_x, float *raw_y) {
-  *raw_x = -y;
-  *raw_y = -x;
+  *raw_x = -x;
+  *raw_y =  y;
 }
 
 static void set_pose(float yaw, float center_x, float center_y) {
-  float center_raw_x, center_raw_y;
-  float mount_raw_x, mount_raw_y;
+  float sensor_x, sensor_y;
+  float raw_x, raw_y;
   float c = cosf(yaw);
   float s = sinf(yaw);
 
-  expected_inverse(center_x, center_y, &center_raw_x, &center_raw_y);
-  expected_inverse(0.06f, -0.05f, &mount_raw_x, &mount_raw_y);
+  /* 统一世界坐标下：车体中心 + 安装点在当前航向下的旋转矢量。
+   * 车体坐标 (X=左,Y=前)，+yaw=逆时针。 */
+  sensor_x = center_x + c * 0.06f + s * (-0.05f);
+  sensor_y = center_y - s * 0.06f + c * (-0.05f);
+  expected_inverse(sensor_x, sensor_y, &raw_x, &raw_y);
 
-  s_ops.frame.x = center_raw_x + c * mount_raw_x - s * mount_raw_y;
-  s_ops.frame.y = center_raw_y + s * mount_raw_x + c * mount_raw_y;
+  s_ops.frame.x = raw_x;
+  s_ops.frame.y = raw_y;
   s_ops.frame.z = yaw;
   s_ops.valid_count = 1U;
   s_ops.pose_valid = 1U;
@@ -114,8 +117,8 @@ static void check_direction(void) {
   OPS_ZeroCoordinates();
   set_pose(1.1f, 0.1f, -0.2f);
   OPS_CopyPosition(&x, &y, &z, 0U);
-  nearf(x, 0.1f, "zeroed x");
-  nearf(y, -0.2f, "zeroed y");
+  nearf(x, cosf(0.3f) * 0.1f - sinf(0.3f) * (-0.2f), "zeroed x");
+  nearf(y, sinf(0.3f) * 0.1f + cosf(0.3f) * (-0.2f), "zeroed y");
   nearf(z, 0.8f, "zeroed z");
 
   set_pose(0.0f, 0.0f, 0.0f);
@@ -148,7 +151,7 @@ static void check_direction(void) {
 
 int main(void) {
   check_direction();
-  puts("OPS fixed axis direction X=-raw_y, Y=-raw_x passed");
+  puts("OPS fixed axis direction X=-raw_x, Y=raw_y and ZERO frame passed");
   return 0;
 }
 '''
@@ -157,6 +160,7 @@ int main(void) {
 names = [
     "OPS_MapRawToUnified",
     "OPS_MapUnifiedToRaw",
+    "OPS_RotateWorldToZero",
     "OPS_CopyPosition",
     "OPS_ZeroCoordinates",
     "OPS_SetOrigin",

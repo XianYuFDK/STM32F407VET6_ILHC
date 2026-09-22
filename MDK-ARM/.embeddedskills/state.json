@@ -1,0 +1,24 @@
+{
+  "last_build": {
+    "provider": "eide",
+    "action": "build",
+    "project": ".",
+    "config": "STM32F407VET6_ILHC",
+    "log_dir": ".embeddedskills/build",
+    "artifacts": {
+      "hex_file": "build/STM32F407VET6_ILHC/STM32F407VET6_ILHC.hex",
+      "axf_file": "build/STM32F407VET6_ILHC/STM32F407VET6_ILHC.axf",
+      "flash_file": "build/STM32F407VET6_ILHC/STM32F407VET6_ILHC.hex",
+      "debug_file": "build/STM32F407VET6_ILHC/STM32F407VET6_ILHC.axf",
+      "build_dir": "build/STM32F407VET6_ILHC",
+      "log_file": ".embeddedskills/build/MDK-ARM-STM32F407VET6_ILHC-build.log"
+    },
+    "hex_file": "build/STM32F407VET6_ILHC/STM32F407VET6_ILHC.hex",
+    "axf_file": "build/STM32F407VET6_ILHC/STM32F407VET6_ILHC.axf",
+    "flash_file": "build/STM32F407VET6_ILHC/STM32F407VET6_ILHC.hex",
+    "debug_file": "build/STM32F407VET6_ILHC/STM32F407VET6_ILHC.axf",
+    "build_dir": "build/STM32F407VET6_ILHC",
+    "log_file": ".embeddedskills/build/MDK-ARM-STM32F407VET6_ILHC-build.log",
+    "timestamp": "2026-09-21T17:06:26+08:00"
+  }
+}

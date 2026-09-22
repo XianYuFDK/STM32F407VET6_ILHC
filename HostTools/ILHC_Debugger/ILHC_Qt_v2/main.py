@@ -98,7 +98,7 @@ GRID = "#303843"
 
 
 class UiBridge(QObject):
-    workerError = Signal(str)
+    workerError = Signal(object, str)
 
 
 class StatCard(QFrame):
@@ -717,7 +717,11 @@ class MainWindow(QMainWindow):
         # 固件文字应答/错误与上位机提示（如补发 VOFA）都显示到日志，
         # 否则固件在文字模式下报的 CAN 失败等信息会被解析器静默丢弃。
         self.fw_text_q = queue.Queue(maxsize=200)
+        # 参数回读（固件文字应答 "<名称>=<值>"）：刷新"回读"栏，不进日志。
+        self.param_q = queue.Queue(maxsize=200)
+        self.param_poll_index = 0
         self.worker = None
+        self._closing_worker = None
         self.sim = None
         self.recorder = None
         self.t0_monotonic = time.monotonic()
@@ -1355,7 +1359,13 @@ class MainWindow(QMainWindow):
         self.chassis_rows = {}
         for cmd, label, lo, hi, dflt, rb in core.CHASSIS_PARAMS:
             row = ParamRow(cmd, label, lo, hi, dflt, rb, False)
-            row.sendRequested.connect(lambda c, v: self.send_line("%s=%s" % (c, v)))
+
+            def _send_param(c, v):
+                # 写入后立刻回读一次：XVMIN/ZVMIN 没有遥测通道，只能靠文字应答确认。
+                self.send_line("%s=%s" % (c, v))
+                self._request_param_readback(c)
+
+            row.sendRequested.connect(_send_param)
             self.chassis_rows[cmd] = row
             bl.addWidget(row)
         bl.addStretch(1)
@@ -1669,7 +1679,8 @@ class MainWindow(QMainWindow):
 
         row = QHBoxLayout()
         self.command_entry = QLineEdit()
-        self.command_entry.setPlaceholderText("例如：KPX=3.0 / GOTO=100.0,60.0,90.0 / DMEN / STOP")
+        self.command_entry.setPlaceholderText(
+            "例如：KPX=3.0 / GOTO=100.0,60.0,90.0 / GOTOHOLD=100.0,60.0,90.0 / DMEN / STOP")
         self.command_entry.returnPressed.connect(self._send_console)
         send = QPushButton("发送")
         send.setObjectName("PrimaryButton")
@@ -1899,10 +1910,14 @@ class MainWindow(QMainWindow):
         self._manual_stop()
         self._drain_queue(self.line_q)
         self._drain_queue(self.urgent_q)
+        self._drain_queue(self.param_q)
 
     def toggle_connect(self, force_on=None):
         want = force_on if force_on is not None else self.worker is None
         if want and self.worker is None:
+            if not self._previous_worker_finished():
+                self.log("串口仍在关闭，请稍后连接。", "warn")
+                return
             if core.serial is None:
                 QMessageBox.warning(self, "缺少依赖", "未安装 pyserial。\n请执行：python -m pip install -r requirements.txt")
                 return
@@ -1914,34 +1929,55 @@ class MainWindow(QMainWindow):
                 return
             baud = int(self.baud_combo.currentText())
             self._clear_command_queues()
-            self.worker = core.SerialWorker(
+            worker = core.SerialWorker(
                 port, baud, self.frame_q, self.line_q, self.urgent_q,
-                err_cb=lambda msg: self.bridge.workerError.emit(msg),
                 text_q=self.fw_text_q,
+                param_q=self.param_q,
             )
+            worker.err_cb = lambda msg, source=worker: self.bridge.workerError.emit(source, msg)
+            self.worker = worker
             self.worker.start()
             self.connect_btn.setText("断开")
             self._set_link_status("正在打开 %s…" % port, "warn")
             self.log("正在连接 %s @ %d 8N1" % (port, baud), "info")
         elif not want and self.worker is not None:
-            old = self.worker
-            self.worker = None
-            try:
-                old.request_stop(safe=True)
-            except Exception:
-                pass
+            self._manual_stop()
+            self._stop_worker(safe=True)
             self._clear_command_queues()
             self.connect_btn.setText("连接")
             self._set_link_status("未连接", "idle")
             self.log("串口已请求安全断开（STOP/DMSTOP/DMOFF）", "info")
+
+    def _previous_worker_finished(self):
+        if self._closing_worker is not None:
+            if self._closing_worker.is_alive():
+                return False
+            self._closing_worker.join()
+            self._closing_worker = None
+            self._drain_queue(self.frame_q)
+            self._drain_queue(self.fw_text_q)
+        return True
+
+    def _stop_worker(self, safe):
+        old = self.worker
+        self.worker = None
+        self._closing_worker = old
+        old.request_stop(safe=safe)
+        # 有界等待；驱动异常阻塞时保留引用，禁止开启下一会话。
+        old.join(timeout=0.5)
+        self._previous_worker_finished()
 
     def toggle_sim(self, force_on=None):
         want = force_on if force_on is not None else self.sim is None
         if want and self.sim is None:
             if self.worker is not None:
                 self.toggle_connect(False)
+            if not self._previous_worker_finished():
+                self.log("串口仍在关闭，请稍后开启模拟。", "warn")
+                return
             self._clear_command_queues()
-            self.sim = core.Simulator(self.frame_q, self.line_q, self.urgent_q)
+            self.sim = core.Simulator(self.frame_q, self.line_q, self.urgent_q,
+                                      param_q=self.param_q)
             self.sim.start()
             self.sim_btn.setText("停止模拟")
             self._set_link_status("模拟模式 · 50 Hz", "sim")
@@ -1968,7 +2004,7 @@ class MainWindow(QMainWindow):
             return
         cmd = text.upper().split("=", 1)[0].strip()
         # 锁轴切换前先停止键盘续发，避免失能后仍周期发送MANUAL。
-        if cmd in ("STOP", "ZERO", "GOTO", "OPSOFFSET", "WHEELEN", "WHEELOFF"):
+        if cmd in ("STOP", "ZERO", "GOTO", "GOTOHOLD", "OPSOFFSET", "WHEELEN", "WHEELOFF"):
             self._manual_stop()
         if cmd in core.URGENT_COMMANDS:
             self._drain_queue(self.line_q)
@@ -1995,16 +2031,13 @@ class MainWindow(QMainWindow):
             self.urgent_q.put("PING")
             self.last_heartbeat_enqueue = now
 
-    def _on_worker_error(self, msg: str):
+    def _on_worker_error(self, source, msg: str):
+        if source is not self.worker:
+            return
         self._manual_stop()
         self.log(msg, "warn")
         if self.worker is not None:
-            old = self.worker
-            self.worker = None
-            try:
-                old.request_stop(safe=False)
-            except Exception:
-                pass
+            self._stop_worker(safe=False)
         self.connect_btn.setText("连接")
         self._set_link_status("串口异常", "error")
         QMessageBox.critical(self, "串口错误", msg)
@@ -2026,6 +2059,45 @@ class MainWindow(QMainWindow):
         self.heartbeat_timer = QTimer(self)
         self.heartbeat_timer.timeout.connect(self._enqueue_heartbeat)
         self.heartbeat_timer.start(100)
+
+        self.param_timer = QTimer(self)
+        self.param_timer.timeout.connect(self._poll_param_readback)
+        self.param_timer.start(int(core.PARAM_POLL_S * 1000))
+
+    def _param_rows(self):
+        """命令名 -> 参数行控件（底盘页与 DM 页合并）。"""
+        rows = dict(self.chassis_rows)
+        rows.update(self.dm_rows)
+        return rows
+
+    def _apply_param_readback(self, name, value):
+        """固件文字回读刷新界面：XVMIN/ZVMIN 没有遥测通道，只有这一条路。"""
+        row = self._param_rows().get(str(name).upper())
+        if row is None:
+            return
+        try:
+            row.set_readback(float(value))
+        except (TypeError, ValueError):
+            return
+
+    def _request_param_readback(self, name):
+        """只发 GET，不走 send_line：轮询不该刷 TX 日志或触发停车路径。"""
+        if self.worker is None and self.sim is None:
+            return
+        self.line_q.put(core.param_query(name))
+
+    def _poll_param_readback(self):
+        """慢速兜底回读：轮询没有遥测通道的可调参数（当前是 XVMIN/ZVMIN）。
+
+        每次只发一条 GET，文字应答每帧最多占用一个遥测帧位；写入后的即时回读
+        由参数行的"发送"负责，这里只保证界面长期与实际 RAM 值一致。
+        """
+        names = [cmd for cmd, _label, _lo, _hi, _dflt, rb in core.CHASSIS_PARAMS if rb is None]
+        if not names:
+            return
+        name = names[self.param_poll_index % len(names)]
+        self.param_poll_index += 1
+        self._request_param_readback(name)
 
     def _process_frames(self):
         got = 0
@@ -2054,6 +2126,13 @@ class MainWindow(QMainWindow):
                 break
             tag = "warn" if any(k in text.upper() for k in ("ERR", "FAIL", "错误", "失败")) else "info"
             self.log(text, tag)
+        # 参数回读：直接写对应行的"回读"栏，不占日志。
+        for _ in range(20):
+            try:
+                name, value = self.param_q.get_nowait()
+            except queue.Empty:
+                break
+            self._apply_param_readback(name, value)
 
     def _render_ui(self):
         v = self.latest
@@ -2070,22 +2149,24 @@ class MainWindow(QMainWindow):
             self.dm_cards["tor"].set_value("%.3f" % v[15])
             self.dm_cards["tmos"].set_value("%.1f" % v[17])
             self.dm_cards["trotor"].set_value("%.1f" % v[18])
-            self.dm_cards["id"].set_value("%d" % int(v[12]))
+            dm_id = str(int(v[12])) if math.isfinite(v[12]) else "—"
+            self.dm_cards["id"].set_value(dm_id)
 
             for row in list(self.chassis_rows.values()) + list(self.dm_rows.values()):
                 if row.readback_channel is not None:
                     row.set_readback(v[row.readback_channel])
 
-            status = int(v[16]) & 0xFF
-            text, fault = core.DM_STATUS.get(status, ("未知 0x%02X" % status, True))
-            self.dm_status_big.setText("DM 状态：0x%02X  %s" % (status, text))
+            status = int(v[16]) & 0xFF if math.isfinite(v[16]) else None
+            status_label = "0x%02X" % status if status is not None else "无效"
+            text, fault = core.DM_STATUS.get(status, ("未知/无效 %s" % status_label, True))
+            self.dm_status_big.setText("DM 状态：%s  %s" % (status_label, text))
             self.dm_status_big.setProperty("fault", fault)
             self.dm_status_big.setProperty("enabled", status == 0x01)
             self.dm_status_big.style().unpolish(self.dm_status_big)
             self.dm_status_big.style().polish(self.dm_status_big)
 
             self.health_dm.setText("● DM：%s" % text)
-            self.footer_dm.setText("DM[%d] %s" % (int(v[12]), text))
+            self.footer_dm.setText("DM[%s] %s" % (dm_id, text))
 
             self.ops_drift.setText("中心位置：X 左右 %.1f / Y 前后 %.1f cm ｜距零点 %.1f cm ｜航向 %.1f°" % (v[0], v[1], math.hypot(v[0], v[1]), v[2]))
             fx, fy = self._ops_to_field(v[0] * core.OPS_CM_TO_MM,
@@ -2153,6 +2234,10 @@ class MainWindow(QMainWindow):
         self.map_view.set_trail(fx, fy)
 
     def _status_tick(self):
+        self._previous_worker_finished()
+        if self._closing_worker is not None:
+            self._set_link_status("正在关闭串口…", "warn")
+            return
         now = time.monotonic()
         dt = now - self.fps_t
         if dt >= 1.0:
@@ -2421,15 +2506,19 @@ class MainWindow(QMainWindow):
 
     def closeEvent(self, event: QCloseEvent):
         self._manual_stop()
+        if self.worker is not None:
+            self._stop_worker(safe=True)
+        if not self._previous_worker_finished():
+            # 不在后台线程仍使用Qt桥接对象时销毁窗口；稍后自动重试退出。
+            event.ignore()
+            QTimer.singleShot(100, self.close)
+            return
         try:
             # 先把页面收回主窗口，独立窗口不会再拦截退出。
             self._reattach_all()
             if self.recorder is not None:
                 self.recorder.close()
                 self.recorder = None
-            if self.worker is not None:
-                self.worker.request_stop(safe=True)
-                self.worker = None
             if self.sim is not None:
                 self.sim.stop_flag = True
                 self.sim = None

@@ -65,7 +65,7 @@ int main(void)
 
     reset_bus();
     assert(Motor_AbsPosition(0,MOTOR35_CAN_ID,1000,1000)==HAL_OK);
-    assert(sent==2 && headers[0].ExtId==0x300 && headers[1].ExtId==0x301);
+    assert(sent==2 && headers[0].ExtId==0x100 && headers[1].ExtId==0x101);
     assert(!memcmp(bytes[0],expected,8) && !memcmp(bytes[1],expected+8,8));
     assert(headers[0].DLC==8 && test_primask==0);
     reset_bus();free_slots=1;
@@ -77,14 +77,14 @@ int main(void)
     assert(headers[0].DLC==4 && !memcmp(bytes[0],short_data,4));
     assert(bytes[0][4]==0 && bytes[0][7]==0);
     reset_bus();
-    assert(Can_SendCmd(0x400,short_data,4)==HAL_OK && headers[0].DLC==4);
+    assert(Can_SendCmd(0x200,short_data,4)==HAL_OK && headers[0].DLC==4);
     reset_bus();
     assert(Can_SendCmd(0x1FFFFFFF,expected,16)==HAL_ERROR && sent==0);
     assert(Motor35_AbsPosition(0,2185)==HAL_ERROR && sent==0);
-    assert(Motor_AbsPosition(2,0x300,0,1)==HAL_ERROR);
-    assert(Stepper2835_OnRx(0x400,short_data,4)==1);
-    assert(Stepper2835_GetReply(0x400,&reply)==1 && reply.last_tick==1234 && reply.count==1);
-    assert(Stepper2835_OnRx(0x400,short_data,9)==0);
+    assert(Motor_AbsPosition(2,0x100,0,1)==HAL_ERROR);
+    assert(Stepper2835_OnRx(0x200,short_data,4)==1);
+    assert(Stepper2835_GetReply(0x200,&reply)==1 && reply.last_tick==1234 && reply.count==1);
+    assert(Stepper2835_OnRx(0x200,short_data,9)==0);
 
     memset(SoftSPI_OLED_GRAM,0,sizeof(SoftSPI_OLED_GRAM));
     SoftSPI_OLED_ShowPicture(0,0,1,1,&picture,1);

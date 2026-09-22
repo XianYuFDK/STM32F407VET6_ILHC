@@ -11,7 +11,9 @@
  *            不存在交换或取反的适配层。
  *          - GOTO=x,y,z：上位机点击场地地图下发 OPS 全局定位移动目标（x=左右、
  *            y=前后，单位 cm 且保留 1 位小数；z=航向角），本任务每 20ms 周期执行
- *            一步 MecanumControl_GotoOPS，STOP 取消。固件内部仍用 mm 闭环。
+ *            一步 MecanumControl_GotoOPS，到位后停止，STOP 取消。固件内部仍用 mm 闭环。
+ *          - GOTOHOLD=x,y,z：参数与 GOTO 相同，到位后继续位置闭环保持，
+ *            STOP/WHEELOFF/OPS 掉线或会话变化/主机失联时取消。
  *          - WHEELEN/WHEELOFF：底盘四轮统一锁轴/释放，失能期间拒绝运动命令；
  *            失能后停车只清目标（MecanumControl_ClearTarget），绝不再发速度帧，
  *            否则ZDT_X42S会重新使能锁轴，表现为"失能了还是锁"
@@ -26,6 +28,7 @@
 #include "hcan.h"
 #include "stepper_2835.h"
 #include "zdt_x42s.h"
+#include "debug_param_store.h"
 
 #include <string.h>
 
@@ -39,7 +42,7 @@
 #define DEBUG_VOFA_TAIL3  0x7FU
 
 /* ------------------------- DM 电机调试参数 ------------------------- */
-#define DEBUG_DM_DEFAULT_ID     1U
+#define DEBUG_DM_DEFAULT_ID     3U
 #define DEBUG_DM_DEFAULT_MODE   DM_J4310_CTRL_MODE_MIT
 #define DEBUG_DM_DEFAULT_POS    0.0f
 #define DEBUG_DM_DEFAULT_VEL    0.0f
@@ -49,6 +52,8 @@
 #define DEBUG_DM_MODE_WAIT_MS   100U
 #define DEBUG_HOST_TIMEOUT_MS   1000U
 #define DEBUG_OPS_TIMEOUT_MS    200U
+#define DEBUG_GOTO_MOVE         1U
+#define DEBUG_GOTO_HOLD         2U
 
 /* 可调参数项：名称 -> 变量指针 + 允许范围 */
 typedef struct
@@ -80,14 +85,21 @@ static volatile uint8_t s_rx_recover;
 static uint8_t s_rx_callbacks_ready;
 
 static uint8_t s_tx[(4U * DEBUG_VOFA_CHANNELS) + 4U];
+static uint8_t s_tx_busy_seen;
+static uint32_t s_tx_busy_tick;
+volatile uint32_t debug_tx_recoveries, debug_tx_errors;
 
 static volatile uint8_t s_stop_req;
+static volatile uint8_t s_stop_in_progress;
 static volatile uint8_t s_zero_req;
 static volatile uint8_t s_offset_req;
 static volatile float s_offset_x, s_offset_y;
 
-/* GOTO 全局定位移动目标（上位机场地地图点击下发） */
+/* GOTO 全局定位移动目标。
+ * s_goto_active: 0=空闲，DEBUG_GOTO_MOVE=移动到点后结束，
+ * DEBUG_GOTO_HOLD=到点后持续位置闭环保持。 */
 static volatile uint8_t s_goto_active;
+static volatile uint32_t s_goto_generation;
 static float s_goto_x;
 static float s_goto_y;
 static float s_goto_z;
@@ -103,6 +115,9 @@ static volatile uint32_t s_manual_tick;
  * 一律拒绝，必须显式 WHEELEN 恢复。main.c 启动时已使能四轮，初值为1。 */
 static volatile uint8_t s_wheel_req;
 static uint8_t s_wheel_enabled;
+static uint8_t s_wheel_enable_pending, s_wheel_fault, s_wheel_disable_pending;
+static uint32_t s_wheel_enable_tick, s_wheel_fault_tick, s_wheel_error_seen;
+static uint32_t s_control_tick;
 
 /* 单轮限时测试：中断发布请求，任务执行；阶段1等待使能，阶段2计时运行。
  * 测试最长5秒，不依赖主机心跳续期；不修改现有24通道遥测格式。 */
@@ -119,12 +134,20 @@ static volatile uint8_t s_zdt_text_mode;
 static volatile uint8_t s_ack_read, s_ack_write;
 static uint8_t s_ack_queue[16];
 static uint8_t s_ack_frames[16][4];
+/* 参数回读应答：GET <名称> 的文本按队列槽存放，中断只写 s_ack_write 槽、
+ * 默认任务只读 s_ack_read 槽，与 s_ack_frames 同一套无锁约定。
+ * 24 字节足够最长一条 "XVMAX=3000.000\r\n"。 */
+static char s_ack_param[16][24];
 static uint8_t s_zdt_watch;
 /* 单轮测试期间"期望的应答"：必须同时匹配 地址 + 功能码，状态码单独判读。
  * 只比地址是不够的：Stop(0xFE)/Enable(0xF3) 的回包同样是 4 字节且尾字节 0x6B，
  * 之前发过的命令的迟到回包会被当成速度(0xF6)命令的成功应答。 */
 static uint8_t s_zdt_watch_cmd;
 static uint32_t s_zdt_watch_tick;
+/* 文字应答事件号：19为静态"参数名非法"（表中最后一条），
+ * 20为动态参数回读文本（文本在 s_ack_param 槽里，见 Debug_ReplyParam）。 */
+#define DEBUG_ACK_PARAM_UNKNOWN 19U
+#define DEBUG_ACK_PARAM_TEXT    20U
 static const char * const s_ack_text[] = {
   "ACK ZDT ACCEPTED\r\n",
   "ERR ZDT BUSY\r\n",
@@ -137,7 +160,15 @@ static const char * const s_ack_text[] = {
   "ERR CAN START FAILED; CAN DISABLED; USART1 AVAILABLE\r\n",
   "ERR CAN DISABLED; DM/S28/S35 REJECTED\r\n",
   "ERR WHEEL DISABLED; WHEELEN FIRST\r\n",
-  "ERR ZDT REPLY STATUS != 0x02 (SEE RAW FRAME)\r\n"
+  "ERR ZDT REPLY STATUS != 0x02 (SEE RAW FRAME)\r\n",
+  "ERR GOTO INVALID HEADING\r\n",
+  "ERR DM DISABLE TX FAILED; DMOFF TO RETRY\r\n",
+  "ERR WHEEL TX FAILED; WHEELEN TO RECOVER\r\n",
+  "ACK PARAM LOADED FROM FLASH\r\n",
+  "INFO PARAM DEFAULTS; NO VALID FLASH RECORD\r\n",
+  "ACK PARAM SAVED TO FLASH\r\n",
+  "ERR PARAM FLASH; UNSAVED CHANGES LOST ON POWER OFF\r\n",
+  "ERR PARAM UNKNOWN; GET KPX|KPY|KPZ|XVMAX|ZVMAX|XVMIN|ZVMIN\r\n"
 };
 
 static void Debug_ZdtAck(uint8_t event)
@@ -217,6 +248,9 @@ static volatile uint8_t s_dm_zero_req;
 static volatile uint8_t s_dm_mode_req;
 static uint8_t s_dm_start_pending;
 static uint32_t s_dm_mode_tick;
+static uint8_t s_dm_disable_pending, s_dm_disable_fault;
+static uint16_t s_dm_disable_id;
+static uint32_t s_dm_disable_tick;
 static volatile uint32_t s_host_last_tick;
 
 /* 28/35 单次请求邮箱：串口中断只更新参数，任务提交 CAN。
@@ -231,6 +265,53 @@ typedef struct
   uint8_t action; /* 0无请求，1回零，2机械目标，3原始计数 */
 } DebugStepperRequest_t;
 static volatile DebugStepperRequest_t s_stepper_req[2]; /* 35、28 */
+
+/* 快照只复制参数，Flash 操作全部在短临界区之外。 */
+static uint8_t s_param_error_reported;
+static void Debug_CaptureParams(DebugParamValues *v)
+{
+  uint32_t i, mask = __get_PRIMASK();
+  __disable_irq();
+  for (i = 0U; i < 7U; ++i) v->value[i] = *s_params[i].value;
+  OPS_GetMountOffset(&v->value[7], &v->value[8]);
+  v->value[9] = (float)s_dm_id; v->value[10] = (float)s_dm_mode;
+  v->value[11] = s_dm_pos; v->value[12] = s_dm_vel;
+  v->value[13] = s_dm_kp; v->value[14] = s_dm_kd; v->value[15] = s_dm_torque;
+  if (mask == 0U) __enable_irq();
+}
+
+/* 启动时仅恢复数值，不置任何使能/运动请求，不恢复ZERO参考系。 */
+static void Debug_InitParams(void)
+{
+  DebugParamValues v;
+  uint32_t i;
+  ParamStoreResult result;
+  Debug_CaptureParams(&v);
+  result = DebugParamStore_Init(&v);
+  s_param_error_reported = (result == PARAM_STORE_ERROR);
+  if (result == PARAM_STORE_LOADED) {
+    for (i = 0U; i < 7U; ++i) *s_params[i].value = v.value[i];
+    (void)OPS_SetMountOffset(v.value[7], v.value[8]);
+    s_dm_id = (uint16_t)v.value[9]; s_dm_mode = (uint8_t)v.value[10];
+    s_dm_pos = v.value[11]; s_dm_vel = v.value[12];
+    s_dm_kp = v.value[13]; s_dm_kd = v.value[14]; s_dm_torque = v.value[15];
+    Debug_ZdtAck(15U);
+  }
+  else Debug_ZdtAck(result == PARAM_STORE_ERROR ? 18U : 16U);
+}
+
+static void Debug_ServiceParams(void)
+{
+  DebugParamValues v;
+  ParamStoreResult result;
+  Debug_CaptureParams(&v);
+  result = DebugParamStore_Service(&v, HAL_GetTick());
+  if (result == PARAM_STORE_SAVED) Debug_ZdtAck(17U);
+  else if (result == PARAM_STORE_ERROR && !s_param_error_reported) {
+    s_param_error_reported = 1U;
+    Debug_ZdtAck(18U);
+  }
+}
 
 /* --------------------------- 私有函数 ------------------------------ */
 
@@ -310,7 +391,9 @@ static uint8_t Debug_ParseFloat(const char *s, float *out)
     }
   }
 
-  if (!has_digit)
+  while ((*s == ' ') || (*s == '\t')) ++s;
+  if (!has_digit || !((value >= 0.0f) && (value <= 3.402823466e38F)) ||
+      ((*s != '\0') && (*s != ',')))
   {
     return 0U;
   }
@@ -362,7 +445,7 @@ static uint8_t Debug_ParseFloatList(const char *s, float *out, uint8_t max)
 
     if (!Debug_ParseFloat(s, &value))
     {
-      break;
+      return 0U;
     }
 
     out[count] = value;
@@ -376,6 +459,7 @@ static uint8_t Debug_ParseFloatList(const char *s, float *out, uint8_t max)
     if (*s == ',')
     {
       ++s;
+      if (*s == '\0' || count == max) return 0U;
     }
   }
 
@@ -411,13 +495,99 @@ static void Debug_SetParam(const char *name, float value)
 }
 
 /**
+ * @brief  回读一个可调参数，把 "名称=值" 文本放入文字应答队列
+ *
+ * XVMIN/ZVMIN 在24通道遥测里没有通道位，上位机的"回读"栏无法从波形取得
+ * 当前值；这条 GET <名称> 应答补上该方向，读回的是参数表指向的实时 RAM 值
+ * （含Flash恢复值和本次会话的修改）。名称非法回 ERR，便于区分"没有该参数"
+ * 和"没有收到应答"。应答走与ZDT/Flash相同的队列：中断只入队，默认任务在
+ * DMA空闲时优先发送，不改变 JustFloat 帧格式和通道总数。
+ * @param  name  参数名，大小写不敏感
+ */
+static void Debug_ReplyParam(const char *name)
+{
+  uint32_t i, count, mask, slot, next;
+  int32_t scaled, whole, frac;
+  char *out;
+  char tmp[8];
+  uint8_t k, n;
+
+  count = sizeof(s_params) / sizeof(s_params[0]);
+
+  for (i = 0U; i < count; ++i)
+  {
+    if (Debug_StrCaseCmp(name, s_params[i].name) != 0U) continue;
+
+    /* 组包与入队必须在同一临界区：ZDT服务在任务上下文也会推进 s_ack_write，
+     * 分两步做会把文本写进别人的槽位。 */
+    mask = __get_PRIMASK();
+    __disable_irq();
+    slot = s_ack_write;
+    next = (uint8_t)((slot + 1U) % 16U);
+    if (next != s_ack_read)
+    {
+      out = s_ack_param[slot];
+      n = 0U;
+      /* 名称回显参数表中的规范大写，上位机据此匹配界面行。 */
+      while ((s_params[i].name[n] != '\0') && (n < 12U))
+      {
+        out[n] = s_params[i].name[n];
+        ++n;
+      }
+      out[n] = '=';
+      ++n;
+      /* 不用printf的%f：Keil精简库不带浮点格式化，这里按0.001定点输出。 */
+      scaled = (int32_t)((*s_params[i].value * 1000.0f) +
+                         ((*s_params[i].value >= 0.0f) ? 0.5f : -0.5f));
+      if (scaled < 0)
+      {
+        out[n] = '-';
+        ++n;
+        scaled = -scaled;
+      }
+      whole = scaled / 1000;
+      frac = scaled % 1000;
+      k = 0U;
+      if (whole == 0) tmp[k++] = '0';
+      while ((whole != 0) && (k < 8U))
+      {
+        tmp[k] = (char)('0' + (whole % 10));
+        ++k;
+        whole /= 10;
+      }
+      while (k > 0U)
+      {
+        --k;
+        out[n] = tmp[k];
+        ++n;
+      }
+      out[n]      = '.';
+      out[n + 1U] = (char)('0' + ((frac / 100) % 10));
+      out[n + 2U] = (char)('0' + ((frac / 10) % 10));
+      out[n + 3U] = (char)('0' + (frac % 10));
+      n = (uint8_t)(n + 4U);
+      out[n]      = '\r';
+      out[n + 1U] = '\n';
+      out[n + 2U] = '\0';
+      s_ack_queue[slot] = DEBUG_ACK_PARAM_TEXT;
+      s_ack_write = (uint8_t)next;
+    }
+    if (mask == 0U) __enable_irq();
+    return;
+  }
+
+  Debug_ZdtAck(DEBUG_ACK_PARAM_UNKNOWN);
+}
+
+/**
  * @brief  设置 DM 电机调试参数
  */
 static void Debug_SetDmValue(const char *name, float value)
 {
   if (Debug_StrCaseCmp(name, "DMID") == 0U)
   {
-    if ((value >= 1.0f) && (value <= 0x06FFU))
+    if (!s_dm_active && !s_dm_start_pending && !s_dm_disable_pending && !s_dm_disable_fault &&
+        (value >= 1.0f) && (value <= 0x06FFU))
     {
       s_dm_id = (uint16_t)value;
     }
@@ -607,7 +777,8 @@ static uint8_t Debug_ParseManual(const char *s, int16_t *v)
  * 由任务修改，接收中断只读，不阻塞也不改中断状态。 */
 static uint8_t Debug_WheelReady(void)
 {
-  return (s_wheel_enabled != 0U) ? 1U : 0U;
+  return (s_wheel_enabled != 0U && s_wheel_enable_pending == 0U &&
+          s_wheel_fault == 0U && s_wheel_req == 0U && s_stop_in_progress == 0U) ? 1U : 0U;
 }
 
 /* 四轮失能后禁止再向 UART4 下发任何速度帧：ZDT_X42S 在速度模式下收到任意
@@ -615,7 +786,7 @@ static uint8_t Debug_WheelReady(void)
  * 重新锁住。因此失能后只清理软件目标，停车帧留给重新使能之后再发。 */
 static void Debug_ChassisStop(void)
 {
-  if (Debug_WheelReady() != 0U)
+  if (s_wheel_enabled != 0U && s_wheel_fault == 0U)
   {
     MecanumControl_Stop();
   }
@@ -669,6 +840,46 @@ static void Debug_ServiceManual(void)
   }
 }
 
+/* GOTO 位置闭环服务。
+ * DEBUG_GOTO_MOVE: 到位后取消目标并停车。
+ * DEBUG_GOTO_HOLD: 到位后继续保持目标和位置环，人工扰动后自动纠回。 */
+static void Debug_ServiceGoto(void)
+{
+  uint8_t reached;
+  float x, y, z;
+  uint32_t mask, generation;
+
+  if (s_goto_active == 0U) return;
+
+  if (Debug_WheelReady() == 0U)
+  {
+    s_goto_active = 0U;
+    MecanumControl_ClearTarget();
+    return;
+  }
+
+  if (OPS_IsOnline(DEBUG_OPS_TIMEOUT_MS) == 0U)
+  {
+    s_goto_active = 0U;
+    Debug_ChassisStop();
+    return;
+  }
+
+  mask = __get_PRIMASK();
+  __disable_irq();
+  x = s_goto_x; y = s_goto_y; z = s_goto_z;
+  generation = s_goto_generation;
+  if (mask == 0U) __enable_irq();
+  reached = MecanumControl_GotoOPS(x, y, z, 0.0f);
+  mask = __get_PRIMASK();
+  __disable_irq();
+  reached = (reached != 0U && s_goto_active == DEBUG_GOTO_MOVE &&
+             generation == s_goto_generation) ? 1U : 0U;
+  if (reached) s_goto_active = 0U;
+  if (mask == 0U) __enable_irq();
+  if (reached) Debug_ChassisStop();
+}
+
 /* 任务上下文执行四轮使能/失能：先取消运动并停车，再发UART4阻塞帧。
  * 失能只释放锁轴，不改变DM、28/35状态，也不停止串口遥测。
  * 请求在中断中只置位，因此同一周期内只有最后一次状态切换生效。
@@ -682,26 +893,85 @@ static void Debug_ServiceWheel(void)
   request = s_wheel_req;
   s_wheel_req = 0U;
   if (mask == 0U) __enable_irq();
-  if (request == 0U) return;
-
-  /* 切换使能状态前取消手动/GOTO并停车，避免带速使能或释放。 */
-  s_manual_active = 0U;
-  s_goto_active = 0U;
-  MecanumControl_Stop();
-
-  if (request == 1U)
+  if (request == 0U)
   {
-    /* 闸门在使能完成后才打开，使能等待期间不接受新的运动请求。 */
-    MecanumControl_Enable();
-    s_wheel_enabled = 1U;
+    if (s_wheel_enable_pending &&
+        (uint32_t)(HAL_GetTick() - s_wheel_enable_tick) >= 100U)
+    {
+      s_wheel_enable_pending = 0U;
+      s_wheel_enabled = 1U;
+    }
     return;
   }
-
-  /* 先关闭运动闸门，再清除本次调用前可能已被中断置位的运动请求。 */
+  s_manual_active = s_goto_active = 0U;
+  s_wheel_enable_pending = 0U;
   s_wheel_enabled = 0U;
-  s_manual_active = 0U;
-  s_goto_active = 0U;
-  MecanumControl_Disable();
+  /* 显式请求开启新一轮恢复；发送失败会在周期尾重新锁存故障。 */
+  s_wheel_fault = s_wheel_disable_pending = 0U;
+  MecanumControl_Stop();
+  if (request == 1U)
+  {
+    MecanumControl_Enable();
+    s_wheel_enable_tick = HAL_GetTick();
+    s_wheel_enable_pending = 1U;
+  }
+  else
+    MecanumControl_Disable();
+}
+
+/* 总线发送失败后取消运动，并尝试失能；成功提交也不冒充电机 ACK。
+ * 故障保留到显式 WHEELEN。重试最多1秒，期间禁止速度命令重新使能。 */
+static void Debug_ServiceWheelFault(void)
+{
+  uint32_t errors = ZDT_X42S_GetTxErrorCount();
+  if (errors != s_wheel_error_seen && s_wheel_fault == 0U)
+  {
+    s_wheel_fault = s_wheel_disable_pending = 1U;
+    s_wheel_fault_tick = HAL_GetTick();
+    s_wheel_enable_pending = 0U;
+    s_wheel_enabled = 0U;
+    s_manual_active = s_goto_active = s_zdt_active = s_zdt_req = 0U;
+    MecanumControl_ClearTarget();
+    Debug_ZdtAck(14U);
+  }
+  if (s_wheel_disable_pending)
+  {
+    uint8_t addr, ok = 1U;
+    for (addr = 1U; addr <= 4U; ++addr)
+      if (ZDT_X42S_Disable(addr) != HAL_OK) ok = 0U;
+    if (ok || (uint32_t)(HAL_GetTick() - s_wheel_fault_tick) >= 1000U)
+      s_wheel_disable_pending = 0U;
+  }
+  s_wheel_error_seen = ZDT_X42S_GetTxErrorCount();
+}
+
+/* 失能请求绑定原电机ID，CAN忙时由后续周期重试。 */
+static void Debug_RequestDmDisable(void)
+{
+  s_dm_active = s_dm_start_pending = 0U;
+  if (!s_dm_disable_pending)
+  {
+    s_dm_disable_id = s_dm_id;
+    s_dm_disable_tick = HAL_GetTick();
+    s_dm_disable_pending = 1U;
+    s_dm_disable_fault = 0U;
+  }
+}
+
+static void Debug_ServiceDmDisable(void)
+{
+  if (!s_dm_disable_pending) return;
+  if (DmJ4310_Disable(s_dm_disable_id) == DM_J4310_OK)
+  {
+    s_dm_disable_pending = 0U;
+  }
+  else if ((uint32_t)(HAL_GetTick() - s_dm_disable_tick) >= 1000U)
+  {
+    s_dm_disable_pending = 0U;
+    s_dm_disable_fault = 1U;
+    s_dm_enable_req = s_dm_mode_req = 0U;
+    Debug_ZdtAck(13U);
+  }
 }
 
 /* 任务上下文执行，禁止在接收中断中阻塞发送或延时。
@@ -881,6 +1151,16 @@ static void Debug_ParseLine(char *line)
     return;
   }
 
+  /* GET <名称>：回读一个可调参数（如 GET XVMIN），应答走文字队列。
+   * 24通道遥测没有 XVMIN/ZVMIN 的通道位，上位机的"回读"栏只能靠这条
+   * 文本应答取得当前 RAM 值；格式固定为 "<名称>=<值>"，KPX 等有通道的
+   * 参数同样可回读，便于核对遥测通道与RAM值是否一致。 */
+  if (Debug_StrCaseCmpN(line, "GET ", 4U) == 0U)
+  {
+    Debug_ReplyParam(line + 4U);
+    return;
+  }
+
   /* 底盘四轮锁轴/释放：中断只置请求，UART4阻塞发送由任务执行。
    * 失能只释放锁轴，不影响DM、28/35和串口遥测；失能期间的运动命令
    * 在本函数后面的MANUAL/GOTO/ZDT分支被丢弃，必须显式WHEELEN恢复。
@@ -927,7 +1207,8 @@ static void Debug_ParseLine(char *line)
   }
   if ((s_zdt_active || s_zdt_req) &&
       (Debug_StrCaseCmpN(line, "MANUAL=", 7U) == 0U ||
-       Debug_StrCaseCmpN(line, "GOTO=", 5U) == 0U)) return;
+       Debug_StrCaseCmpN(line, "GOTO=", 5U) == 0U ||
+       Debug_StrCaseCmpN(line, "GOTOHOLD=", 9U) == 0U)) return;
 
   if (Debug_StrCaseCmpN(line, "MANUAL=", 7U) == 0U)
   {
@@ -945,47 +1226,70 @@ static void Debug_ParseLine(char *line)
     return;
   }
 
-  /* GOTO=x,y,z：OPS 全局定位移动目标，x/y 单位 cm（1位小数），z 可省略（保持当前航向）。
-   * 对外坐标范围 ±300.0 cm；按统一轴序直接换算为内部 mm。
-   * 四轮失能时不接受新目标，避免释放状态下位置环持续输出轮速。 */
-  if ((Debug_StrCaseCmpN(line, "GOTO", 4U) == 0U) && (line[4] == '='))
+  /* GOTO=x,y,z：OPS 全局定位移动到目标后结束。
+   * GOTOHOLD=x,y,z：到达目标后继续位置闭环保持，人工扰动后自动纠回。
+   * 两者 x/y 单位 cm（1位小数），z 可省略（保持当前航向）；
+   * 对外坐标范围 ±300.0 cm，四轮失能时不接受新目标。 */
   {
-    float v[3];
-    uint8_t n = Debug_ParseFloatList(line + 5U, v, 3U);
+    const char *args = NULL;
+    uint8_t hold_mode = 0U;
 
-    if ((n >= 2U) && (Debug_WheelReady() != 0U))
+    if ((Debug_StrCaseCmpN(line, "GOTO", 4U) == 0U) && (line[4] == '='))
     {
-      if (v[0] < -300.0f) { v[0] = -300.0f; }
-      if (v[0] > 300.0f)  { v[0] = 300.0f; }
-      if (v[1] < -300.0f) { v[1] = -300.0f; }
-      if (v[1] > 300.0f)  { v[1] = 300.0f; }
-
-      /* cm → mm：协议只表达 0.1cm，转换为整数 mm 后直接进入位置环。
-       * 正负分别加减 0.5 后向零取整，等价于按最近 1mm 取整。 */
-      v[0] = (v[0] >= 0.0f)
-           ? (float)(int32_t)((v[0] * 10.0f) + 0.5f)
-           : (float)(int32_t)((v[0] * 10.0f) - 0.5f);
-      v[1] = (v[1] >= 0.0f)
-           ? (float)(int32_t)((v[1] * 10.0f) + 0.5f)
-           : (float)(int32_t)((v[1] * 10.0f) - 0.5f);
-
-      s_manual_active = 0U;
-      /* GOTO=X,Y,Z 与底盘统一坐标同序：X=场地左、Y=场地前，单位已换算为 mm。 */
-      s_goto_x = v[0];
-      s_goto_y = v[1];
-      /* 目标航向必须钳位并拒 NaN/Inf：否则 devz 可能变成 Inf，
-       * 位置环里的回绕会永不退出（20ms 任务永久挂死）。
-       * 取反写法 (!(x >= -3600 && x <= 3600)) 可同时拒绝 NaN。 */
-      if (!(v[2] >= -3600.0f && v[2] <= 3600.0f))
-      {
-        s_goto_active = 0U;
-        return;
-      }
-      /* 目标航向未给出时保持当前航向 */
-      s_goto_z = (n >= 3U) ? v[2] : zangle;
-      s_goto_active = 1U;
+      args = line + 5U;
     }
-    return;
+    else if (Debug_StrCaseCmpN(line, "GOTOHOLD=", 9U) == 0U)
+    {
+      args = line + 9U;
+      hold_mode = 1U;
+    }
+
+    if (args != NULL)
+    {
+      float v[3] = {0.0f, 0.0f, 0.0f};
+      uint8_t n = Debug_ParseFloatList(args, v, 3U);
+
+      if ((n >= 2U) && (Debug_WheelReady() != 0U))
+      {
+        /* 全部字段有效且无停车请求后才提交新状态。 */
+        if (s_stop_req || s_zero_req || s_offset_req) return;
+        if (n >= 3U && !(v[2] >= -3600.0f && v[2] <= 3600.0f))
+        {
+          Debug_ZdtAck(12U);
+          return;
+        }
+        if (v[0] < -300.0f) { v[0] = -300.0f; }
+        if (v[0] > 300.0f)  { v[0] = 300.0f; }
+        if (v[1] < -300.0f) { v[1] = -300.0f; }
+        if (v[1] > 300.0f)  { v[1] = 300.0f; }
+
+        /* cm → mm：协议只表达 0.1cm，转换为整数 mm 后直接进入位置环。
+         * 正负分别加减 0.5 后向零取整，等价于按最近 1mm 取整。 */
+        v[0] = (v[0] >= 0.0f)
+             ? (float)(int32_t)((v[0] * 10.0f) + 0.5f)
+             : (float)(int32_t)((v[0] * 10.0f) - 0.5f);
+        v[1] = (v[1] >= 0.0f)
+             ? (float)(int32_t)((v[1] * 10.0f) + 0.5f)
+             : (float)(int32_t)((v[1] * 10.0f) - 0.5f);
+
+        s_manual_active = 0U;
+        /* 与底盘统一坐标同序：X=场地左、Y=场地前，单位已换算为 mm。 */
+        s_goto_x = v[0];
+        s_goto_y = v[1];
+        if (n >= 3U)
+        {
+          s_goto_z = v[2];
+        }
+        else
+        {
+          /* Z 未提供：保持当前航向。 */
+          s_goto_z = zangle;
+        }
+        ++s_goto_generation;
+        s_goto_active = (hold_mode != 0U) ? DEBUG_GOTO_HOLD : DEBUG_GOTO_MOVE;
+      }
+      return;
+    }
   }
 
   equal = strchr(line, '=');
@@ -995,7 +1299,7 @@ static void Debug_ParseLine(char *line)
   }
 
   *equal = '\0';
-  if (Debug_ParseFloat(equal + 1, &value))
+  if (strchr(equal + 1, ',') == NULL && Debug_ParseFloat(equal + 1, &value))
   {
     if (((line[0] == 'D') || (line[0] == 'd')) &&
         ((line[1] == 'M') || (line[1] == 'm')))
@@ -1055,6 +1359,88 @@ static void DebugUsart_ServiceRx(void)
   DebugUsart_StartRx();
 }
 
+/* TX 单独恢复，保持 RX 和命令接收运行。100ms 远大于 100B 帧的线速时间。 */
+static void DebugUsart_ServiceTx(void)
+{
+  uint32_t now = HAL_GetTick();
+  if (huart1.gState == HAL_UART_STATE_READY)
+  {
+    s_tx_busy_seen = 0U;
+    return;
+  }
+  if (s_tx_busy_seen == 0U)
+  {
+    s_tx_busy_seen = 1U;
+    s_tx_busy_tick = now;
+  }
+  else if ((uint32_t)(now - s_tx_busy_tick) >= 100U)
+  {
+    if (HAL_UART_AbortTransmit(&huart1) == HAL_OK)
+    {
+      ++debug_tx_recoveries;
+      s_tx_busy_seen = 0U;
+    }
+  }
+}
+
+static void Debug_ServiceDm(void)
+{
+  /* DM 状态机：先完成失能提交，再改模式/使能。 */
+  if (s_dm_disable_req != 0U)
+  {
+    s_dm_disable_req = 0U;
+    s_dm_enable_req = s_dm_mode_req = 0U;
+    Debug_RequestDmDisable();
+  }
+  if (!s_dm_disable_pending && !s_dm_disable_fault && s_dm_start_pending != 2U &&
+      (s_dm_mode_req || s_dm_enable_req))
+  {
+    uint8_t restart = s_dm_active || s_dm_start_pending || s_dm_enable_req;
+    Debug_RequestDmDisable();
+    s_dm_enable_req = restart;
+    s_dm_mode_req = 0U;
+    s_dm_start_pending = 2U; /* 等待失能提交完成 */
+  }
+  Debug_ServiceDmDisable();
+  if (!s_dm_disable_pending && !s_dm_disable_fault && s_dm_start_pending == 2U)
+  {
+    if (DmJ4310_SetControlMode(s_dm_id, s_dm_mode) == DM_J4310_OK)
+    {
+      s_dm_start_pending = s_dm_enable_req ? 1U : 0U;
+      s_dm_enable_req = 0U;
+      s_dm_mode_tick = HAL_GetTick();
+    }
+  }
+  if (s_dm_zero_req && !s_dm_disable_pending && !s_dm_disable_fault)
+  {
+    if (DmJ4310_SetZero(s_dm_id) == DM_J4310_OK) s_dm_zero_req = 0U;
+  }
+  if (s_dm_start_pending == 1U && !s_dm_disable_pending && !s_dm_disable_fault &&
+      (uint32_t)(HAL_GetTick() - s_dm_mode_tick) >= DEBUG_DM_MODE_WAIT_MS)
+  {
+    if (DmJ4310_Enable(s_dm_id) == DM_J4310_OK)
+    {
+      s_dm_active = 1U;
+      s_dm_start_pending = 0U;
+    }
+  }
+
+  /* DM 电机使能后持续下发控制帧 */
+  if (s_dm_active != 0U)
+  {
+    if (s_dm_mode == DM_J4310_CTRL_MODE_MIT)
+    {
+      (void)DmJ4310_MITControl(s_dm_id, s_dm_pos, s_dm_vel,
+                               s_dm_kp, s_dm_kd, s_dm_torque);
+    }
+    else
+    {
+      (void)DmJ4310_PosVelControl(s_dm_id, s_dm_pos, s_dm_vel);
+    }
+  }
+
+}
+
 /* --------------------------- 对外接口 ------------------------------ */
 
 
@@ -1094,7 +1480,10 @@ void DebugUsart_Init(void)
   s_dm_mode_req = 0U;
   s_dm_start_pending = 0U;
   s_dm_mode_tick = 0U;
+  Debug_InitParams(); /* RX 启动前恢复，避免覆盖已经收到的调参命令。 */
   s_host_last_tick = HAL_GetTick();
+  s_control_tick = s_host_last_tick;
+  s_wheel_error_seen = 0U;
 
   /* CAN启动失败仍继续启用串口RX；提示排队等待DMA空闲，不阻塞控制任务。
    * 这里**不再**置 s_zdt_text_mode：旧实现让 CAN 失败顺带关掉整个 24 通道遥测
@@ -1108,15 +1497,6 @@ void DebugUsart_Init(void)
   /* 启动失败也保留恢复请求，由默认任务重试。 */
   s_rx_callbacks_ready = 0U;
   s_rx_recover = 1U;
-  /* OPS 错误恢复和会话变化必须先于遥测/运动服务处理。OPS 重启后
-   * 坐标系原点会变化，继续执行旧 GOTO 会产生错误方向，因此立即取消。 */
-  OPS_ServiceRx();
-  if (OPS_ConsumeSessionChanged() != 0U)
-  {
-    s_goto_active = 0U;
-    Debug_ChassisStop();
-  }
-
   DebugUsart_ServiceRx();
 }
 
@@ -1133,6 +1513,23 @@ void DebugUsart_Send(void)
   uint32_t len;
   uint32_t primask;
 
+  {
+    uint32_t now = HAL_GetTick();
+    MecanumControl_SetPeriod(now - s_control_tick);
+    s_control_tick = now;
+  }
+  DebugUsart_ServiceTx();
+  Debug_ServiceWheelFault();
+  /* OPS 错误恢复和会话变化必须先于遥测/运动服务处理。OPS 重启后
+   * 坐标系原点会变化，继续执行旧 GOTO 会产生错误方向，因此立即取消。 */
+  OPS_ServiceRx();
+  if (OPS_ConsumeSessionChanged() != 0U)
+  {
+    s_goto_active = 0U;
+    Debug_ChassisStop();
+  }
+
+
   DebugUsart_ServiceRx();
   Debug_ServiceZdtReplies();
   Debug_ServiceZdt();
@@ -1141,6 +1538,7 @@ void DebugUsart_Send(void)
   if ((uint32_t)(HAL_GetTick() - s_host_last_tick) > DEBUG_HOST_TIMEOUT_MS)
   {
     s_stepper_req[0].action = s_stepper_req[1].action = 0U;
+    s_dm_enable_req = s_dm_mode_req = s_dm_zero_req = 0U;
     if (s_goto_active != 0U)
     {
       s_goto_active = 0U;
@@ -1150,16 +1548,25 @@ void DebugUsart_Send(void)
     {
       s_dm_active = 0U;
       s_dm_start_pending = 0U;
-      (void)DmJ4310_Disable(s_dm_id);
+      Debug_RequestDmDisable();
     }
   }
 
   /* 处理等待执行的命令 */
-  if (s_stop_req != 0U)
+  primask = __get_PRIMASK();
+  __disable_irq();
+  i = s_stop_req;
+  s_stop_req = 0U;
+  s_stop_in_progress = (i != 0U);
+  if (i != 0U)
+  {
+    s_manual_active = s_goto_active = 0U;
+  }
+  if (primask == 0U) __enable_irq();
+  if (i != 0U)
   {
     s_stepper_req[0].action = s_stepper_req[1].action = 0U;
     s_manual_active = 0U;
-    s_stop_req = 0U;
     s_goto_active = 0U;
     /* STOP 不是使能命令：四轮已失能时只清目标，不下发速度帧。 */
     Debug_ChassisStop();
@@ -1167,7 +1574,8 @@ void DebugUsart_Send(void)
     s_dm_start_pending = 0U;
     s_dm_enable_req = 0U;
     s_dm_mode_req = 0U;
-    (void)DmJ4310_Disable(s_dm_id);
+    Debug_RequestDmDisable();
+    s_stop_in_progress = 0U;
   }
 
   if (s_zero_req != 0U)
@@ -1193,27 +1601,7 @@ void DebugUsart_Send(void)
     (void)OPS_SetMountOffset(x_mm, y_mm);
   }
 
-  /* GOTO 定位移动：本任务 20ms 周期执行一步 P 控制并下发轮速，
-     maxRpm 传 0 表示沿用当前调试限幅（XVMAX/ZVMAX），STOP 可随时取消 */
-  if ((s_goto_active != 0U) && (Debug_WheelReady() == 0U))
-  {
-    /* 四轮已失能：位置环不得输出轮速，只取消目标。 */
-    s_goto_active = 0U;
-    MecanumControl_ClearTarget();
-  }
-  if (s_goto_active != 0U)
-  {
-    if (OPS_IsOnline(DEBUG_OPS_TIMEOUT_MS) == 0U)
-    {
-      s_goto_active = 0U;
-      Debug_ChassisStop();
-    }
-    else if (MecanumControl_GotoOPS(s_goto_x, s_goto_y, s_goto_z, 0.0f) != 0U)
-    {
-      s_goto_active = 0U;
-      Debug_ChassisStop();
-    }
-  }
+  Debug_ServiceGoto();
 
   Debug_ServiceManual();
 
@@ -1221,85 +1609,13 @@ void DebugUsart_Send(void)
    * 正在运行的测试先按同一请求取消，且失能帧是该周期UART4上的最后一批帧，
    * 不会被STOP/ZERO/OPSOFFSET/GOTO随后发出的速度帧重新使能锁轴。 */
   Debug_ServiceWheel();
+  Debug_ServiceWheelFault();
 
-  /* DM 电机命令处理 */
-  if (s_dm_disable_req != 0U)
-  {
-    s_dm_disable_req = 0U;
-    s_dm_active = 0U;
-    s_dm_start_pending = 0U;
-    (void)DmJ4310_Disable(s_dm_id);
-  }
-
-  if (s_dm_mode_req != 0U)
-  {
-    uint8_t restart = (uint8_t)((s_dm_active != 0U) ||
-                                (s_dm_start_pending != 0U) ||
-                                (s_dm_enable_req != 0U));
-
-    s_dm_mode_req = 0U;
-    s_dm_active = 0U;
-    s_dm_start_pending = 0U;
-    if (restart != 0U)
-    {
-      (void)DmJ4310_Disable(s_dm_id);
-    }
-    if (DmJ4310_SetControlMode(s_dm_id, s_dm_mode) == DM_J4310_OK)
-    {
-      if (restart != 0U)
-      {
-        s_dm_mode_tick = HAL_GetTick();
-        s_dm_start_pending = 1U;
-      }
-    }
-  }
-
-  if (s_dm_enable_req != 0U)
-  {
-    s_dm_enable_req = 0U;
-    if ((s_dm_active == 0U) && (s_dm_start_pending == 0U))
-    {
-      (void)DmJ4310_Disable(s_dm_id);
-      if (DmJ4310_SetControlMode(s_dm_id, s_dm_mode) == DM_J4310_OK)
-      {
-        s_dm_mode_tick = HAL_GetTick();
-        s_dm_start_pending = 1U;
-      }
-    }
-  }
-
-  if (s_dm_zero_req != 0U)
-  {
-    s_dm_zero_req = 0U;
-    (void)DmJ4310_SetZero(s_dm_id);
-  }
-
-  /* 控制模式写入后等待电机内部保存，再执行使能 */
-  if ((s_dm_start_pending != 0U) &&
-      ((uint32_t)(HAL_GetTick() - s_dm_mode_tick) >= DEBUG_DM_MODE_WAIT_MS))
-  {
-    if (DmJ4310_Enable(s_dm_id) == DM_J4310_OK)
-    {
-      s_dm_active = 1U;
-    }
-    s_dm_start_pending = 0U;
-  }
-
-  /* DM 电机使能后持续下发控制帧 */
-  if (s_dm_active != 0U)
-  {
-    if (s_dm_mode == DM_J4310_CTRL_MODE_MIT)
-    {
-      (void)DmJ4310_MITControl(s_dm_id, s_dm_pos, s_dm_vel,
-                               s_dm_kp, s_dm_kd, s_dm_torque);
-    }
-    else
-    {
-      (void)DmJ4310_PosVelControl(s_dm_id, s_dm_pos, s_dm_vel);
-    }
-  }
+  Debug_ServiceDm();
 
   Debug_ServiceSteppers();
+
+  Debug_ServiceParams(); /* DMA忙也必须推进保存；每周期至多一个短Flash步骤。 */
 
   /* 控制服务始终执行；DMA 忙时仅跳过遥测，禁止改写仍在发送的 s_tx。
      本函数由 defaultTask 单独调用，USART1 TX 缓冲不得交给其他任务共用。 */
@@ -1325,6 +1641,13 @@ void DebugUsart_Send(void)
       }
       s_tx[19] = '\r'; s_tx[20] = '\n';
       reply_len = 21U;
+    }
+    else if (s_ack_queue[s_ack_read] == DEBUG_ACK_PARAM_TEXT)
+    {
+      /* 动态文本按槽存放：读槽与写槽永不相等，任务侧取用安全。 */
+      const char *reply = s_ack_param[s_ack_read];
+      reply_len = (uint16_t)strlen(reply);
+      memcpy(s_tx, reply, reply_len);
     }
     else
     {
@@ -1396,7 +1719,8 @@ void DebugUsart_Send(void)
 
   if (huart1.gState == HAL_UART_STATE_READY)
   {
-    (void)HAL_UART_Transmit_DMA(&huart1, s_tx, (uint16_t)len);
+    if (HAL_UART_Transmit_DMA(&huart1, s_tx, (uint16_t)len) != HAL_OK)
+      ++debug_tx_errors;
   }
 }
 
@@ -1431,6 +1755,7 @@ void DebugUsart_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
         s_line[s_line_len] = '\0';
         s_line_len = 0U;
         s_host_last_tick = HAL_GetTick();
+
         Debug_ParseLine((char *)s_line);
       }
     }

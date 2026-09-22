@@ -46,13 +46,14 @@
 
 /* Private variables ---------------------------------------------------------*/
 /* USER CODE BEGIN Variables */
+volatile uint32_t default_task_stack_free, default_task_overruns;
 
 /* USER CODE END Variables */
 /* Definitions for defaultTask */
 osThreadId_t defaultTaskHandle;
 const osThreadAttr_t defaultTask_attributes = {
   .name = "defaultTask",
-  .stack_size = 128 * 4,
+  .stack_size = 512 * 4,
   .priority = (osPriority_t) osPriorityNormal,
 };
 
@@ -121,15 +122,31 @@ void StartDefaultTask(void *argument)
      SetMotorVoltageAndDirection(SpeedTarget[0], SpeedTarget[1], SpeedTarget[2], SpeedTarget[3]);
      对外协议 GOTO=X,Y,Z 原序传入，X/Y 的 cm 先换算为 mm 再进入位置环。
   */
+  uint32_t deadline = osKernelGetTickCount();
+  const uint32_t period = osKernelGetTickFreq() / 50U;
   for(;;)
   {
     DebugUsart_Send();
-    osDelay(20);
+    /* 调试器可读取栈余量；CMSIS 返回字节数。 */
+    default_task_stack_free = osThreadGetStackSpace(defaultTaskHandle);
+    deadline += period;
+    if ((int32_t)(deadline - osKernelGetTickCount()) <= 0)
+    {
+      ++default_task_overruns;
+      deadline = osKernelGetTickCount() + period;
+    }
+    osDelayUntil(deadline);
   }
   /* USER CODE END StartDefaultTask */
 }
 
 /* Private application code --------------------------------------------------*/
 /* USER CODE BEGIN Application */
+void vApplicationStackOverflowHook(TaskHandle_t task, char *name)
+{
+  (void)task; (void)name;
+  /* 栈损坏后不能再运行复杂协议代码；复位进入已知初始化状态。 */
+  NVIC_SystemReset();
+}
 
 /* USER CODE END Application */

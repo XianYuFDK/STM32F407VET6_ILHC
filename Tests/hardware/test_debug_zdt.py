@@ -18,6 +18,7 @@ static uint32_t s_zdt_watch_tick;
 static uint8_t ZDT_X42S_PopReply(uint8_t *p){(void)p;return 0;}
 static uint32_t s_zdt_tick,s_zdt_duration,tick,stops,enables,speeds,last_addr,last_dir;
 static uint32_t disables,cstops,cclears;
+static uint8_t s_wheel_enable_pending, s_wheel_fault, s_stop_in_progress;
 static uint8_t s_wheel_enabled=1;
 static void Debug_ZdtAck(uint8_t event){(void)event;}
 static uint32_t __get_PRIMASK(void){return 0;}
@@ -34,6 +35,7 @@ static void ZDT_X42S_SpeedAcc(uint8_t a,uint8_t d,uint16_t r,uint8_t c)
 """+extract("Debug_WheelReady")+extract("Debug_ChassisStop")+extract("Debug_ZdtTestFinish")+extract("Debug_ParseManual")+extract("Debug_ServiceZdt")+r"""
 int main(void){
  int16_t v[3];
+ assert(Debug_WheelReady());
  assert(Debug_ParseManual("3,-50,2",v)&&v[0]==3&&v[1]==-50&&v[2]==2);
  assert(!Debug_ParseManual("3,301,2",v)); assert(!Debug_ParseManual("3,50,2x",v));
  /* 单轮测试：被测轮(3)发 Stop，其余三轮 Disable（释放锁轴，避免 Hold 阻力）；

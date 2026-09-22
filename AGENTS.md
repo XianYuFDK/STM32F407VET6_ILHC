@@ -1,5 +1,67 @@
 # 工程导航与维护约定
 
+## 2026-09-22 底盘参数文字回读 `GET 名称`（当前有效）
+
+- 背景：`XVMIN`/`ZVMIN` 只在 `s_params` 里有写入路径，遥测 `data[0..23]` 没有它们
+  的通道位，Qt `core.CHASSIS_PARAMS` 第6字段因此是 `None`，「回读」栏恒显示「回读 —」。
+- 固件 `debug_usart.c` 新增 `Debug_ReplyParam` 与 `GET <名称>`：回读参数表指向的
+  实时 RAM 值，应答固定 `"<名称>=<值>\r\n"`（三位小数、名称回显大写），未知名回
+  `ERR PARAM UNKNOWN`（`s_ack_text` 事件19；动态文本为事件20，存 `s_ack_param[16][24]`
+  按队列槽双缓冲，组包与入队在同一临界区）。
+- **24 通道 100 字节 JustFloat 帧格式、通道数和 `DebugUsart_Init` 行为均未改变**；
+  应答复用 ZDT/Flash 的文字队列，DMA 空闲时优先发送，每帧最多占一条文字应答。
+- 不用 `printf("%f")`：Keil 精简库不带浮点格式化，按 0.001 定点输出。
+- Qt 侧：`core.PARAM_ECHO_RE`/`take_params()` 把参数行从日志文本里分流（日志去重
+  不适用于状态量），`SerialWorker(param_q=...)` 转发，`main._apply_param_readback`
+  刷新对应行「回读」栏；连接后每秒轮流回读一个无通道参数（`core.PARAM_POLL_S`），
+  参数行发送后立刻补读一次。模拟器同样应答 `GET`。
+- 只改了 XVMIN/ZVMIN 的可观测性，不去改它们的控制语义；`OPSOFFSET`、锁轴、DM
+  仍无状态回读。
+- 回归：`Tests/hardware/test_param_readback.py`（编译真实函数）、
+  `Tests/hardware/test_parse_line_axes.py` 与 `test_debug_wheel.py`（应答表下标+1）、
+  Qt `python -m unittest test_debugger`。未烧录、未做实车验证。
+
+## 2026-09-21 塔吊地址分配（当前有效）
+
+- 35升降节点ID=1，扩展帧0x100/0x101；28伸缩节点ID=2，扩展帧0x200/0x201。
+- DM默认ID=3，MIT标准帧0x003，位置速度标准帧0x103。DMID仍可显式修改并保存。
+- Flash记录升为v2；读取v1时只将DM地址迁移为3，保留其他调参值，再由自动保存提交v2。
+- Qt地址显示、默认DMID与模拟器同步。该配置不会自动改写实体驱动器的节点地址。
+
+## 2026-09-20 SPI Flash 参数持久化（当前有效）
+
+- `Hardware/spi_flash.c/.h` 独立管理天空星W25Q128：PA4片选、PA5/6/7=SPI1 AF5，Mode0、5.25MHz。
+- `Hardware/debug_param_store.c/.h` 使用最后8KB双扇区追加日志、CRC32及最后提交标记；不得与字库等共用此区域。
+- 默认任务对底盘7项参数、OPS安装X/Y和DM七项数值自动保存，稳定2秒后开始，成功输出`ACK PARAM SAVED TO FLASH`。
+- `DebugUsart_Init`启动RX前恢复；不恢复运动/使能请求、ZERO原点。Flash失败只报错，本次启动停止写入，调参及控制继续。
+- `.ioc`已登记引脚；实际GPIO/SPI初始化由`SPIFlash_Init`负责，再生成CubeMX后需检查初始化归属。
+- 说明及验收：`Hardware/Flash参数保存说明.md`。回归：`test_spi_flash.py`、`test_param_store.py`、`test_param_integration.py`。
+
+## 2026-09-19 审查修复（当前有效）
+
+- 统一世界→车体旋转为 `body_x=c*devx-s*devy`、`body_y=s*devx+c*devy`；
+  与 OPS ZERO 一致。+90° 时目标世界+X应输出车体前进。
+- OPS RX恢复和会话事件在 `DebugUsart_Send()` 每周期处理。相同会话号时间戳
+  回退/长失联也取消旧GOTO；重复帧不刷新在线时间；IMU_REBASED锁存位置失效。
+- GOTO整条校验通过后才提交目标；非法航向/尾随字符不改变旧运动状态。
+  STOP消费、目标快照和到位取消使用短临界区，目标代次防止误取消新GOTO。
+- ZDT公开接口返回HAL提交结果；任务检测发送故障后取消运动并尝试失能，
+  最多重试1秒，故障锁存到显式WHEELEN；这不等于物理电机ACK确认。
+- DM失能绑定原ID并重试最多1秒；失败报错并阻止再使能，DMOFF显式重试。
+  模式/使能必须等待失能提交成功；不能在活动/失能待处理/故障期间改DMID。
+- UART1遥测TX超过100ms仍忙时仅AbortTransmit，不中断RX。
+- 默认任务栈2048字节，启用溢出检测，绝对周期50Hz；超期跳过旧周期。
+  调试变量 `default_task_stack_free`（字节）、`default_task_overruns`。
+  位置环斜坡1000控制单位/s，到位持续220ms；dt上限100ms。
+  轮子使能100ms等待由任务状态机完成；UART4发送本身仍为有限阻塞。
+- Qt手动运动和ZERO后的坐标按同一旋转约定；模拟器支持GOTOHOLD。
+  模拟器是界面演示，不替代真实控制器闭环回归或实车验收。
+- 配套OPS工程 `E:/STM32/ILHC/ops9-main/code` 已修复DIR分段脉冲遗漏，
+  IMU掉线后冻结位置并锁存无效，须显式复位OPS重建坐标（ZERO不能解除）。
+  启动代次存于BKP DR1/DR2/DR3；无VBAT完全掉电时接收端用时间戳/失联兜底。
+- 本轮不烧录、不发送运动命令。两块MCU都需更新固件。
+  详细行为和验收见 `修复说明_20260919.md`。
+
 ## 当前坐标契约（2026-09-17，优先级最高）
 
 全工程统一使用以下车体/场地坐标，**不再建立任何内外坐标交换或取反层**：
@@ -14,7 +76,7 @@
 - `MANUAL/GOTO/OPSOFFSET` 的 X/Y 原义传递，不再交换；
 - `KPX -> mKpx`、`KPY -> mKpy`；
 - 麦轮公式：`[+Y-X-Z, -Y-X-Z, +Y+X-Z, -Y+X-Z]`；
-- OPS 原始帧到统一坐标固定为 `X=-raw_y`、`Y=-raw_x`，不保留方向模式或分支；
+- OPS 原始帧到统一坐标固定为 `X=-raw_x`、`Y=raw_y`，不保留方向模式或分支；
   位置、置零、原点设置和偏心补偿必须共用该固定映射；
 - OPS 默认安装统一坐标 `(X=左60, Y=后-50)mm`，协议下发
   `OPSOFFSET=60.0,-50.0`；
@@ -27,9 +89,16 @@
 
 2026-09-17 主接收端协议升级：`Hardware/ops.c/.h` 现同时解析旧
 `0x5C`/14B/CRC8 与新 `0x5D`/28B/CRC16 帧；USART2 改为 64B 流式 DMA 解析，
-支持 flags、session_id、拆包重同步和错误回调任务级重挂。初始化先发旧
-`C5 30` 兼容旧 OPS，再发 `C5 32` 固定新协议方向 2；V2 session 变化会取消
+支持 flags、session_id、拆包重同步和错误回调任务级重挂。初始化先发
+`C5 22`，等待 OPS 重启后发 `C5 32` 固定新协议方向 2；不再发送 `C5 30`。V2 session 变化会取消
 旧 GOTO 并重设本地原点参考。回归入口：`Tests/hardware/test_ops_protocol.py`。
+
+2026-09-19 ZERO 坐标系修复：`OPS_ZeroCoordinates()` 继续保存 ZERO 时的
+OPS 原始位置和 `s_origin_yaw`。`OPS_CopyPosition()` 在完成安装偏心补偿并映射到
+统一世界坐标后，使用 `x0=c*world_x-s*world_y`、`y0=s*world_x+c*world_y`
+（`c=cos(s_origin_yaw)`、`s=sin(s_origin_yaw)`）把世界位移旋转到 ZERO 车体轴。
+因此 ZERO 后 `+Y` 表示 ZERO 时的车头，`+X` 表示当时车左。新增回归入口
+`Tests/hardware/test_ops_zero_frame.py`。
 
 2026-09-17 单位变更（最新）：移动/定位协议的 `GOTO=X,Y,Z` 中 X/Y 改为 **cm、保留 1 位小数**，
 24 通道遥测的 ch0/ch1（位置）和 ch3/ch4（误差）也改为 cm；F407 内部 PID、限幅和到位阈值仍使用 mm。
@@ -393,9 +462,11 @@ HAL 毫秒时基由 TIM7 中断和 `HAL_TIM_PeriodElapsedCallback()` 维护；RT
   V2 `0x5D + ver/len/flags + seq + session_id + timestamp + float32 x/y/z + CRC16`（28 字节）。
   V2 位姿必须同时满足 `POS_VALID/IMU_ONLINE/ENC_VALID` 才会发布；CRC/字段定义以 `ops.c` 为准。
 - OPS 原始坐标与 `OPS_GetPosition()` / `OPS_GetAbsolutePosition()` 返回单位为 **m、rad**；`mecanum_control.c` 内统一转换为 **mm、deg**。
-- `OPS_ZeroCoordinates()` 在本地同时记录 X/Y 原点和当前 Z 零点；不重置 OPS 本体。`OPS_ClearZero()` 恢复绝对 X/Y/Z。置零分支不再反号：`GetPosition = 原始相对位移 - 偏心旋转位移`，与非置零分支同为物理正向（统一坐标 `pos_x` 向左增大、`pos_y` 向前增大，`Z` 以清零姿态为 0）。
-- `OPS_Init()` 发送 `0xC5 0x22` 复位，先发 `0xC5 0x30` 兼容旧 OPS 启动，再发 `0xC5 0x32`
-  固定新协议方向 2；包含启动等待，不是可在中断里调用的轻量操作。USART2 错误恢复由
+- `OPS_ZeroCoordinates()` 在本地同时记录 OPS 原始 X/Y 原点和当前航向；不重置 OPS 本体。
+  `OPS_GetPosition()` 先完成偏心补偿和 raw→unified 映射，再平移并按 ZERO 航向旋转 X/Y，
+  同时令 Z 相对 ZERO 航向。`OPS_ClearZero()` 恢复绝对 X/Y/Z。
+- `OPS_Init()` 发送 `0xC5 0x22` 复位，等待 OPS 重启后发 `0xC5 0x32`
+  固定新协议方向 2；不再发送 `0xC5 0x30`。该过程包含启动等待，不是可在中断里调用的轻量操作。USART2 错误恢复由
   `OPS_ServiceRx()` 在默认任务上下文执行。
 - `chassis_move(x,y,z)` 计算位置误差、P 控制、限幅、速度斜坡及到位状态；由 `SetMotorVoltageAndDirection()` 实际下发轮速。误差定义为 `目标 - 当前`（`devx`=X左右、`devy`=Y前后），必须与 ops.c 的置零正向坐标成对，否则位置环变正反馈；麦轮矩阵保持统一坐标公式，输出层只做逻辑符号到 CW/CCW 的直接映射，不得再加入 2/4 轮极性翻转。
 - `MecanumControl_GotoOPS()` 封装计算与输出，输入 mm/deg；OPS 超过 200ms 未更新时停车。调试层会在离线或到位后取消 GOTO。

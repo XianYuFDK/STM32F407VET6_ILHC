@@ -17,8 +17,11 @@
 
 /* --------------------------- 底层参数 ----------------------------- */
 #define ZDT_X42S_UART              huart4
-#define ZDT_X42S_TX_TIMEOUT_MS     100U
+#define ZDT_X42S_TX_TIMEOUT_MS     10U
+#define ZDT_X42S_TX_RETRY_COUNT    2U
 #define ZDT_X42S_FRAME_TAIL        0x6BU
+
+static uint32_t s_tx_error_count;
 
 /* --------------------------- 私有函数 ----------------------------- */
 
@@ -26,15 +29,33 @@
  * @brief  向电机驱动器发送一帧命令
  * @param  cmd 命令缓冲区
  * @param  len 命令长度
+ * @retval HAL_OK 发送成功；HAL_ERROR/HAL_BUSY/HAL_TIMEOUT 重试后仍失败
  */
-static void ZDT_X42S_Send(uint8_t *cmd, uint16_t len)
+static HAL_StatusTypeDef ZDT_X42S_Send(uint8_t *cmd, uint16_t len)
 {
+  HAL_StatusTypeDef status = HAL_ERROR;
+  uint8_t attempt;
+
   if ((cmd == NULL) || (len == 0U))
   {
-    return;
+    ++s_tx_error_count;
+    return HAL_ERROR;
   }
 
-  (void)HAL_UART_Transmit(&ZDT_X42S_UART, cmd, len, ZDT_X42S_TX_TIMEOUT_MS);
+  /* 阻塞发送在总线故障时可能超时。速度/停止帧都需要有限重试，避免
+   * 单次丢帧后 ZDT 继续保持旧速度或旧锁轴状态。 */
+  for (attempt = 0U; attempt <= ZDT_X42S_TX_RETRY_COUNT; ++attempt)
+  {
+    status = HAL_UART_Transmit(&ZDT_X42S_UART, cmd, len, ZDT_X42S_TX_TIMEOUT_MS);
+    if (status == HAL_OK)
+    {
+      return HAL_OK;
+    }
+    HAL_Delay(1U);
+  }
+
+  ++s_tx_error_count;
+  return status;
 }
 
 /* --------------------------- 对外接口 ----------------------------- */
@@ -43,7 +64,7 @@ static void ZDT_X42S_Send(uint8_t *cmd, uint16_t len)
  * @brief  使能指定地址电机
  * @param  addr 电机地址，1~255；0 为广播地址
  */
-void ZDT_X42S_Enable(uint8_t addr)
+HAL_StatusTypeDef ZDT_X42S_Enable(uint8_t addr)
 {
   uint8_t cmd[6];
 
@@ -54,14 +75,14 @@ void ZDT_X42S_Enable(uint8_t addr)
   cmd[4] = 0x00U;      /* 同步标志   */
   cmd[5] = ZDT_X42S_FRAME_TAIL;
 
-  ZDT_X42S_Send(cmd, sizeof(cmd));
+  return ZDT_X42S_Send(cmd, sizeof(cmd));
 }
 
 /**
  * @brief  失能指定地址电机
  * @param  addr 电机地址，1~255；0 为广播地址
  */
-void ZDT_X42S_Disable(uint8_t addr)
+HAL_StatusTypeDef ZDT_X42S_Disable(uint8_t addr)
 {
   uint8_t cmd[6];
 
@@ -72,14 +93,14 @@ void ZDT_X42S_Disable(uint8_t addr)
   cmd[4] = 0x00U;      /* 同步标志   */
   cmd[5] = ZDT_X42S_FRAME_TAIL;
 
-  ZDT_X42S_Send(cmd, sizeof(cmd));
+  return ZDT_X42S_Send(cmd, sizeof(cmd));
 }
 
 /**
  * @brief  立即停止指定地址电机
  * @param  addr 电机地址，1~255；0 为广播地址
  */
-void ZDT_X42S_Stop(uint8_t addr)
+HAL_StatusTypeDef ZDT_X42S_Stop(uint8_t addr)
 {
   uint8_t cmd[5];
 
@@ -89,7 +110,7 @@ void ZDT_X42S_Stop(uint8_t addr)
   cmd[3] = 0x00U;      /* 同步标志   */
   cmd[4] = ZDT_X42S_FRAME_TAIL;
 
-  ZDT_X42S_Send(cmd, sizeof(cmd));
+  return ZDT_X42S_Send(cmd, sizeof(cmd));
 }
 
 /**
@@ -98,9 +119,9 @@ void ZDT_X42S_Stop(uint8_t addr)
  * @param  dir  方向：ZDT_X42S_DIR_CW / ZDT_X42S_DIR_CCW
  * @param  rpm  速度，单位 RPM，范围 0~3000
  */
-void ZDT_X42S_Speed(uint8_t addr, uint8_t dir, uint16_t rpm)
+HAL_StatusTypeDef ZDT_X42S_Speed(uint8_t addr, uint8_t dir, uint16_t rpm)
 {
-  ZDT_X42S_SpeedAcc(addr, dir, rpm, ZDT_X42S_DEFAULT_ACC);
+  return ZDT_X42S_SpeedAcc(addr, dir, rpm, ZDT_X42S_DEFAULT_ACC);
 }
 
 /**
@@ -110,7 +131,7 @@ void ZDT_X42S_Speed(uint8_t addr, uint8_t dir, uint16_t rpm)
  * @param  rpm  速度，单位 RPM，范围 0~3000
  * @param  acc  加速度档位，0~255；0 为直接启动
  */
-void ZDT_X42S_SpeedAcc(uint8_t addr, uint8_t dir, uint16_t rpm, uint8_t acc)
+HAL_StatusTypeDef ZDT_X42S_SpeedAcc(uint8_t addr, uint8_t dir, uint16_t rpm, uint8_t acc)
 {
   uint8_t cmd[8];
 
@@ -128,7 +149,12 @@ void ZDT_X42S_SpeedAcc(uint8_t addr, uint8_t dir, uint16_t rpm, uint8_t acc)
   cmd[6] = 0x00U;                         /* 同步标志     */
   cmd[7] = ZDT_X42S_FRAME_TAIL;           /* 校验尾       */
 
-  ZDT_X42S_Send(cmd, sizeof(cmd));
+  return ZDT_X42S_Send(cmd, sizeof(cmd));
+}
+
+uint32_t ZDT_X42S_GetTxErrorCount(void)
+{
+  return s_tx_error_count;
 }
 
 

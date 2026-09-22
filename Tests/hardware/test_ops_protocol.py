@@ -109,6 +109,7 @@ prelude = r'''
 #define OPS_FRAME_HEADER_V1 0x5CU
 #define OPS_FRAME_HEADER_V2 0x5DU
 #define OPS_FRAME_VERSION_V2 0x01U
+#define OPS_FLAG_IMU_REBASED 0x04U
 #define OPS_FLAG_POS_VALID 0x01U
 #define OPS_FLAG_IMU_ONLINE 0x02U
 #define OPS_FLAG_ENC_VALID 0x08U
@@ -141,11 +142,13 @@ typedef struct {
 static OPS_Data_t s_ops;
 static uint8_t s_parse_buf[OPS_RX_BUFFER_SIZE];
 static uint16_t s_parse_len;
-static uint8_t s_session_pending;
+static uint8_t s_session_pending, s_continuity_lost;
+static uint32_t s_last_frame_tick;
 static float s_reference_yaw, s_origin_yaw;
 static uint8_t s_new_flag;
 
-static uint32_t HAL_GetTick(void) { return 1234U; }
+static uint32_t tick=1234U;
+static uint32_t HAL_GetTick(void) { return tick; }
 '''
 
 functions = [
@@ -245,6 +248,25 @@ int main(void)
   near(s_ops.origin_x, 3.5f);
   near(s_ops.origin_y, 4.5f);
 
+  /* 同一帧超时后重放不能恢复在线；真实新帧长失联后必须取消旧坐标任务。 */
+  { OPS_Frame_t f=s_ops.frame; uint32_t count=s_ops.valid_count;
+    tick+=250; OPS_PublishFrame(&f,1); assert(s_ops.valid_count==count);
+    s_ops.session_changed=0; f.seq++; f.timestamp_ms+=250;
+    OPS_PublishFrame(&f,1); assert(s_ops.session_changed);
+    /* IMU重新建立航向后，即使发送端误标有效也锁存定位失效。 */
+    f.flags|=OPS_FLAG_IMU_REBASED; f.seq++; f.timestamp_ms++; tick++;
+    OPS_PublishFrame(&f,1); assert(!s_ops.pose_valid);
+    f.flags &= ~OPS_FLAG_IMU_REBASED; f.seq++; f.timestamp_ms++; tick++;
+    OPS_PublishFrame(&f,1); assert(!s_ops.pose_valid);
+    /* 时间戳正常32位回绕不是重启。 */
+    f.session_id++; f.seq++; f.timestamp_ms=0xfffffff0U;
+    OPS_PublishFrame(&f,1); assert(s_ops.pose_valid);
+    s_ops.session_changed=0; f.seq++; f.timestamp_ms=4; tick+=20;
+    OPS_PublishFrame(&f,1); assert(!s_ops.session_changed);
+    /* 同会话号但时间戳回退，按冷启动处理。 */
+    f.seq=0; f.timestamp_ms=1; tick++; OPS_PublishFrame(&f,1);
+    assert(s_ops.session_changed && s_ops.pose_valid);
+  }
   puts("OPS protocol: V2 flags/CRC16, split stream, noise resync, CRC retry, V1 and session passed");
   return 0;
 }
