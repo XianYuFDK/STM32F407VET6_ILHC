@@ -30,6 +30,11 @@ static uint8_t s_wheel_enable_pending, s_wheel_fault, s_stop_in_progress;
 static uint8_t s_wheel_enabled = 1U;
 static volatile uint8_t s_manual_active;
 static volatile uint8_t s_goto_active;
+static volatile uint8_t s_vision_req;
+static uint8_t s_vision_moving;
+static uint8_t vision_active;
+static uint8_t VisionTrack_IsActive(void) {return vision_active;}
+static void VisionTrack_Stop(void) {vision_active=0U;}
 static uint32_t tick, s_wheel_enable_tick;
 static uint8_t s_wheel_disable_pending;
 static uint32_t HAL_GetTick(void) {return tick;}
@@ -184,13 +189,29 @@ assert "MecanumControl_ClearTarget();" in manual
 arr = source[source.index("static const char * const s_ack_text[] = {"):]
 arr = arr[:arr.index("};")]
 elements = re.findall(r'NULL|"(?:[^"\\]|\\.)*"', arr)
-# 2026-09-22 新增事件19（参数名非法的GET应答），事件号仍以本表下标为准。
-assert len(elements) == 20, elements
+# 事件20为动态参数回读占位，21..25为视觉跟踪应答。
+assert len(elements) == 27, elements
 assert elements[7] == "NULL", elements
+assert elements[20] == "NULL", elements
 assert "ERR WHEEL DISABLED" in elements[10], elements[10]
 assert "ERR PARAM UNKNOWN" in elements[19], elements[19]
+assert "ACK VTRACK START" in elements[21], elements[21]
+assert "ACK VTRACK STOP" in elements[22], elements[22]
 # 事件11：单轮测试收到的回包状态码不是 0x02（参数/保护错误）时必须报错而不是当成功。
 assert "ERR ZDT REPLY STATUS" in elements[11], elements[11]
+
+
+# 应答文本按 strlen 直接拷进 s_tx(4*24+4=100字节) 再DMA发送，超长就会越界/截断。
+# 源码里的 \r\n 等转义在C里只占1字节，这里按同样口径折算，留4字节余量：
+# "ERR PARAM UNKNOWN" 那条随参数表增长而变长，加参数名时必须过这一关。
+def _ack_len(item):
+    if item == "NULL":
+        return 0
+    return len(re.sub(r"\\.", "X", item[1:-1]))
+
+
+_longest = max(_ack_len(item) for item in elements)
+assert _longest <= 96, "最长应答文本 %d 字节，超出 s_tx 的100字节缓冲余量" % _longest
 
 # 驱动层：头文件声明ClearTarget，Stop拆分为"清目标 + 下发速度0帧"。
 assert "void MecanumControl_ClearTarget(void);" in mecanum_h

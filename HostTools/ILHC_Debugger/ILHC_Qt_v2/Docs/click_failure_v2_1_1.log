@@ -1,0 +1,18 @@
+test_async_request_then_poll (tests.test_navigation_safety.UiLogicTests.test_async_request_then_poll) ... ERROR
+
+======================================================================
+ERROR: test_async_request_then_poll (tests.test_navigation_safety.UiLogicTests.test_async_request_then_poll)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/mnt/data/ilhc_click_fix/ILHC_Qt_v2/tests/test_navigation_safety.py", line 308, in test_async_request_then_poll
+    self.w._request_plan(330,1200)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^
+  File "/mnt/data/ilhc_click_fix/ILHC_Qt_v2/main.py", line 2860, in _request_plan
+    event = threading.Event()
+            ^^^^^^^^^
+NameError: name 'threading' is not defined. Did you forget to import 'threading'?
+
+----------------------------------------------------------------------
+Ran 1 test in 0.005s
+
+FAILED (errors=1)

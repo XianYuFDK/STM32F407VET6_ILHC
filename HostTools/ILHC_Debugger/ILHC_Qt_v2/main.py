@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""ILHC Control Station v2.0 — PySide6 + PyQtGraph UI.
+"""ILHC Control Station v2.1.2 — PySide6 + PyQtGraph UI.
 
 保留 v1.1 的通信/安全核心，重做桌面 UI：
 - PySide6 Qt Widgets
@@ -12,6 +12,8 @@
 from __future__ import annotations
 
 import argparse
+import copy
+from concurrent.futures import ThreadPoolExecutor
 import csv
 import html
 import json
@@ -19,12 +21,19 @@ import math
 import os
 import queue
 import sys
+import threading
 import time
+import traceback
 from pathlib import Path
 
 import numpy as np
 
 import core
+try:
+    import navigation_planner as nav
+except ImportError as exc:
+    print("缺少规划依赖：%s；请运行 python -m pip install -r requirements.txt" % exc)
+    raise SystemExit(2)
 
 # --selftest 在加载 PySide6/PyQtGraph 之前执行，便于无 GUI 环境验证核心。
 if "--selftest" in sys.argv:
@@ -43,6 +52,7 @@ try:
         QPainter,
         QPainterPath,
         QPen,
+        QPolygonF,
     )
     from PySide6.QtWidgets import (
         QApplication,
@@ -54,6 +64,7 @@ try:
         QGraphicsEllipseItem,
         QGraphicsLineItem,
         QGraphicsPathItem,
+        QGraphicsPolygonItem,
         QGraphicsRectItem,
         QGraphicsScene,
         QGraphicsSimpleTextItem,
@@ -254,7 +265,9 @@ class ParamRow(QFrame):
 class FieldView(QGraphicsView):
     gotoRequested = Signal(float, float)
 
-    FIELD = 2400.0
+    FIELD = 2400.0                  # 场地边长（地图单位 = mm）
+    CAR_LEN_MM = core.CAR_LENGTH_MM  # 车长 28 cm，沿车头方向
+    CAR_WID_MM = core.CAR_WIDTH_MM   # 车宽 26 cm，沿车左方向
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -309,7 +322,8 @@ class FieldView(QGraphicsView):
 
     def _build_field(self):
         self.scene_obj.clear()
-        self.scene_obj.setSceneRect(-180, -180, 2760, 2760)
+        # 留白只够放刻度文字（绘图帧的 -80/-100 标注），让场地尽量占满视图
+        self.scene_obj.setSceneRect(-150, -150, 2700, 2700)
 
         floor = QGraphicsRectItem(0, 0, self.FIELD, self.FIELD)
         floor.setBrush(QBrush(QColor("#D2D6DC")))
@@ -362,16 +376,48 @@ class FieldView(QGraphicsView):
         self.trail_item.setZValue(10)
         self.scene_obj.addItem(self.trail_item)
 
-        self.car_item = QGraphicsEllipseItem()
+        self.skeleton_item = QGraphicsPathItem()
+        self.skeleton_item.setPen(QPen(QColor('#F0BD55'), 3, Qt.DashLine))
+        self.skeleton_item.setZValue(9)
+        self.scene_obj.addItem(self.skeleton_item)
+
+        # A* 规划路径（只显示，不下发）：虚线 + 航点圆点
+        self.path_item = QGraphicsPathItem()
+        plan_pen = QPen(QColor(GREEN), 5)
+        plan_pen.setStyle(Qt.SolidLine)
+        self.path_item.setPen(plan_pen)
+        self.path_item.setZValue(11)
+        self.scene_obj.addItem(self.path_item)
+
+        self.path_dots = QGraphicsPathItem()
+        self.path_dots.setPen(QPen(Qt.NoPen))
+        self.path_dots.setBrush(QBrush(QColor(GREEN)))
+        self.path_dots.setZValue(12)
+        self.scene_obj.addItem(self.path_dots)
+
+        self.trajectory_arrows = QGraphicsPathItem()
+        self.trajectory_arrows.setPen(QPen(QColor(ACCENT), 3))
+        self.trajectory_arrows.setZValue(12.5)
+        self.scene_obj.addItem(self.trajectory_arrows)
+
+        self.reference_item = QGraphicsPathItem()
+        self.reference_item.setPen(QPen(QColor('#D28BFF'), 4))
+        self.reference_item.setZValue(15)
+        self.scene_obj.addItem(self.reference_item)
+
+        # 车体：按实际尺寸绘制的顶视轮廓，随航向旋转（长28cm 沿车头、宽26cm 沿车左）
+        self.car_item = QGraphicsPolygonItem()
         self.car_item.setBrush(QBrush(QColor("#FF9F43")))
         self.car_item.setPen(QPen(QColor("#FFFFFF"), 3))
         self.car_item.setZValue(13)
         self.scene_obj.addItem(self.car_item)
 
-        self.dir_item = QGraphicsLineItem()
-        self.dir_item.setPen(QPen(QColor("#FF9F43"), 7))
-        self.dir_item.setZValue(12)
-        self.scene_obj.addItem(self.dir_item)
+        # 车头楔形（前缘两点 + 车心）：让朝向一眼可辨，不靠颜色深浅猜
+        self.car_nose = QGraphicsPolygonItem()
+        self.car_nose.setBrush(QBrush(QColor("#FFF3D8")))
+        self.car_nose.setPen(QPen(QColor("#B4651B"), 2))
+        self.car_nose.setZValue(14)
+        self.scene_obj.addItem(self.car_nose)
 
         self.target_h = QGraphicsLineItem()
         self.target_v = QGraphicsLineItem()
@@ -414,16 +460,63 @@ class FieldView(QGraphicsView):
                 return
         super().mousePressEvent(event)
 
-    def set_pose(self, fx: float, fy: float, yaw_deg: float):
-        if not (math.isfinite(fx) and math.isfinite(fy) and math.isfinite(yaw_deg)):
+    def set_navigation_map(self, data):
+        """Show the SAME whitelist/obstacles used by planning; decorative base is reference."""
+        for item in getattr(self, "_navigation_overlay", []):
+            self.scene_obj.removeItem(item)
+        self._navigation_overlay = []
+        allowed = QPainterPath()
+        for region in data["drivable_polygons"]:
+            outer = region.get("outer") if isinstance(region, dict) else region
+            holes = region.get("holes", []) if isinstance(region, dict) else []
+            part = QPainterPath()
+            part.setFillRule(Qt.OddEvenFill)
+            for ring in [outer] + holes:
+                part.moveTo(float(ring[0][0]), self.sy(float(ring[0][1])))
+                for x, y in ring[1:]:
+                    part.lineTo(float(x), self.sy(float(y)))
+                part.closeSubpath()
+            allowed = allowed.united(part)
+        whole = QPainterPath()
+        whole.addRect(0, 0, self.FIELD, self.FIELD)
+        denied = QGraphicsPathItem(whole.subtracted(allowed))
+        denied.setBrush(QBrush(QColor(180, 50, 50, 90)))
+        denied.setPen(QPen(Qt.NoPen))
+        denied.setZValue(7)
+        self.scene_obj.addItem(denied)
+        self._navigation_overlay.append(denied)
+        outline = QGraphicsPathItem(allowed)
+        outline.setPen(QPen(QColor("#5AD68A"), 3, Qt.DashLine))
+        outline.setZValue(8)
+        self.scene_obj.addItem(outline)
+        self._navigation_overlay.append(outline)
+        for x0, y0, x1, y1, _ in list(data["rects"]) + list(data.get("dynamic_rects", [])):
+            item = self._field_rect(x0, y0, x1, y1, "#80646464", "#BD6D6D", 3, 8)
+            self._navigation_overlay.append(item)
+        for x, y, r, _ in list(data["circles"]) + list(data.get("dynamic_circles", [])):
+            item = self._field_circle(x, y, r, "#80646464", "#BD6D6D", 3, 8)
+            self._navigation_overlay.append(item)
+
+    def set_pose(self, cx: float, cy: float, nose, left):
+        """按地图帧设置车体姿态：中心 (cx, cy) 与两个单位方向向量。
+
+        nose/left 是**地图绘制帧**里的向量，由 MainWindow 用与轨迹相同的
+        `_ops_to_field` 线性部分推出。绘制帧是统一坐标系的一次镜像旋转
+        （行列式 −1），所以角度不能直接相加传递，这里只吃向量——这样车体
+        方向与轨迹走向必然出自同一次变换。
+        """
+        if not all(math.isfinite(v) for v in (cx, cy, nose[0], nose[1], left[0], left[1])):
             return
-        sx, sy = fx, self.sy(fy)
-        r = 48.0
-        self.car_item.setRect(sx - r, sy - r, 2 * r, 2 * r)
-        th = math.radians(yaw_deg)
-        ex = fx + 180.0 * math.cos(th)
-        ey = fy + 180.0 * math.sin(th)
-        self.dir_item.setLine(sx, sy, ex, self.sy(ey))
+        hl = self.CAR_LEN_MM / 2.0
+        hw = self.CAR_WID_MM / 2.0
+        nx, ny = float(nose[0]), float(nose[1])
+        lx, ly = float(left[0]), float(left[1])
+
+        def pt(fwd: float, side: float) -> QPointF:
+            return QPointF(cx + fwd * nx + side * lx, self.sy(cy + fwd * ny + side * ly))
+
+        self.car_item.setPolygon(QPolygonF([pt(hl, hw), pt(hl, -hw), pt(-hl, -hw), pt(-hl, hw)]))
+        self.car_nose.setPolygon(QPolygonF([pt(hl, hw), pt(hl, -hw), pt(0.0, 0.0)]))
 
     def set_trail(self, x: np.ndarray, y: np.ndarray):
         if len(x) == 0:
@@ -433,6 +526,90 @@ class FieldView(QGraphicsView):
         for xx, yy in zip(x[1:], y[1:]):
             path.lineTo(float(xx), self.sy(float(yy)))
         self.trail_item.setPath(path)
+
+    def set_path(self, points, waypoint_points=None):
+        """绘制布局mm轨迹；圆弧采样只连线，航点标记由waypoint_points给定。"""
+        self.set_trajectory(None)
+        if not points:
+            self.path_item.setPath(QPainterPath())
+            self.path_dots.setPath(QPainterPath())
+            self.set_skeleton(None)
+            self.set_reference(None)
+            return
+        pts = [(float(px), float(py)) for px, py in points]
+        path = QPainterPath(QPointF(pts[0][0], self.sy(pts[0][1])))
+        for px, py in pts[1:]:
+            path.lineTo(px, self.sy(py))
+        self.path_item.setPath(path)
+        dots = QPainterPath()
+        for px, py in (pts if waypoint_points is None else waypoint_points):
+            dots.addEllipse(QPointF(px, self.sy(py)), 16.0, 16.0)
+        self.path_dots.setPath(dots)
+
+    def set_skeleton(self, points):
+        path = QPainterPath()
+        for index, (x, y) in enumerate(points or ()):
+            if index == 0:
+                path.moveTo(x, self.sy(y))
+            else:
+                path.lineTo(x, self.sy(y))
+        self.skeleton_item.setPath(path)
+
+    def set_reference(self, sample):
+        path = QPainterPath()
+        if sample is not None:
+            x, y = core.field_to_layout(sample['x_mm'], sample['y_mm'])
+            sy = self.sy(y)
+            yaw = math.radians(sample['field_yaw_deg'])
+            dx, dy = -math.sin(yaw), math.cos(yaw)
+            path.addEllipse(QPointF(x, sy), 12, 12)
+            path.moveTo(x, sy)
+            path.lineTo(x+40*dx, sy+40*dy)
+            path.lineTo(x+24*dx-9*dy, sy+24*dy+9*dx)
+            path.moveTo(x+40*dx, sy+40*dy)
+            path.lineTo(x+24*dx+9*dy, sy+24*dy-9*dx)
+        self.reference_item.setPath(path)
+
+    def set_trajectory(self, samples):
+        """场地坐标Trajectory的切线方向箭头；矢量变换与位置变换一致。"""
+        arrows = QPainterPath()
+        last_s, last_type = -math.inf, None
+        for index, sample in enumerate(samples or ()):
+            station, kind = sample['s_mm'], sample['segment_type']
+            interval = 40.0 if kind == 'ARC' else 100.0
+            if (kind == last_type and station-last_s < interval-nav.EPS and index != len(samples)-1):
+                continue
+            x, y = core.field_to_layout(sample['x_mm'], sample['y_mm'])
+            yaw = math.radians(sample['field_yaw_deg'])
+            # FIELD→LAYOUT: (-dy,-dx)，LAYOUT→Qt再反转y，避免镜像箭头方向画反。
+            dx, dy = -math.sin(yaw), math.cos(yaw)
+            sy = self.sy(y)
+            tip = QPointF(x+18*dx, sy+18*dy)
+            arrows.moveTo(x-18*dx, sy-18*dy)
+            arrows.lineTo(tip)
+            arrows.moveTo(x+4*dx-9*dy, sy+4*dy+9*dx)
+            arrows.lineTo(tip)
+            arrows.lineTo(x+4*dx+9*dy, sy+4*dy-9*dx)
+            last_s, last_type = station, kind
+        self.trajectory_arrows.setPath(arrows)
+
+    def set_sim_obstacles(self, points):
+        """绘制模拟障碍：黑色实心圆（φ50mm），points 是布局帧中心点列。
+
+        与地图自带障碍同尺寸口径（r 取 core.SIM_OBSTACLE_R_MM），z 值放在路径之上、
+        车体之下，所以车压上去时能看出压着障碍。
+        """
+        for item in getattr(self, "_obstacle_items", []):
+            self.scene_obj.removeItem(item)
+        self._obstacle_items = []
+        r = float(core.SIM_OBSTACLE_R_MM)
+        for px, py in points:
+            item = QGraphicsEllipseItem(float(px) - r, self.sy(float(py)) - r, 2 * r, 2 * r)
+            item.setBrush(QBrush(QColor("#0E1014")))          # 黑
+            item.setPen(QPen(QColor("#E8ECF1"), 2))           # 浅色描边，灰色场地上看得见
+            item.setZValue(12.5)
+            self.scene_obj.addItem(item)
+            self._obstacle_items.append(item)
 
     def set_target(self, fx: float | None, fy: float | None):
         if fx is None or fy is None:
@@ -703,10 +880,23 @@ class DetachedPageWindow(QMainWindow):
 
 
 class MainWindow(QMainWindow):
+    @property
+    def nav_map(self):
+        return self._nav_map
+
+    @nav_map.setter
+    def nav_map(self, data):
+        if hasattr(self, '_nav_map'):
+            self._clear_path('地图已替换，连续跟踪已取消')
+        self._nav_map = core.NavigationMap(data, self._on_map_data_changed)
+
+    def _on_map_data_changed(self):
+        self._clear_path('地图版本/几何改变，连续跟踪已取消')
+
     def __init__(self, args):
         super().__init__()
         self.args = args
-        self.setWindowTitle("ILHC Control Station v2.0 — STM32F407VET6")
+        self.setWindowTitle("ILHC Control Station v2.1.2 — 地图点击修复 / STM32F407VET6")
         self.resize(1500, 930)
         self.setMinimumSize(1180, 760)
 
@@ -727,6 +917,7 @@ class MainWindow(QMainWindow):
         self.t0_monotonic = time.monotonic()
         self.latest = None
         self.latest_t = 0.0
+        self.latest_received_monotonic = 0.0
         self.window_s = 30.0
         self.ring = core.RingBuffer(int(self.window_s * core.SEND_HZ) + 100, core.FRAME_FLOATS)
         self.traj_ring = core.RingBuffer(int(self.window_s * core.SEND_HZ) + 100, 2)
@@ -738,6 +929,22 @@ class MainWindow(QMainWindow):
         self.map_oy = 0.0
         self.map_theta = 0.0
         self.map_target = None
+        # A* 路径规划：本阶段只计算与显示，不向 STM32 下发任何命令
+        self.planned_points = []      # 地图绘制帧的航点表（含起点）
+        self.follow = None            # continuous trajectory tracking, simulator only
+        self.competition = None
+        self._competition_future = self._competition_cancel = None
+        # 模拟障碍（φ50×100mm 圆柱，顶视 r=25mm）：运行时演示物体，**不写进地图数据**
+        self.sim_obstacles = []
+        self.planned_result = None
+        self._planned_context = None
+        self._plan_request_id = 0
+        self._plan_future = None
+        self._plan_cancel = None
+        self._plan_context_pending = None
+        self._planner_pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix="ILHC-planner")
+        self._planner_error_log = BASE_DIR / "logs" / "ilhc-planner-error.log"
+        self.nav_map = nav.load_map(BASE_DIR / "navigation_map.json")
         self.last_heartbeat_enqueue = 0.0
         self.fps_count = 0
         self.fps = 0.0
@@ -780,7 +987,10 @@ class MainWindow(QMainWindow):
             "数据记录",
             "命令终端",
             "28 / 35 步进",
+            "视觉跟踪",
         ]
+        # 视觉参数没有遥测通道，进入该页面时批量刷新一次回读（见 _select_page）。
+        self.vision_page_index = self.page_names.index("视觉跟踪")
         # 每个页面固定占一个槽位（QStackedWidget）；页面被拆到独立窗口时，
         # 槽位里换成占位卡，槽位下标永远等于页面下标。
         self.slots = []
@@ -825,6 +1035,7 @@ class MainWindow(QMainWindow):
             self._build_record_page(),
             self._build_console_page(),
             self._build_stepper_page(),
+            self._build_vision_page(),
         ]
         for i, page in enumerate(self.pages):
             slot = QStackedWidget()
@@ -1125,34 +1336,267 @@ class MainWindow(QMainWindow):
         ql = QHBoxLayout(quick)
         ql.setContentsMargins(12, 8, 12, 8)
         ql.addWidget(QLabel("快速前往"))
-        for name, (fx, fy) in core.QUICK_TARGETS:
+        for name, anchor, outward in core.QUICK_ANCHORS:
             b = QPushButton(name)
-            b.clicked.connect(lambda _=False, x=fx, y=fy: self._goto_field(x, y))
+            b.setToolTip("按当前航向与裕量算出合法接近点后规划（只算不下发）")
+            b.clicked.connect(lambda _=False, n=name, a=anchor, o=outward:
+                              self._request_plan_anchor(n, a, o))
             ql.addWidget(b)
         home = QPushButton("回启停区")
         home.clicked.connect(self._goto_home)
         ql.addWidget(home)
         ql.addStretch(1)
-        self.map_status = QLabel("点击地图 = 下发 GOTO；若路径穿越固定禁区将拒绝执行")
+        self.map_status = QLabel("点击地图 = A* 规划航点路径（只计算与显示，不下发 STM32）")
         self.map_status.setObjectName("HintLabel")
         ql.addWidget(self.map_status)
         lay.addWidget(quick)
+        lay.addWidget(self._build_competition_controls())
 
-        self.map_view = FieldView()
-        self.map_view.gotoRequested.connect(self._goto_field)
+        # 地图占满剩余高度，规划面板放到右侧固定宽度侧栏（不挤压地图）
+        body = QHBoxLayout()
+        body.setSpacing(10)
+        left = QVBoxLayout()
+        left.setSpacing(6)
         self.map_position = QLabel("场地位置：等待遥测（启停区1中心为0点）")
-        lay.addWidget(self.map_position)
-        lay.addWidget(self.map_view, 1)
+        left.addWidget(self.map_position)
+        self.map_view = FieldView()
+        self.map_view.set_navigation_map(self.nav_map)
+        self.map_view.gotoRequested.connect(self._on_map_click)
+        left.addWidget(self.map_view, 1)
+        body.addLayout(left, 1)
+        body.addWidget(self._build_plan_side())
+        lay.addLayout(body, 1)
         return page
+
+    def _build_competition_controls(self):
+        panel = QFrame()
+        panel.setObjectName('Panel')
+        layout = QVBoxLayout(panel)
+        layout.setContentsMargins(12, 8, 12, 8)
+        row = QHBoxLayout()
+        row.addWidget(QLabel('完整初赛模拟'))
+        row.addWidget(QLabel('模拟二维码'))
+        self.competition_code = QLineEdit('156+123+516+231')
+        self.competition_code.setMaxLength(15)
+        self.competition_code.setFixedWidth(190)
+        self.competition_code.setToolTip('四组任务码；到达二维码板后才模拟读取并显示。第二批暂存按同色第一层码垛。')
+        self.competition_code.textEdited.connect(lambda _: self._clear_path('任务码改变，比赛模拟已取消'))
+        row.addWidget(self.competition_code)
+        start = QPushButton('一键比赛模拟')
+        self.competition_start = start
+        start.setToolTip('仅PC：保留地图上的模拟障碍，复位到所选启停区，整轮避障预检后自动完成任务。')
+        start.clicked.connect(self._start_competition)
+        row.addWidget(start)
+        stop = QPushButton('停止比赛')
+        stop.clicked.connect(lambda: self._clear_path('比赛模拟已取消'))
+        row.addWidget(stop)
+        export = QPushButton('导出比赛记录')
+        export.clicked.connect(self._export_competition)
+        row.addWidget(export)
+        obstacles = QPushButton('障碍比赛场景')
+        obstacles.setToolTip('载入初赛地图及4个静态圆柱演示障碍；取消旧比赛。可清除后手动放置或随机补齐。')
+        obstacles.clicked.connect(self._load_competition_obstacles)
+        row.addWidget(obstacles)
+        row.addStretch(1)
+        layout.addLayout(row)
+        self.competition_status = QLabel('准备：可加载障碍比赛场景，或点击地图放障碍/随机补齐；选择启停区和任务码后启动。每轮180秒。')
+        self.competition_status.setWordWrap(True)
+        self.competition_status.setObjectName('HintLabel')
+        layout.addWidget(self.competition_status)
+        self.zone_combo.currentIndexChanged.connect(self._nav_parameters_changed)
+        return panel
+
+    def _build_plan_side(self) -> QWidget:
+        """地图右侧的 A* 规划侧栏（本阶段只计算与显示，不下发 STM32）。"""
+        side = QFrame()
+        side.setObjectName("Panel")
+        side.setFixedWidth(316)
+        sv = QVBoxLayout(side)
+        sv.setContentsMargins(14, 12, 14, 12)
+        sv.setSpacing(9)
+
+        head = QHBoxLayout()
+        head.setSpacing(8)
+        title = QLabel("A* 路径规划")
+        title.setObjectName("SectionTitle")
+        head.addWidget(title)
+        head.addStretch(1)
+        badge = QLabel("不下发 STM32")
+        badge.setObjectName("PlanBadge")
+        badge.setToolTip("连续跟踪和完整比赛流程均仅运行于PC模拟器。")
+        head.addWidget(badge)
+        sv.addLayout(head)
+
+        hint = QLabel("点地图或快速目标 → 算出绕开禁区的航点路径")
+        hint.setObjectName("HintLabel")
+        hint.setWordWrap(True)
+        sv.addWidget(hint)
+
+        self.plan_click_check = QCheckBox("点击地图 = 规划路径")
+        self.plan_click_check.setChecked(True)
+        self.plan_click_check.setToolTip(
+            "打开：点击或快速目标只计算并画出航点路径，不向 STM32 发任何 GOTO；\n"
+            "取消：恢复「点击即下发 GOTO」。")
+        self.plan_click_check.toggled.connect(self._on_plan_switch)
+        sv.addWidget(self.plan_click_check)
+
+        self.strafe_limit_check = QCheckBox("限制长距离横移")
+        self.strafe_limit_check.setChecked(False)
+        self.strafe_limit_check.setToolTip(
+            "勾选后**一次连续横移**不得超过下面的「横移上限」，超了就改用原地转向+直行。\n"
+            "连续横移被前进/后退/转向打断后重新计数，不是全程总量。\n"
+            "地图 JSON 里的 strafe_polygons（操作区）内不受限。缺省不勾＝不限。")
+        self.strafe_limit_check.toggled.connect(self._nav_parameters_changed)
+        sv.addWidget(self.strafe_limit_check)
+
+        params = QGridLayout()
+        params.setHorizontalSpacing(8)
+        params.setVerticalSpacing(6)
+        params.addWidget(QLabel("网格"), 0, 0)
+        self.plan_grid_spin = QDoubleSpinBox()
+        self.plan_grid_spin.setRange(1.0, 50.0)
+        self.plan_grid_spin.setDecimals(1)
+        self.plan_grid_spin.setSuffix(" cm")
+        self.plan_grid_spin.setValue(core.GRID_MM / core.OPS_CM_TO_MM)
+        self.plan_grid_spin.setToolTip("10..500mm，整条边均检查碰撞；过粗可能找不到窄通路，不能减小安全外形强行通过。")
+        params.addWidget(self.plan_grid_spin, 0, 1)
+        params.addWidget(QLabel("额外裕量"), 1, 0)
+        self.plan_pad_spin = QDoubleSpinBox()
+        self.plan_pad_spin.setRange(0.0, 40.0)
+        self.plan_pad_spin.setDecimals(1)
+        self.plan_pad_spin.setSuffix(" cm")
+        self.plan_pad_spin.setValue(core.NAV_MARGIN_MM / core.OPS_CM_TO_MM)
+        self.plan_pad_spin.setToolTip(
+            "随真实航向旋转的280×260mm矩形整车之外的额外安全裕量。\n"
+            "0不代表忽略车体；真实尺寸、突出物和误差须实测。")
+        self.plan_grid_spin.valueChanged.connect(self._nav_parameters_changed)
+        self.plan_pad_spin.valueChanged.connect(self._nav_parameters_changed)
+        self.map_yaw_combo.currentIndexChanged.connect(self._nav_parameters_changed)
+        params.addWidget(self.plan_pad_spin, 1, 1)
+        params.addWidget(QLabel("转向等效代价"), 2, 0)
+        self.turn_penalty_spin = QDoubleSpinBox()
+        self.turn_penalty_spin.setRange(0.0, 5000.0)
+        self.turn_penalty_spin.setDecimals(0)
+        self.turn_penalty_spin.setSingleStep(20.0)
+        self.turn_penalty_spin.setSuffix(" mm")
+        self.turn_penalty_spin.setValue(nav.DEFAULT_TURN_PENALTY_MM)
+        self.turn_penalty_spin.setToolTip(
+            "每次原地 90° 转向的等效代价（mm，180° 记两次）。调高＝尽量别转向；\n"
+            "例如本版仿真行驶不执行路径中转向时，把它调高就能得到可执行的路线。")
+        self.turn_penalty_spin.valueChanged.connect(self._nav_parameters_changed)
+        params.addWidget(self.turn_penalty_spin, 2, 1)
+        params.addWidget(QLabel("横移上限"), 3, 0)
+        self.strafe_limit_spin = QDoubleSpinBox()
+        self.strafe_limit_spin.setRange(0.0, 200.0)
+        self.strafe_limit_spin.setDecimals(0)
+        self.strafe_limit_spin.setSingleStep(10.0)
+        self.strafe_limit_spin.setSuffix(" cm")
+        self.strafe_limit_spin.setValue(core.STRAFE_RUN_LIMIT_MM / core.OPS_CM_TO_MM)
+        self.strafe_limit_spin.setToolTip(
+            "单次连续横移上限（0 = 完全禁横移）。\n"
+            "完全禁横移要当心：启停区中心离两墙各 150mm，原地 90° 转向要 ≈208mm 净空，\n"
+            "在角落里转不动，那样任何目标都会报「没有合法网格接入」。留 30cm 以上才有出库余量。")
+        self.strafe_limit_spin.valueChanged.connect(self._nav_parameters_changed)
+        params.addWidget(self.strafe_limit_spin, 3, 1)
+        self.strafe_limit_spin.setEnabled(False)
+        self.strafe_limit_check.toggled.connect(self.strafe_limit_spin.setEnabled)
+        params.setColumnStretch(1, 1)
+        sv.addLayout(params)
+
+        # 模拟障碍（φ50×100mm 圆柱，最多 4 个）：演示物体，只活在运行时，不进地图数据
+        obs = QGridLayout()
+        obs.setHorizontalSpacing(8)
+        obs.setVerticalSpacing(6)
+        self.obstacle_mode_check = QCheckBox("点击地图 = 放障碍")
+        self.obstacle_mode_check.setToolTip(
+            "打开后，点地图放下一个 φ50×100mm 模拟障碍（最多 %d 个），此时点击只放障碍、"
+            "不规划也不下发。障碍只影响规划与仿真，不写进地图数据；关闭后点击恢复为规划。"
+            % core.SIM_OBSTACLE_MAX)
+        self.obstacle_mode_check.toggled.connect(self._on_obstacle_mode)
+        obs.addWidget(self.obstacle_mode_check, 0, 0, 1, 2)
+        rand = QPushButton("随机补齐")
+        rand.setToolTip("避开固定禁区、已有障碍和车当前位置随机放置，直到放满 %d 个。"
+                        % core.SIM_OBSTACLE_MAX)
+        rand.clicked.connect(self._random_obstacles)
+        obs.addWidget(rand, 1, 0)
+        clr = QPushButton("清除障碍")
+        clr.clicked.connect(lambda: self._clear_obstacles("已清除模拟障碍"))
+        obs.addWidget(clr, 1, 1)
+        self.obstacle_info = QLabel()
+        self.obstacle_info.setObjectName("HintLabel")
+        self.obstacle_info.setWordWrap(True)
+        obs.addWidget(self.obstacle_info, 2, 0, 1, 2)
+        sv.addLayout(obs)
+        self._update_obstacle_info()
+
+        row = QHBoxLayout()
+        row.setSpacing(8)
+        clear_path = QPushButton("清除路径")
+        clear_path.clicked.connect(lambda: self._clear_path("已清除规划路径"))
+        row.addWidget(clear_path)
+        self.follow_btn = QPushButton("仿真行驶")
+        self.follow_btn.setObjectName("PrimaryButton")
+        self.follow_btn.setToolTip(
+            "仅PC连续轨迹仿真：实际位置单调投影、100mm lookahead、整车运动扫掠保护。\n"
+            "中间点不停稳，只有最终STOP点要求位置+航向+停稳。\n"
+            "不是实车验证，不向STM32发导航命令。")
+        self.follow_btn.clicked.connect(self._toggle_follow)
+        row.addWidget(self.follow_btn, 1)
+        sv.addLayout(row)
+
+        self.plan_info = QLabel("未规划")
+        self.plan_info.setObjectName("PlanInfo")
+        self.plan_info.setWordWrap(True)
+        self.plan_info.setProperty("state", "idle")
+        sv.addWidget(self.plan_info)
+        legend = QLabel('黄色虚线：Manhattan骨架\n绿色：连续轨迹 · 紫色：当前参考点 · 蓝色：实际轨迹')
+        legend.setObjectName('HintLabel')
+        legend.setWordWrap(True)
+        sv.addWidget(legend)
+
+        self.plan_text = QTextEdit()
+        self.plan_text.setObjectName("PlanText")
+        self.plan_text.setReadOnly(True)
+        self.plan_text.setPlaceholderText("航点台账\n#1 场地(…)cm → GOTO=…")
+        sv.addWidget(self.plan_text, 1)
+
+        tools = QHBoxLayout()
+        load_map = QPushButton("加载行驶区域")
+        load_map.clicked.connect(self._load_navigation_map)
+        export_plan = QPushButton("导出计划")
+        export_plan.clicked.connect(self._export_navigation_plan)
+        tools.addWidget(load_map)
+        tools.addWidget(export_plan)
+        sv.addLayout(tools)
+        export_trajectory = QPushButton("导出Trajectory JSON")
+        export_trajectory.setToolTip("导出20mm连续采样、切线航向及累计弧长；完整整车复检通过才可导出。")
+        export_trajectory.clicked.connect(self._export_trajectory)
+        sv.addWidget(export_trajectory)
+        note = QLabel("默认地图仅演示，未核实比赛灰色车道。连续轨迹整车校验不代表实车放行。\n"
+                      "原料区旧目标太近时会拒绝；可先点击布局(1200,2100)演示接近点。\n"
+                      "取消规划勾选会进入原始直接GOTO调试，须人工检查。")
+        note.setObjectName("HintLabel")
+        note.setWordWrap(True)
+        sv.addWidget(note)
+        # 完整比赛栏占用高度后，规划控件保持可读，通过滚动查看而不压扁输入框。
+        side.setMinimumHeight(max(850, side.minimumSizeHint().height()))
+        scroll = QScrollArea()
+        scroll.setFixedWidth(332)
+        scroll.setWidgetResizable(True)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        scroll.setWidget(side)
+        return scroll
 
     def _build_stepper_page(self):
         page, lay = self._page_shell("28 / 35 步进电机", "CAN 绝对位置与回零调试；参数编辑后点击按钮才下发")
         note = QLabel("机械换算沿用原车标定。35：高度43–203 mm；28：半径120–286 mm（不是伸出量）。\n"
                       "STOP 仅停止底盘/DM；28/35 尚无已验证停机协议。取消待发不会停止已启动运动。\n"
-                      "当前24通道不含28/35反馈：命令入队不代表CAN发送成功、回零完成或到位。")
+                      "先点击读取状态：STM32 CAN2为1Mbps，35地址1、28地址2；电机须设CAN1_MAP。\n"
+                      "位置协议使用X固件角度，S_PosTDP须为Disable；驱动回复显示在下方和日志中。")
         note.setWordWrap(True)
         lay.addWidget(note)
         self.stepper_widgets = {}
+        self.stepper_status = {}
         for motor, (title, label, lo, hi, default, vlo, vhi, can_id) in core.STEPPER_CONFIG.items():
             panel = QFrame()
             panel.setObjectName("Panel")
@@ -1169,7 +1613,7 @@ class MainWindow(QMainWindow):
             speed.setValue(10)
             grid.addWidget(QLabel(label), 1, 0)
             grid.addWidget(position, 1, 1)
-            grid.addWidget(QLabel("线速度（协议范围）"), 1, 2)
+            grid.addWidget(QLabel("线速度"), 1, 2)
             grid.addWidget(speed, 1, 3)
             move = QPushButton("执行机械目标")
             move.clicked.connect(lambda _=False, m=motor: self._send_stepper(m, False))
@@ -1179,13 +1623,14 @@ class MainWindow(QMainWindow):
             steps = QDoubleSpinBox()
             steps.setDecimals(0)
             steps.setRange(0, 4294967295)
+            steps.setSuffix(" ×0.1°")
             rpm = QSpinBox()
-            rpm.setRange(1, 65535)
+            rpm.setRange(1, 3000)
             rpm.setValue(10)
             rpm.setSuffix(" RPM")
             grid.addWidget(direction, 2, 0)
             grid.addWidget(steps, 2, 1)
-            grid.addWidget(QLabel("绝对位置计数 / 转速"), 2, 2)
+            grid.addWidget(QLabel("绝对位置角度 / 转速"), 2, 2)
             grid.addWidget(rpm, 2, 3)
             raw = QPushButton("执行原始绝对位置")
             raw.clicked.connect(lambda _=False, m=motor: self._send_stepper(m, True))
@@ -1196,6 +1641,16 @@ class MainWindow(QMainWindow):
             cancel.clicked.connect(lambda _=False, m=motor: self.send_line("S%dCANCEL" % m))
             grid.addWidget(home, 3, 0, 1, 2)
             grid.addWidget(cancel, 3, 3, 1, 2)
+            query = QPushButton("读取状态（不运动）")
+            query.clicked.connect(lambda _=False, m=motor: self.send_line("S%dSTATUS" % m))
+            enable = QPushButton("使能电机（锁轴）")
+            enable.clicked.connect(lambda _=False, m=motor: self.send_line("S%dEN" % m))
+            grid.addWidget(query, 4, 0, 1, 2)
+            grid.addWidget(enable, 4, 3, 1, 2)
+            status = QLabel("尚未读取驱动状态。默认机械目标和原始角度均为零点，已在零点时不会移动。")
+            status.setWordWrap(True)
+            grid.addWidget(status, 5, 0, 1, 5)
+            self.stepper_status[motor] = status
             self.stepper_widgets[motor] = (position, speed, direction, steps, rpm)
             lay.addWidget(panel)
         lay.addStretch(1)
@@ -1430,6 +1885,8 @@ class MainWindow(QMainWindow):
 
     def _manual_start(self, vector, raw=False):
         """vector 与 MANUAL 完全同序：X=车左、Y=车头、W=逆时针。"""
+        if self.follow is not None or self.planned_points or self._plan_future is not None:
+            self._clear_path("手动控制接管，旧规划失效")
         if self.worker is None and self.sim is None:
             self.log("请先连接串口或开启模拟", "warn")
             return
@@ -1623,6 +2080,96 @@ class MainWindow(QMainWindow):
         scroll.setWidget(body)
         lay.addWidget(scroll, 1)
         return page
+
+    def _build_vision_page(self):
+        page, lay = self._page_shell("视觉跟踪", "协议 V1.1 物料精对准：启停跟踪与增益调参（会驱动底盘）")
+
+        controls = QFrame()
+        controls.setObjectName("Panel")
+        cl = QHBoxLayout(controls)
+        cl.setContentsMargins(12, 10, 12, 10)
+        cl.addWidget(QLabel("按颜色启动"))
+        for color, name in core.VISION_COLORS:
+            btn = QPushButton("%s %d" % (name, color))
+            btn.setObjectName("SuccessButton")
+            btn.setToolTip("VTRACK=%d：让固件经 USART3 请求工控机跟踪%s物料并接管底盘" % (color, name))
+            # 默认参数绑定：循环里直接闭包会全部取到最后一次迭代的值。
+            btn.clicked.connect(lambda _=False, c=color, n=name: self._start_vtrack(c, n))
+            cl.addWidget(btn)
+        cl.addSpacing(18)
+        stop = QPushButton("■ 停止跟踪 VTRACK=0")
+        stop.setObjectName("EmergencyButton")
+        stop.clicked.connect(self._stop_vtrack)
+        cl.addWidget(stop)
+        refresh = QPushButton("↻ 刷新回读")
+        refresh.setToolTip("逐个 GET 这 6 个参数：它们没有遥测通道，只能靠文字应答")
+        refresh.clicked.connect(self._refresh_vision_readback)
+        cl.addWidget(refresh)
+        cl.addStretch(1)
+        lay.addWidget(controls)
+
+        self.vision_state = QLabel("视觉状态：未跟踪")
+        self.vision_state.setObjectName("DmStatus")
+        lay.addWidget(self.vision_state)
+
+        note = QLabel(
+            "· 启动前需四轮已使能，否则固件回 ERR WHEEL DISABLED / ERR VTRACK BUSY；"
+            "启动会取消 GOTO 与键盘手动并停车，STOP 也会自动停止跟踪（无需再发 VTRACK=0）。\n"
+            "· 这 6 个参数是「RAM 参数」：不存 Flash，掉电回到固件默认值（VDBMM=2mm、VMIN=8、VMAX=60）。\n"
+            "· 死区与最小速度必须配对调：2mm 死区配 8RPM（约 33.6mm/s）时一个控制周期就能冲过死区，"
+            "目标附近容易出现「停→起→停」来回抖；真出现就先降 VMIN，不要只把死区放大。\n"
+            "· 毫米模式（VDBMM/VKPMM）与像素模式（VDBPX）各用一套系数，由工控机下发的 COORD_MODE 决定；"
+            "像素模式无法表达「2mm」——固件里没有毫米/像素标定系数。\n"
+            "· 跟踪中新结果超过 150ms 未到即停车；工控机不回包或丢目标时只停底盘，不会回停止帧，"
+            "所以那种停法在工控机侧看不到。\n"
+            "· 已知缺口：没有「启动确认超时」。工控机若在跟踪期间重启，固件不会自动重发请求，"
+            "需手动 VTRACK=0 再 VTRACK=1（换新序号）才能恢复。")
+        note.setWordWrap(True)
+        note.setObjectName("HintLabel")
+        lay.addWidget(note)
+
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.NoFrame)
+        body = QWidget()
+        bl = QVBoxLayout(body)
+        bl.setContentsMargins(0, 0, 0, 0)
+        bl.setSpacing(7)
+        self.vision_rows = {}
+        for cmd, label, lo, hi, dflt, rb in core.VISION_PARAMS:
+            row = ParamRow(cmd, label, lo, hi, dflt, rb, False)
+
+            def _send_vision_param(c, v):
+                # 与底盘页同款：写入后立刻回读一次，这些参数没有波形可以对照。
+                self.send_line("%s=%s" % (c, v))
+                self._request_param_readback(c)
+
+            row.sendRequested.connect(_send_vision_param)
+            self.vision_rows[cmd] = row
+            bl.addWidget(row)
+        bl.addStretch(1)
+        scroll.setWidget(body)
+        lay.addWidget(scroll, 1)
+        return page
+
+    def _start_vtrack(self, color: int, name: str):
+        if self.wheel_state is False:
+            self.log("四轮已请求失能：固件会拒绝 VTRACK，请先「使能电机（锁轴）」", "warn")
+        self.send_line(core.vtrack_command(color))
+        self.vision_state.setText("视觉状态：已请求跟踪%s · 等固件 ACK" % name)
+
+    def _stop_vtrack(self):
+        self.send_line(core.vtrack_command(0))
+        self.vision_state.setText("视觉状态：已请求停止跟踪")
+
+    def _refresh_vision_readback(self):
+        """逐个 GET 视觉参数：24 通道遥测里没有视觉位，只有文字应答这一条路。
+
+        刻意不并入 1Hz 的 _poll_param_readback：那会把无通道参数的轮询周期从 2s
+        拉到 8s，每条应答还要占一个遥测帧位；这里改为进页面或手动点按钮时批量刷新。
+        """
+        for cmd, _label, _lo, _hi, _dflt, _rb in core.VISION_PARAMS:
+            self._request_param_readback(cmd)
 
     def _build_record_page(self):
         page, lay = self._page_shell("数据记录", "保存 24 通道遥测为 CSV，或导出当前内存波形")
@@ -1881,6 +2428,10 @@ class MainWindow(QMainWindow):
             b.setProperty("active", i == idx)
             b.style().unpolish(b)
             b.style().polish(b)
+        # 视觉参数没有遥测通道（24 通道里没有视觉位），进入该页时刷新一次回读，
+        # 否则那 6 行会长期停在"回读 —"。getattr 兜底：无 GUI 套件用 WindowMethods 桩。
+        if idx == getattr(self, "vision_page_index", -1):
+            self._refresh_vision_readback()
 
     # ---------------- 串口/模拟 ----------------
     def refresh_ports(self):
@@ -1907,10 +2458,16 @@ class MainWindow(QMainWindow):
                 return
 
     def _clear_command_queues(self):
+        self._clear_path()
+        self.latest = None
+        self.latest_received_monotonic = 0.0
+        self._drain_queue(self.frame_q)
         self._manual_stop()
         self._drain_queue(self.line_q)
         self._drain_queue(self.urgent_q)
         self._drain_queue(self.param_q)
+        for status in self.stepper_status.values():
+            status.setText("本次连接尚未读取驱动状态。")
 
     def toggle_connect(self, force_on=None):
         want = force_on if force_on is not None else self.worker is None
@@ -1942,6 +2499,7 @@ class MainWindow(QMainWindow):
             self.log("正在连接 %s @ %d 8N1" % (port, baud), "info")
         elif not want and self.worker is not None:
             self._manual_stop()
+            self._stop_follow("已断开串口，停止沿路径行驶")
             self._stop_worker(safe=True)
             self._clear_command_queues()
             self.connect_btn.setText("连接")
@@ -1959,6 +2517,7 @@ class MainWindow(QMainWindow):
         return True
 
     def _stop_worker(self, safe):
+        self._clear_path()
         old = self.worker
         self.worker = None
         self._closing_worker = old
@@ -1978,12 +2537,19 @@ class MainWindow(QMainWindow):
             self._clear_command_queues()
             self.sim = core.Simulator(self.frame_q, self.line_q, self.urgent_q,
                                       param_q=self.param_q)
+            # Static start at the selected zero; no uncontrolled demonstration orbit.
+            self.sim.handle_line("ZERO")
             self.sim.start()
             self.sim_btn.setText("停止模拟")
             self._set_link_status("模拟模式 · 50 Hz", "sim")
             self.log("模拟模式已开启。", "info")
         elif not want and self.sim is not None:
-            self.sim.stop_flag = True
+            self._stop_follow("已关闭模拟，停止沿路径行驶")
+            old_sim = self.sim
+            old_sim.cancel_navigation()
+            old_sim.stop_flag = True
+            if old_sim.is_alive():
+                old_sim.join(timeout=0.5)
             self.sim = None
             self._clear_command_queues()
             self.sim_btn.setText("模拟")
@@ -2004,8 +2570,15 @@ class MainWindow(QMainWindow):
             return
         cmd = text.upper().split("=", 1)[0].strip()
         # 锁轴切换前先停止键盘续发，避免失能后仍周期发送MANUAL。
-        if cmd in ("STOP", "ZERO", "GOTO", "GOTOHOLD", "OPSOFFSET", "WHEELEN", "WHEELOFF"):
+        # VTRACK 也必须停：固件接到跟踪请求时会清掉 manual/goto 并停车，但上位机
+        # 这边 20Hz 的 MANUAL 流不会自己停，会把固件立刻拉回手动、与视觉速度互相打架。
+        if cmd in ("STOP", "ZERO", "GOTO", "GOTOHOLD", "OPSOFFSET", "WHEELEN", "WHEELOFF",
+                   "VTRACK"):
             self._manual_stop()
+        # Every control/frame change invalidates navigation, including console commands.
+        # _clear_path uses simulator cancellation directly; it never recursively sends STOP.
+        if cmd in ("STOP", "ZERO", "OPSOFFSET", "WHEELEN", "WHEELOFF", "GOTO", "GOTOHOLD", "MANUAL", "ZDT", "VTRACK"):
+            self._clear_path("%s：旧规划已失效" % cmd)
         if cmd in core.URGENT_COMMANDS:
             self._drain_queue(self.line_q)
             self.urgent_q.put(text)
@@ -2020,6 +2593,11 @@ class MainWindow(QMainWindow):
             self._update_wheel_status()
         self.send_count += 1
         self.log("TX> %s" % text, "tx")
+        if cmd.startswith(("S28", "S35")):
+            motor = int(cmd[1:3])
+            self.stepper_status[motor].setText(
+                "模拟模式不提供电机硬件反馈。" if self.sim is not None else
+                "请求已入队，等待STM32诊断回复（需使用配套新版固件）。")
 
     def _enqueue_heartbeat(self):
         now = time.monotonic()
@@ -2064,16 +2642,36 @@ class MainWindow(QMainWindow):
         self.param_timer.timeout.connect(self._poll_param_readback)
         self.param_timer.start(int(core.PARAM_POLL_S * 1000))
 
+        # 仿真沿路径行驶的推进定时器（仅模拟模式会启动）
+        self.follow_timer = QTimer(self)
+        self.follow_timer.timeout.connect(self._follow_step)
+        self.follow_timer.setInterval(20)
+
+        self.plan_poll_timer = QTimer(self)
+        self.plan_poll_timer.timeout.connect(self._poll_plan)
+        self.plan_poll_timer.start(50)
+        self.competition_timer = QTimer(self)
+        self.competition_timer.timeout.connect(self._poll_competition)
+        self.competition_timer.start(20)
+
     def _param_rows(self):
-        """命令名 -> 参数行控件（底盘页与 DM 页合并）。"""
+        """命令名 -> 参数行控件（底盘页、DM 页与视觉页合并）。"""
         rows = dict(self.chassis_rows)
         rows.update(self.dm_rows)
+        rows.update(self.vision_rows)
         return rows
 
     def _apply_param_readback(self, name, value):
-        """固件文字回读刷新界面：XVMIN/ZVMIN 没有遥测通道，只有这一条路。"""
+        """固件文字回读刷新界面：没有遥测通道的参数只有这一条路。
+
+        界面没有对应参数行时，必须把这一行**打到日志**再返回。参数回读行在
+        FrameParser 里就被分流出了日志通道（PARAM_ECHO_RE → param_q），如果这里
+        再静默 return，`GET XXX` 就完全没有可见反馈，看起来像"板子没反应"——
+        VDBMM 这类未注册到界面的参数曾经就是这样被整个吞掉的。
+        """
         row = self._param_rows().get(str(name).upper())
         if row is None:
+            self.log("回读 %s=%s（界面无该参数行）" % (name, value), "info")
             return
         try:
             row.set_readback(float(value))
@@ -2108,6 +2706,7 @@ class MainWindow(QMainWindow):
                 tr = t - self.t0_monotonic
                 self.latest = vals
                 self.latest_t = tr
+                self.latest_received_monotonic = t
                 if not self.paused:
                     self.ring.append(tr, vals)
                     # 遥测为 cm，轨迹缓冲/地图几何仍统一使用 mm。
@@ -2126,6 +2725,10 @@ class MainWindow(QMainWindow):
                 break
             tag = "warn" if any(k in text.upper() for k in ("ERR", "FAIL", "错误", "失败")) else "info"
             self.log(text, tag)
+            feedback = core.stepper_feedback(text)
+            if feedback:
+                motor, message = feedback
+                self.stepper_status[motor].setText(message)
         # 参数回读：直接写对应行的"回读"栏，不占日志。
         for _ in range(20):
             try:
@@ -2152,7 +2755,8 @@ class MainWindow(QMainWindow):
             dm_id = str(int(v[12])) if math.isfinite(v[12]) else "—"
             self.dm_cards["id"].set_value(dm_id)
 
-            for row in list(self.chassis_rows.values()) + list(self.dm_rows.values()):
+            for row in (list(self.chassis_rows.values()) + list(self.dm_rows.values()) +
+                        list(self.vision_rows.values())):
                 if row.readback_channel is not None:
                     row.set_readback(v[row.readback_channel])
 
@@ -2168,15 +2772,17 @@ class MainWindow(QMainWindow):
             self.health_dm.setText("● DM：%s" % text)
             self.footer_dm.setText("DM[%s] %s" % (dm_id, text))
 
-            self.ops_drift.setText("中心位置：X 左右 %.1f / Y 前后 %.1f cm ｜距零点 %.1f cm ｜航向 %.1f°" % (v[0], v[1], math.hypot(v[0], v[1]), v[2]))
+            self.ops_drift.setText("中心位置：X 左右 %.1f / Y 前后 %.1f cm ｜距零点 %.1f cm ｜车体航向 %.1f°" % (v[0], v[1], math.hypot(v[0], v[1]), v[2]))
             fx, fy = self._ops_to_field(v[0] * core.OPS_CM_TO_MM,
                                         v[1] * core.OPS_CM_TO_MM)
-            self.map_view.set_pose(fx, fy, self.map_theta + v[2])
+            # 车体图标与轨迹共用同一次映射：方向向量过 _ops_dir_to_map，不传角度。
+            nose_w, left_w = self._body_nose_left(v[2])
+            self.map_view.set_pose(fx, fy,
+                                   self._ops_dir_to_map(*nose_w),
+                                   self._ops_dir_to_map(*left_w))
             ux, uy = core.layout_to_field(fx, fy)
-            # 固件在 ZERO（在所选启停区校准）时把航向也归零，因此遥测 v[2] 已是
-            # "相对校准朝向"的角度；场地约定 0°=场地+X(左)、90°=场地+Y(上)，
-            # 校准时车头指向场地+X ⇒ 场地方向 = 车体方向 − map_theta。
-            heading = (v[2] - self.map_theta) % 360.0
+            # 先舍入再取模，避免 359.96° 显示成 "360.0"。
+            heading = round(self._field_heading(v[2]), 1) % 360.0
             self.map_position.setText("场地 X(左)=%.1f cm   Y(前)=%.1f cm   航向=%.1f°（0°左 / 90°上）"
                                       % (ux / core.OPS_CM_TO_MM,
                                          uy / core.OPS_CM_TO_MM, heading))
@@ -2305,6 +2911,7 @@ class MainWindow(QMainWindow):
         self.map_target = None
         self.map_view.set_target(None, None)
         self.map_view.set_trail(np.array([]), np.array([]))
+        self._clear_path()
         self.log("数据缓冲已清除。", "info")
 
     def toggle_record(self):
@@ -2375,6 +2982,7 @@ class MainWindow(QMainWindow):
 
     # ---------------- 地图 ----------------
     def _apply_map_mapping(self):
+        self._clear_path("地图标定改变，旧路径已失效")
         # 两个 SpinBox 对外为 cm，内部地图几何继续用 mm。
         self.map_ox = float(self.map_ox_spin.value()) * core.OPS_CM_TO_MM
         self.map_oy = float(self.map_oy_spin.value()) * core.OPS_CM_TO_MM
@@ -2398,6 +3006,28 @@ class MainWindow(QMainWindow):
         px, py = ux - self.map_ox, uy - self.map_oy
         return c * px - s * py, s * px + c * py
 
+    def _ops_dir_to_map(self, dx: float, dy: float):
+        """统一坐标(OPS 世界帧)的方向向量 → 地图绘制帧的方向向量。
+
+        `_ops_to_field` 的线性部分是 `(dx,dy) → (s·dx − c·dy, −c·dx − s·dy)`，
+        行列式 −1：绘制帧是世界帧的镜像，所以方向必须走同一次变换，不能把
+        角度直接相加（车头图标与轨迹走向不一致就是这么来的）。
+        """
+        th = math.radians(self.map_theta)
+        c, s = math.cos(th), math.sin(th)
+        return (s * dx - c * dy, -c * dx - s * dy)
+
+    @staticmethod
+    def _body_nose_left(yaw_ops: float):
+        """车体前向 / 车左 在世界帧的单位向量。
+
+        固件 `chassis_move` 用 `body = R(zangle)·世界误差`，即 `世界 = R(−zangle)·body`，
+        所以车头(车体 +Y)在世界帧是 `(sin z, cos z)`、车左(车体 +X) 是 `(cos z, −sin z)`；
+        +90° 时车头朝世界 +X，与 AGENTS.md 的口径一致。
+        """
+        h = math.radians(yaw_ops)
+        return (math.sin(h), math.cos(h)), (math.cos(h), -math.sin(h))
+
     def _set_start_zone(self):
         zone = int(self.zone_combo.currentData())
         zx, zy = core.ZONE_CENTER[zone]
@@ -2413,15 +3043,24 @@ class MainWindow(QMainWindow):
         self.log("启停区%d -> OPS零点(%.1f, %.1f) cm，请求 ZERO"
                  % (zone, ux / core.OPS_CM_TO_MM, uy / core.OPS_CM_TO_MM), "info")
 
-    def _target_yaw_ops(self):
-        """场地方向 → 固件 GOTO 的 Z（车体相对航向，ZERO 时已归零）。
+    def _field_heading(self, yaw_ops: float) -> float:
+        """车体航向（遥测 ch2）→ 场地显示航向（0°=屏幕左、90°=屏幕上）。
 
-        关系：场地方向 = 车体方向 − map_theta（见 _render_ui 的 heading），取逆即可。
+        车头在世界帧是 `(sin z, cos z)`，其世界角（自 +X 向 +Y 逆时针）为 `90°−z`；
+        场地显示角 = 世界角 − map_theta（`_ops_dir_to_map` 的旋转部分）。
         """
+        return (90.0 - float(yaw_ops) - self.map_theta) % 360.0
+
+    def _field_to_body_yaw(self, field_yaw: float) -> float:
+        """场地目标航向 → 固件 GOTO 的 Z（`_field_heading` 的逆）。"""
+        return (90.0 - self.map_theta - float(field_yaw)) % 360.0
+
+    def _target_yaw_ops(self):
+        """场地目标航向 → 固件 GOTO 的 Z；"保持当前"直接沿用当前车体航向。"""
         field_yaw = self.map_yaw_combo.currentData()
         if field_yaw is None:
             return float(self.latest[2]) if self.latest is not None else 0.0
-        return float(field_yaw) + self.map_theta
+        return self._field_to_body_yaw(float(field_yaw))
 
     def _goto_field(self, fx: float, fy: float, yaw_override=None):
         """场地坐标下发 GOTO。
@@ -2454,7 +3093,11 @@ class MainWindow(QMainWindow):
                 time.monotonic() - self.worker.last_frame_monotonic > core.TELEMETRY_WARN_S):
             self.log("定位遥测过期，导航未发送", "warn")
             return
-        blocked = core.field_point_blocked(fx, fy)
+        # 与规划用同一份几何（地图数据 + 模拟障碍），不再读 core.py 里的旧副本
+        rects = list(self.nav_map["rects"]) + list(self.nav_map.get("dynamic_rects", []))
+        circles = (list(self.nav_map["circles"]) + self._obstacle_circles() +
+                   list(self.nav_map.get("dynamic_circles", [])))
+        blocked = core.blocked_at(fx, fy, rects, circles)
         if blocked:
             self.map_status.setText("拒绝 GOTO：目标位于【%s】" % blocked)
             self.log("GOTO 拒绝：目标(%.1f, %.1f) cm 位于%s"
@@ -2464,7 +3107,7 @@ class MainWindow(QMainWindow):
         if self.latest is not None and math.isfinite(self.latest[0]) and math.isfinite(self.latest[1]):
             sx, sy = self._ops_to_field(self.latest[0] * core.OPS_CM_TO_MM,
                                         self.latest[1] * core.OPS_CM_TO_MM)
-            blocked = core.field_path_blocked(sx, sy, fx, fy)
+            blocked = core.seg_blocked(sx, sy, fx, fy, rects, circles)
             if blocked:
                 self.map_status.setText("拒绝直线 GOTO：路径穿越【%s】，请先选择中间安全点" % blocked)
                 self.log("GOTO 拒绝：直线路径穿越%s" % blocked, "warn")
@@ -2483,8 +3126,965 @@ class MainWindow(QMainWindow):
     def _goto_home(self):
         zone = int(self.zone_combo.currentData())
         zx, zy = core.ZONE_CENTER[zone]
-        home_yaw = (0.0 if zone == 1 else 180.0) + self.map_theta
+        if self.plan_click_check.isChecked():
+            self._request_plan(zx, zy)
+            return
+        # 回启停区1 朝场地 0°（屏幕左），区2 朝场地 180°（屏幕右）。
+        home_yaw = self._field_to_body_yaw(0.0 if zone == 1 else 180.0)
         self._goto_field(zx, zy, home_yaw)
+
+    # ---------------- A* planning / FIXED-HEADING simulator execution ----------------
+    def _on_map_click(self, fx: float, fy: float):
+        if getattr(self, "obstacle_mode_check", None) is not None and \
+                self.obstacle_mode_check.isChecked():
+            self._place_obstacle(fx, fy)      # 放置模式优先：不规划、不下发
+            return
+        if self.plan_click_check.isChecked():
+            self._request_plan(fx, fy)
+        else:
+            self._goto_field(fx, fy)
+
+    def _on_plan_switch(self, on: bool):
+        self._clear_path("规划模式已切换，旧计划失效")
+        self.map_status.setText("点击地图 = 只规划，不发车" if on else
+                                "直接GOTO调试模式：非自动导航，执行前须人工检查整车路径")
+
+    # ---------------- 模拟障碍（φ50×100mm，≤4 个，演示用） ----------------
+    def _on_obstacle_mode(self, on: bool):
+        if on:
+            self.map_status.setText("点击地图 = 放下一个模拟障碍（%d/%d，φ%.0fmm）"
+                                    % (len(self.sim_obstacles), core.SIM_OBSTACLE_MAX,
+                                       core.SIM_OBSTACLE_R_MM * 2.0))
+        else:
+            self.map_status.setText("点击地图 = 只规划，不发车"
+                                    if self.plan_click_check.isChecked()
+                                    else "直接GOTO调试模式：非自动导航，执行前须人工检查整车路径")
+        self._update_obstacle_info()
+
+    def _update_obstacle_info(self):
+        if not hasattr(self, "obstacle_info"):
+            return
+        n = len(self.sim_obstacles)
+        text = "模拟障碍 %d/%d · φ%.0f×%.0fmm" % (n, core.SIM_OBSTACLE_MAX,
+                                              core.SIM_OBSTACLE_R_MM * 2.0,
+                                              core.SIM_OBSTACLE_H_MM)
+        if n:
+            text += "；只影响规划与仿真，不改地图数据"
+        if hasattr(self, "obstacle_mode_check") and self.obstacle_mode_check.isChecked():
+            text += "；【放置模式】点地图即放下一个"
+        self.obstacle_info.setText(text)
+
+    def _obstacle_circles(self):
+        """模拟障碍 → circles 表（与地图 circles 同格式，直接并入规划场景）。"""
+        return core.sim_obstacle_circles(self.sim_obstacles)
+
+    def _obstacles_changed(self, msg=None):
+        """障碍变化：重画 + 让旧计划立刻失效（障碍也进 _navigation_signature）。"""
+        self.map_view.set_sim_obstacles(self.sim_obstacles)
+        self._update_obstacle_info()
+        self._clear_path(msg or "模拟障碍已改变，旧计划失效")
+        if msg:
+            self.map_status.setText(msg + "；旧计划已失效")
+
+    def _place_obstacle(self, fx, fy):
+        """点击放置一个模拟障碍：只改演示场景，不规划、不下发任何命令。"""
+        if len(self.sim_obstacles) >= core.SIM_OBSTACLE_MAX:
+            message = "模拟障碍已到上限 %d 个（先「清除障碍」）" % core.SIM_OBSTACLE_MAX
+            self.map_status.setText(message)
+            self.log(message, "warn")
+            return None
+        data = self.nav_map
+        circles = list(data["circles"]) + self._obstacle_circles()
+        hit = core.obstacle_placement_blocked(fx, fy, rects=data["rects"],
+                                             circles=circles, bounds=data["bounds"])
+        if hit:
+            message = "这个位置放不下：与【%s】冲突（φ%.0f 障碍另留 %.0fmm 余量）" % (
+                hit, core.SIM_OBSTACLE_R_MM * 2.0, 20.0)
+            self.map_status.setText(message)
+            self.log(message, "warn")
+            return None
+        # 不能压在车上：否则之后每次规划都会以"起点：模拟障碍"失败
+        try:
+            start, yaw, _mode = self._plan_preconditions()
+            scene = nav.CollisionScene(
+                data["rects"], circles + core.sim_obstacle_circles([(fx, fy)]), data["bounds"],
+                self.plan_pad_spin.value() * core.OPS_CM_TO_MM,
+                (core.CAR_LENGTH_MM, core.CAR_WIDTH_MM, self._layout_yaw_for(yaw)),
+                data["drivable_polygons"])
+            on_car = scene.segment_reason(start, start)
+        except (TypeError, ValueError, KeyError, IndexError):
+            on_car = None       # 无定位也无模拟时不判"压车"，只按障碍冲突判定
+        if on_car:
+            message = "这个位置压在车上（车体/裕量与【%s】冲突），换个地方" % on_car
+            self.map_status.setText(message)
+            self.log(message, "warn")
+            return None
+        self.sim_obstacles.append((float(fx), float(fy)))
+        ux, uy = core.layout_to_field(fx, fy)
+        self._obstacles_changed("已放置模拟障碍 %d/%d：场地(%.1f, %.1f)cm" % (
+            len(self.sim_obstacles), core.SIM_OBSTACLE_MAX,
+            ux / core.OPS_CM_TO_MM, uy / core.OPS_CM_TO_MM))
+        return (fx, fy)
+
+    def _clear_obstacles(self, msg=None):
+        if not self.sim_obstacles:
+            if msg:
+                self.map_status.setText("本来就没有模拟障碍")
+            return
+        self.sim_obstacles = []
+        self._obstacles_changed(msg or "已清除模拟障碍")
+
+    def _random_obstacles(self):
+        """随机补齐到上限：避开固定禁区、已有障碍、场地边缘和车当前位置。"""
+        free = core.SIM_OBSTACLE_MAX - len(self.sim_obstacles)
+        if free <= 0:
+            message = "模拟障碍已放满 %d 个（先「清除障碍」）" % core.SIM_OBSTACLE_MAX
+            self.map_status.setText(message)
+            self.log(message, "warn")
+            return []
+        try:
+            start, _yaw, _mode = self._plan_preconditions()
+            keep = [(start[0], start[1],
+                     core.CAR_HALF_DIAG_MM + core.SIM_OBSTACLE_R_MM + 20.0)]
+        except (TypeError, ValueError, KeyError, IndexError):
+            keep = []           # 无定位/无模拟：只避开固定障碍与场地边缘
+        data = self.nav_map
+        pts, why = core.random_obstacle_points(
+            free, rects=data["rects"],
+            circles=list(data["circles"]) + self._obstacle_circles(),
+            bounds=data["bounds"], keep_clear=keep)
+        if pts:
+            self.sim_obstacles.extend(pts)
+            self._obstacles_changed("随机放置 %d 个模拟障碍（%d/%d）" % (
+                len(pts), len(self.sim_obstacles), core.SIM_OBSTACLE_MAX))
+        if why:
+            self._set_plan_info(why, "bad")
+            self.map_status.setText(why)
+            self.log(why, "warn")
+        return pts
+
+    def _request_plan_anchor(self, name, anchor, outward):
+        """功能区按钮：先按**当前航向与裕量**算出合法接近点，再规划（本阶段只算不下发）。
+
+        写死坐标会在车体尺寸、航向或裕量变化时变成非法停车位——原料区就出过这个问题
+        （旧坐标离圆盘表面只有 90mm，280×260 车体轴向要 140mm、斜向要 205mm）。
+        所以这里每次都用同一套 CollisionScene 现算；算不出就明说，绝不猜一个点。
+        """
+        try:
+            _start, yaw, _mode = self._plan_preconditions()
+            data = copy.deepcopy(self.nav_map)
+            data["circles"] = list(data["circles"]) + self._obstacle_circles()
+            res = core.approach_target(
+                anchor, outward,
+                margin=self.plan_pad_spin.value() * core.OPS_CM_TO_MM,
+                footprint=(core.CAR_LENGTH_MM, core.CAR_WIDTH_MM, self._layout_yaw_for(yaw)),
+                rects=list(data["rects"]) + list(data.get("dynamic_rects", [])),
+                circles=list(data["circles"]) + list(data.get("dynamic_circles", [])), bounds=data["bounds"],
+                drivable_polygons=data["drivable_polygons"])
+        except (TypeError, ValueError, KeyError, IndexError) as exc:
+            message = "%s：无法取接近点（%s）" % (name, exc)
+            self._clear_path()
+            self._set_plan_info(message, "bad")
+            self.map_status.setText(message)
+            self.log(message, "warn")
+            return None
+        if not res["ok"]:
+            message = "%s：接近点不可用（%s）" % (name, res["reason"])
+            if res.get("fallback_point"):
+                fx, fy = res["fallback_point"]
+                ux, uy = core.layout_to_field(fx, fy)
+                message += "；建议改用场地(%.1f, %.1f)cm 并人工确认走法" % (
+                    ux / core.OPS_CM_TO_MM, uy / core.OPS_CM_TO_MM)
+            self._clear_path()
+            self._set_plan_info(message, "bad")
+            self.map_status.setText(message)
+            self.log(message, "warn")
+            return res
+        fx, fy = res["point"]
+        ux, uy = core.layout_to_field(fx, fy)
+        clear = res["clearance"]
+        self.log("%s：按当前航向/裕量取接近点 场地(%.1f, %.1f)cm，离锚点 %.0fmm（刚好合法需 %.0fmm）%s"
+                 % (name, ux / core.OPS_CM_TO_MM, uy / core.OPS_CM_TO_MM,
+                    res["distance"], res["required"],
+                    "" if clear is None else "，车体外缘净空 %.0fmm" % clear), "info")
+        self._request_plan(fx, fy)
+        return res
+
+    def _navigation_signature(self):
+        """A plan belongs to one map + coordinate calibration + body + link session."""
+        return (self.map_ox, self.map_oy, self.map_theta,
+                self.plan_grid_spin.value(), self.plan_pad_spin.value(),
+                core.CAR_LENGTH_MM, core.CAR_WIDTH_MM,
+                self.map_yaw_combo.currentData(), id(self.sim), id(self.worker),
+                bool(self.strafe_limit_check.isChecked()), self.strafe_limit_spin.value(),
+                self.turn_penalty_spin.value(),
+                json.dumps(self.nav_map, sort_keys=True, ensure_ascii=False),
+                # 模拟障碍参与签名：放了/清了障碍，旧计划必须失效
+                tuple(round(v, 3) for pt in self.sim_obstacles for v in pt))
+
+    def set_dynamic_obstacles(self, rects=(), circles=()):
+        """更新布局mm动态障碍快照，作废旧轨迹与正在计算的结果。"""
+        validated = nav.CollisionScene([], [], self.nav_map["bounds"],
+                                       dynamic_rects=rects, dynamic_circles=circles)
+        self._clear_path("动态障碍已更新；请重新规划")
+        self.nav_map["dynamic_rects"] = [list(r) for r in validated.rects]
+        self.nav_map["dynamic_circles"] = [list(c) for c in validated.circles]
+        self.map_view.set_navigation_map(self.nav_map)
+
+    def _nav_parameters_changed(self, *_):
+        self._clear_path("参数改变，旧计划已作废；请重新规划")
+
+    def _prepare_plan(self, fx, fy):
+        # Cancel first, even when the NEW target turns out to be invalid.
+        self._clear_path()
+        try:
+            goal = nav.point2((fx, fy), "目标")
+            start, yaw, mode = self._plan_preconditions()
+            # 目标航向进入原规划台账；连续跟踪仍需通过切线与整车复检。
+            choice = self.map_yaw_combo.currentData()
+            layout_yaw = self._layout_yaw_for(yaw)
+            goal_layout_yaw = (layout_yaw if choice is None else
+                               self._layout_yaw_for(self._field_to_body_yaw(float(choice))))
+            data = copy.deepcopy(self.nav_map)
+            # 模拟障碍并入规划场景：它们只影响本次计算，不改动地图数据本身
+            data["circles"] = list(data["circles"]) + self._obstacle_circles()
+            kwargs = dict(grid=self.plan_grid_spin.value()*10.0,
+                          pad=self.plan_pad_spin.value()*10.0,
+                          footprint=(core.CAR_LENGTH_MM, core.CAR_WIDTH_MM, layout_yaw),
+                          start_heading_deg=layout_yaw, goal_heading_deg=goal_layout_yaw,
+                          # 不勾＝不限；勾上才按「横移上限」限制单次连续横移
+                          allow_strafe=True,
+                          strafe_run_limit_mm=(self.strafe_limit_spin.value() * core.OPS_CM_TO_MM
+                                               if self.strafe_limit_check.isChecked() else None),
+                          turn_penalty_mm=self.turn_penalty_spin.value(),
+                          strafe_polygons=data.get("strafe_polygons") or None,
+                          rects=data["rects"], circles=data["circles"], bounds=data["bounds"],
+                          dynamic_rects=data.get("dynamic_rects"), dynamic_circles=data.get("dynamic_circles"),
+                          drivable_polygons=data["drivable_polygons"],
+                          geometry_verified=data["geometry_verified"])
+            return dict(request_id=self._plan_request_id, signature=self._navigation_signature(),
+                        start=start, goal=goal, yaw=yaw, mode=mode, kwargs=kwargs,
+                        plan_id=self._plan_request_id, map_id=data["map_id"], map_version=data["map_version"])
+        except (TypeError, ValueError, KeyError, IndexError) as exc:
+            message = "规划拒绝：" + str(exc)
+            self._set_plan_info(message, "bad")
+            self.map_status.setText(message)
+            self.log(message, "warn")
+            return None
+
+    def _validate_quantized(self, res, context):
+        """按**每段的航向**复查量化后的坐标，返回第一处不合格的原因或 None。
+
+        不能用单一航向的 scene.validate(整条折线)：路径里可能有原地转向，每段的
+        合法性与当时车体朝向绑定——实测那样会误报"第2段：中央物料区"把合法路径毙掉。
+        起点保留真实位置，转向也按量化后的车心重新检查。
+        """
+        k = context["kwargs"]
+        fp = k.get("footprint")
+        scenes = {}
+        def scene_at(deg):
+            key = float(deg) % 360.0
+            if key not in scenes:
+                scenes[key] = nav.CollisionScene(
+                    k["rects"], k["circles"], k["bounds"], k["pad"],
+                    None if fp is None else (fp[0], fp[1], key), k["drivable_polygons"],
+                    dynamic_rects=k.get("dynamic_rects"), dynamic_circles=k.get("dynamic_circles"))
+            return scenes[key]
+        def quantize(pt_):
+            if math.dist(pt_, context["start"]) <= nav.EPS:
+                return context["start"]
+            ox, oy = self._field_to_ops(float(pt_[0]), float(pt_[1]))
+            return self._ops_to_field(round(ox), round(oy))
+        previous_heading = res["start_heading_deg"]
+        for row in res.get("steps", []):
+            scene = scene_at(row["heading_deg"])
+            if row["kind"] == "TURN":
+                reason = scene.turn_reason(quantize((row["x"], row["y"])),
+                                           previous_heading, row["heading_deg"])
+            else:
+                reason = scene.segment_reason(
+                    quantize((row["x"], row["y"])), quantize((row["to_x"], row["to_y"])))
+            if reason:
+                return reason
+            previous_heading = row["heading_deg"]
+        return None
+
+    @staticmethod
+    def _scene_for_context(context):
+        k = context["kwargs"]
+        return nav.CollisionScene(k["rects"], k["circles"], k["bounds"],
+                                  k["pad"], k["footprint"], k["drivable_polygons"],
+                                  dynamic_rects=k.get("dynamic_rects"), dynamic_circles=k.get("dynamic_circles"))
+
+    def _report_plan_exception(self, stage, exc, context=None):
+        """Fail visibly and invalidate the plan; never turn an error into a GOTO.
+
+        This method runs on the GUI thread. Background workers only compute.
+        Stale requests are discarded rather than replacing the current UI state.
+        """
+        if context is not None and context.get("request_id") != self._plan_request_id:
+            return None
+        details = "".join(traceback.format_exception(type(exc), exc, exc.__traceback__))
+        self._clear_path()
+        message = "规划%s失败：%s: %s" % (stage, type(exc).__name__, exc)
+        self._set_plan_info(message, "bad")
+        self.map_status.setText(message)
+        self.log(message, "warn")
+        # A Qt signal-slot exception is otherwise easily missed when launched
+        # from a BAT/double click. Keep the original traceback on disk too.
+        path = Path(getattr(self, "_planner_error_log",
+                            BASE_DIR / "logs" / "ilhc-planner-error.log"))
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            with path.open("a", encoding="utf-8") as fh:
+                fh.write("\n[%s] %s\n%s" %
+                         (time.strftime("%Y-%m-%d %H:%M:%S"), message, details))
+        except OSError as log_error:
+            # Read-only project folders must not hide the original failure.
+            self.log("诊断日志写入失败：%s\n%s" % (log_error, details), "warn")
+        else:
+            self.log("规划异常详情：%s" % path, "warn")
+        return {"ok": False, "execution_safe": False, "points": [], "reason": message}
+
+    def _plan_preconditions(self):
+        """规划的起点/航向/模式：串口优先、其次模拟、最后离线预览。
+
+        取值与校验集中在这一处，供 _prepare_plan 与功能区接近点计算共用——
+        起始车体碰撞姿态与路径规划必须采用同一实际航向。
+        """
+        if self.worker is not None:
+            if (not self.worker.opened.is_set() or self.latest is None or
+                    time.monotonic() - self.latest_received_monotonic > core.TELEMETRY_WARN_S or
+                    not all(math.isfinite(v) for v in self.latest[:3])):
+                raise ValueError("实时OPS定位缺失/过期；不回退成启停区位置")
+            return (self._ops_to_field(self.latest[0]*10.0, self.latest[1]*10.0),
+                    float(self.latest[2]), "SERIAL_PREVIEW_ONLY")
+        if self.sim is not None:
+            snap = self.sim.navigation_snapshot()
+            if snap["hold"] is None or time.monotonic()-snap["frame_time"] > core.TELEMETRY_WARN_S:
+                raise ValueError("模拟位姿未就绪/过期；请开启模拟并等待首帧")
+            if snap["manual"] is not None or snap["goto"] is not None:
+                raise ValueError("当前仍有手动/GOTO运动；先按STOP再规划")
+            return self._ops_to_field(*snap["hold"]), snap["yaw"], "SIMULATION"
+        zone = int(self.zone_combo.currentData())
+        return core.ZONE_CENTER[zone], 0.0, "OFFLINE_PREVIEW_ONLY"
+
+    def _layout_yaw_for(self, yaw_ops):
+        """OPS 航向 → 车体在布局帧里的航向（规划与接近点共用同一换算）。"""
+        nose, _left = self._body_nose_left(yaw_ops)
+        dx, dy = self._ops_dir_to_map(*nose)
+        return math.degrees(math.atan2(dy, dx))
+
+    def _request_plan(self, fx, fy):
+        """UI entry: CPU/geometry work runs outside Qt; timer only applies results."""
+        context = None
+        try:
+            context = self._prepare_plan(fx, fy)
+            if context is None:
+                return
+            event = threading.Event()
+            self._plan_cancel = event
+            self._plan_context_pending = context
+            self._plan_future = self._planner_pool.submit(
+                core.plan_path, context["start"], context["goal"], cancel=event, **context["kwargs"])
+            self._set_plan_info("正在规划（只计算，未下发）…", "idle")
+            self.map_status.setText("正在规划；可取消或点击新目标")
+        except Exception as exc:
+            # Covers preparation, Event creation and submit(), not only the
+            # asynchronous calculation. v2.1.1 silently failed here on click.
+            self._report_plan_exception("启动", exc, context)
+
+    def _poll_plan(self):
+        future = self._plan_future
+        if future is None or not future.done():
+            return
+        context = self._plan_context_pending
+        self._plan_future = None
+        self._plan_context_pending = None
+        if context is None or context.get("request_id") != self._plan_request_id:
+            return
+        try:
+            result = future.result()
+        except Exception as exc:
+            self._report_plan_exception("计算", exc, context)
+            return
+        try:
+            self._finish_plan(result, context)
+        except Exception as exc:
+            # Coordinate quantization / geometry recheck / presentation can
+            # fail as well. Clear an incomplete result instead of keeping it.
+            self._report_plan_exception("结果处理", exc, context)
+
+    def plan_to(self, fx: float, fy: float):
+        """Synchronous test/programmatic API. UI uses _request_plan(), not this."""
+        context = None
+        try:
+            context = self._prepare_plan(fx, fy)
+            if context is None:
+                return None
+            result = core.plan_path(context["start"], context["goal"], **context["kwargs"])
+            return self._finish_plan(result, context)
+        except Exception as exc:
+            return self._report_plan_exception("计算", exc, context)
+
+    def _finish_plan(self, result, context):
+        if (context is None or context["request_id"] != self._plan_request_id or
+                context["signature"] != self._navigation_signature()):
+            return None    # Old map/calibration/link/result can NEVER regain control.
+        res = dict(result)
+        if res.get("ok") and not res.get("axis_matched"):
+            res.update(ok=False, execution_safe=False, code="INVALID_PATH",
+                       reason="动作分段与台账不匹配，请重新规划")
+        if res.get("ok"):
+            # The legacy command quantizes to 1mm. Validate the exact same points
+            # which would be encoded, rather than check one path and send another.
+            rounded = []
+            for p in res["points"]:
+                ox, oy = self._field_to_ops(*p)
+                if not all(math.isfinite(v) and abs(v) <= 3000.0 for v in (ox, oy)):
+                    res.update(ok=False, execution_safe=False, reason="目标超过旧GOTO的±300cm范围")
+                    break
+                rounded.append(self._ops_to_field(round(ox), round(oy)))
+            if res.get("ok"):
+                # Do not move the actual start by command rounding.
+                rounded[0] = context["start"]
+                reason = self._validate_quantized(res, context)
+                if reason:
+                    res.update(ok=False, execution_safe=False, reason="坐标量化后不安全：" + reason)
+                else:
+                    res["points"] = rounded
+                    res["length"] = core.path_length(rounded)
+                    # 净空是原规划的保守下界；量化后各段和转向已分别复检。
+                    k = context["kwargs"]
+                    res["min_clearance"] = core.path_clearance(
+                        rounded, list(k["rects"]) + list(k.get("dynamic_rects") or ()),
+                        list(k["circles"]) + list(k.get("dynamic_circles") or ()))
+        if res.get("ok") and res.get("turn_count"):
+            self.log("原台账含 %d 次原地转向（每 90°≈%.0fmm 等效代价）；"
+                     "%s" % (res["turn_count"], context["kwargs"]["turn_penalty_mm"],
+                     "连续仿真采用已复检的平滑切线轨迹" if res.get("trajectory_safe") else
+                     "连续Trajectory不可用，仅查看台账与fallback"),
+                     "info" if res.get("trajectory_safe") else "warn")
+        if not res.get("ok"):
+            self.planned_result = None
+            self.planned_points = []
+            self.map_view.set_path(None)
+            self.plan_text.setPlainText("")
+            msg = "规划失败：" + res.get("reason", "未知原因")
+            self._set_plan_info(msg, "bad")
+            self.map_status.setText(msg)
+            self.log(msg, "warn")
+            return res
+        res.update(plan_id=context["plan_id"], map_id=context["map_id"],
+                   map_version=context["map_version"], mode=context["mode"],
+                   fixed_yaw_ops=context["yaw"], hardware_ready=False)
+        self.planned_result = res
+        self._planned_context = context
+        self.planned_points = list(res["points"])
+        if res.get("arcs") and res.get("smoothing_model_safe"):
+            preview = res["smoothed_points"]
+            markers = [preview[0], preview[-1]]
+            for arc in res["arcs"]:
+                markers.extend((arc.entry, arc.exit))
+            self.map_view.set_path(preview, waypoint_points=markers)
+        else:
+            self.map_view.set_path(self.planned_points)
+        self.map_view.set_trajectory(res.get("trajectory") if res.get("trajectory_safe") else None)
+        self.map_view.set_skeleton(self.planned_points)
+        self.map_target = context["goal"]
+        self.plan_text.setPlainText("\n".join(self._waypoint_lines()))
+        self._set_plan_info(self._plan_summary(res), self._plan_state(res))
+        self.map_status.setText("已规划（未下发）：" + self._plan_hint(res))
+        self.log("A* #%d：%d航点，%.2fm；按动作航向整车校验通过，未下发"
+                 % (res["plan_id"], max(0, len(res["points"])-1), res["length"]/1000), "info")
+        return res
+
+    def _waypoint_lines(self):
+        yaw = (self.planned_result or {}).get("fixed_yaw_ops", 0.0)
+        res = self.planned_result or {}
+        lines = ["仅坐标与动作台账；本版本不向实车执行路径。起始OPS航向 %.2f°" % yaw]
+        for k, (px, py) in enumerate(self.planned_points[1:], 1):
+            ox, oy = self._field_to_ops(px, py)
+            ux, uy = core.layout_to_field(px, py)
+            if res.get("turn_count"):
+                lines.append("#%d 场地(%6.1f,%6.1f)cm（动作与转向见下方）" % (k, ux/10, uy/10))
+            else:
+                lines.append("#%d 场地(%6.1f,%6.1f)cm → GOTO=%.1f,%.1f,%.2f"
+                             % (k, ux/10, uy/10, ox/10, oy/10, yaw))
+        for row in res.get("steps", []):
+            if row["kind"] == "START":
+                continue
+            lines.append("  %s 布局(%.1f,%.1f)→(%.1f,%.1f)mm 航向%.2f° 距离%.1fmm"
+                         % (row["action"], row["x"], row["y"], row["to_x"], row["to_y"],
+                            row["heading_deg"], row["distance_mm"]))
+        segments, corners = res.get("segments") or [], res.get("corners") or []
+        if segments or corners:
+            lines.append("")
+            lines.append("动作分段 %d 直线段 / %d 个90°角点（原地转向不计角点）"
+                         % (len(segments), len(corners)))
+            for seg in segments:
+                lines.append("  段%d %s %s %.0fmm 航向%s 动作%s"
+                             % (seg.index + 1, "水平" if seg.axis == "x" else "垂直",
+                                "正向" if seg.direction > 0 else "反向", seg.length_mm,
+                                "—" if seg.heading_deg is None else "%.0f°" % seg.heading_deg,
+                                seg.action or "—"))
+            for c in corners:
+                same = (c.heading_in_deg is not None and
+                        c.heading_in_deg == c.heading_out_deg)
+                lines.append("  角%d 场地(%6.1f,%6.1f)cm %s"
+                             % (c.index + 1, (2250.0 - c.point[1]) / 10,
+                                (2250.0 - c.point[0]) / 10,
+                                "航向不变：只换轮模式（不是转向）" if same else
+                                "%s 转%.0f°→%.0f°" % (c.turn, c.heading_in_deg or 0.0,
+                                                      c.heading_out_deg or 0.0)))
+                if c.action:
+                    lines.append("      （该点 %s，共 %d×90°）" % (c.action, c.steps))
+                elif c.steps:
+                    lines.append("      （该点转了 %d×90°，台账里无对应转向行）" % c.steps)
+        if res.get("smoothing_status") not in (None, "NOT_RUN", "DISABLED"):
+            lines.append("圆弧平滑：%s，平滑轨迹长%.1fmm（布局mm坐标）" % (
+                res["smoothing_status"], res.get("smoothed_length", 0.0)))
+            for arc in res.get("arcs", []):
+                lines.append("  角%d R=%.0fmm %s 入口(%.1f,%.1f) 圆心(%.1f,%.1f) 出口(%.1f,%.1f) 航向%.2f°→%.2f°"
+                             % (arc.corner_index+1, arc.radius_mm, arc.direction, *arc.entry,
+                                *arc.center, *arc.exit, arc.heading_in_deg, arc.heading_out_deg))
+            for fallback in res.get("arc_fallbacks", []):
+                lines.append("  角%d fallback [%s]：%s" % (
+                    fallback["corner_index"]+1, fallback["code"], fallback["reason"]))
+        if res.get("trajectory_status"):
+            lines.append("Trajectory [%s]：%d点，长%.1fmm，场地坐标/切线航向/角度unwrap" % (
+                res["trajectory_status"], len(res.get("trajectory", [])), res.get("trajectory_length_mm", 0.0)))
+            if res.get("trajectory_reason"):
+                lines.append("  Trajectory fallback：" + res["trajectory_reason"])
+        return lines
+
+    @staticmethod
+    def _plan_summary(res):
+        centre, body = res.get("min_clearance"), res.get("body_clearance")
+        ctext = "无列出障碍" if centre is None or not math.isfinite(centre) else "%.1fmm" % centre
+        btext = "未核算" if body is None else "%.1fmm" % body
+        limit = res.get("strafe_run_limit_mm")
+        strafe = "" if limit is None else " · 单次最长连续横移 %.0fmm（区外 %.0fmm，上限 %.0fmm）" % (
+            res.get("max_strafe_run_mm") or 0.0, res.get("max_outside_strafe_run_mm") or 0.0, limit)
+        if res.get("arcs") or res.get("arc_fallbacks"):
+            strafe += " · 圆弧%d处 / fallback%d处" % (len(res.get("arcs", [])), len(res.get("arc_fallbacks", [])))
+        if res.get("arcs") and res.get("smoothing_model_safe"):
+            strafe += " · 平滑轨迹%.2fm（整车扫掠通过）" % (res["smoothed_length"]/1000)
+        if res.get("trajectory_safe"):
+            strafe += " · 连续Trajectory %d点（整车复检通过）" % len(res["trajectory"])
+        elif res.get("trajectory_reason"):
+            strafe += "\nTrajectory不可用：" + res["trajectory_reason"]
+        return ("原台账%d 个航点 · 长 %.2fm · 展开 %d格 · 网格 %.1fcm%s\n"
+                "原台账整车外缘净空下界 %s（含转向与区域边界）\n车心到障碍 %s（不是车体余量）\n%s"
+                % (max(0, len(res["points"])-1), res["length"]/1000, res["expanded"],
+                   res["grid"]/10, strafe, btext, ctext,
+                   "地图尚未实测核实：仅演示区域，不保证比赛灰色车道" if not res.get("geometry_verified")
+                   else "按加载地图校验；仍未开放实车自动执行"))
+
+    @staticmethod
+    def _plan_hint(res):
+        if not res.get("execution_safe"):
+            return "仅参考，未通过整车执行检查"
+        if res.get("trajectory_safe"):
+            return "连续Trajectory已复检，可100mm lookahead仿真跟踪；只有最终STOP停稳"
+        if res.get("arcs"):
+            return "已显示圆弧预览；整条连续Trajectory未通过复检，不能跟踪"
+        if res.get("turn_count"):
+            return "含原地转向：可查看动作台账，本版仿真行驶不执行"
+        return "连续Trajectory不可用，不能启动跟踪；请查看fallback原因"
+
+    @staticmethod
+    def _plan_state(res):
+        if not res.get("ok") or not res.get("execution_safe"):
+            return "bad"
+        return "ok" if res.get("geometry_verified") else "warn"
+
+    def _set_plan_info(self, text, state="idle"):
+        self.plan_info.setText(text)
+        self.plan_info.setProperty("state", state)
+        self.plan_info.style().unpolish(self.plan_info)
+        self.plan_info.style().polish(self.plan_info)
+
+    def _clear_path(self, msg=None):
+        self._cancel_competition(msg or '清路径/重新规划，比赛模拟已取消')
+        self._stop_follow()    # actual simulator goal cancellation, not just timer
+        self._plan_request_id = getattr(self, "_plan_request_id", 0) + 1
+        event = getattr(self, "_plan_cancel", None)
+        if event is not None:
+            event.set()
+        self._plan_cancel = None
+        future = getattr(self, "_plan_future", None)
+        if future is not None:
+            future.cancel()
+        self._plan_future = None
+        self._plan_context_pending = None
+        self._planned_context = None
+        self.planned_result = None
+        self.planned_points = []
+        self.map_target = None
+        if hasattr(self, "map_view"):
+            self.map_view.set_path(None)
+        if hasattr(self, "plan_text"):
+            self.plan_text.setPlainText("")
+        if hasattr(self, "plan_info"):
+            self._set_plan_info(msg or "未规划 / 旧计划失效", "idle")
+        if msg:
+            self.log(msg, "info")
+
+    def _cancel_competition(self, reason):
+        event = getattr(self, '_competition_cancel', None)
+        if event is not None:
+            event.set()
+        future = getattr(self, '_competition_future', None)
+        if future is not None:
+            future.cancel()
+        self._competition_cancel = self._competition_future = None
+        runner = getattr(self, 'competition', None)
+        if future is not None and hasattr(self, 'competition_status'):
+            self.competition_status.setText(reason)
+        if runner is not None and runner.active:
+            runner.cancel(reason)
+            if hasattr(self, 'competition_status'):
+                self.competition_status.setText(reason)
+            self.map_view.set_reference(None)
+        if hasattr(self, 'competition_start'):
+            self.competition_start.setEnabled(True)
+
+    def _start_competition(self):
+        from competition_simulation import parse_task_code, load_profile, compile_match
+        if self.sim is None or self.worker is not None:
+            self.competition_status.setText('请先开启PC模拟模式；完整比赛模拟不连接实车。')
+            return
+        if getattr(self, '_competition_future', None) is not None or (self.competition is not None and self.competition.active):
+            self.competition_status.setText('本轮已启动，请先停止比赛再准备新一轮。')
+            return
+        self._clear_path('准备完整初赛模拟')
+        self._manual_stop()
+        try:
+            parse_task_code(self.competition_code.text())
+            snap = self.sim.navigation_snapshot()
+            if not snap['wheel_enabled'] or self.wheel_state is False:
+                raise ValueError('模拟轮已失能，请先使能')
+            data = copy.deepcopy(self.nav_map) if 'competition' in self.nav_map else load_profile()
+            data.pop('dynamic_rects', None); data.pop('dynamic_circles', None)
+            self.nav_map = data
+            self.map_view.set_navigation_map(data)
+            self.map_view.set_sim_obstacles(self.sim_obstacles)
+            self._update_obstacle_info()
+            self.map_ox = self.map_oy = self.map_theta = 0.0
+            for widget in (self.map_ox_spin, self.map_oy_spin, self.map_theta_spin):
+                widget.setValue(0)
+            self.competition = None
+            zone = int(self.zone_combo.currentData())
+            event = threading.Event()
+            self._competition_cancel = event
+            self._competition_context = dict(sim=self.sim, mapping=(0, 0, 0), snapshot=copy.deepcopy(data),
+                                             signature=self._navigation_signature(), zone=zone,
+                                             obstacles=tuple(tuple(p) for p in self.sim_obstacles))
+            self._competition_future = self._planner_pool.submit(compile_match, data,
+                self.competition_code.text(), zone, self.plan_pad_spin.value()*core.OPS_CM_TO_MM, event.is_set,
+                self._competition_context['obstacles'])
+            self.competition_start.setEnabled(False)
+            self.competition_status.setText('启动前预检：包含%d个模拟障碍，生成整轮避障路线并预演真实控制器；尚未发车…' % len(self.sim_obstacles))
+        except Exception as exc:
+            self._cancel_competition(str(exc))
+            self.competition_status.setText('比赛模拟拒绝：'+str(exc))
+
+    def _load_competition_obstacles(self):
+        """显式加载可复现的静态避障演示；不启动底盘，也不伪造现场障碍坐标。"""
+        from competition_simulation import load_profile, DEMO_OBSTACLES
+        self._clear_path('载入障碍比赛场景，旧比赛已取消')
+        self.nav_map = load_profile()
+        self.map_view.set_navigation_map(self.nav_map)
+        self.sim_obstacles = list(DEMO_OBSTACLES)
+        self._obstacles_changed('已载入4个静态圆柱演示障碍')
+        self.competition_status.setText('已载入初赛地图及4个静态障碍；可修改障碍后点击一键比赛模拟。')
+
+    def _poll_competition(self):
+        from competition_simulation import CompetitionRunner
+        future = getattr(self, '_competition_future', None)
+        if future is not None and future.done():
+            ctx = self._competition_context
+            self._competition_future = None
+            try:
+                match = future.result()
+                event = self._competition_cancel
+                if (event is None or event.is_set() or self.sim is not ctx['sim'] or self.worker is not None or
+                        ctx['signature'] != self._navigation_signature()):
+                    raise ValueError('比赛预检期间地图/参数/链路变化')
+                sim = ctx['sim']
+                with sim._state_lock:
+                    sim.cancel_navigation()
+                    sim.ops_reference_yaw = 0.0
+                    sim.hold = core.layout_to_field(*match['home'])
+                    sim.zval = 180+match['start_yaw']
+                    sim.make_frame(sim._t)
+                self.traj_ring.clear()
+                self.traj_ring.resize(int(190*core.SEND_HZ)+100)
+                self.map_view.set_trail([], [])
+                skeleton, smooth, arrows, station = [match['home']], [match['home']], [], 0.0
+                for stage in match['stages']:
+                    if stage['kind'] == 'MANEUVER':
+                        if math.dist(smooth[-1], stage['target']) > nav.EPS:
+                            station += math.dist(smooth[-1], stage['target'])
+                            smooth.append(stage['target']); skeleton.append(stage['target'])
+                    elif stage['kind'] == 'TRAVEL':
+                        r = stage['route']
+                        skeleton.extend(r['points'][1:]); smooth.extend(r['smoothed_points'][1:])
+                        arrows.extend(dict(p, s_mm=p['s_mm']+station) for p in r['trajectory'])
+                        station += r['trajectory_length_mm']
+                self.map_view.set_path(smooth)
+                self.map_view.set_skeleton(skeleton)
+                self.map_view.set_trajectory(arrows)
+                self.plan_text.setPlainText('\n'.join('%02d %s' % (i+1, s['label']) for i, s in enumerate(match['stages'])))
+                self._set_plan_info('完整初赛避障预检通过：%d个模拟障碍，自动执行整轮任务' % len(match['sim_obstacles']), 'warn')
+                self.map_status.setText('完整初赛自动模拟：扫码→两批搬运→同色码垛→返回')
+                def valid():
+                    return (self.sim is sim and self.worker is None and self.nav_map == ctx['snapshot'] and
+                            tuple(tuple(p) for p in self.sim_obstacles) == ctx['obstacles'] and
+                            (self.map_ox, self.map_oy, self.map_theta) == ctx['mapping'] and
+                            not event.is_set())
+                self.competition = CompetitionRunner(sim, match, ctx['mapping'], valid)
+                self.competition.start()
+                self.log('SIM ONLY 初赛一键启动：扫码→两批原料/粗加工/暂存→同色码垛→返回启停区%d' % ctx['zone'], 'info')
+            except Exception as exc:
+                self._cancel_competition(str(exc))
+                self.competition_status.setText('比赛模拟启动失败：'+str(exc))
+                return
+        runner = getattr(self, 'competition', None)
+        if runner is None or not runner.active:
+            return
+        snap = runner.sim.navigation_snapshot()
+        if time.monotonic()-snap['frame_time'] > core.TELEMETRY_WARN_S:
+            runner.cancel('模拟定位过期，比赛已停止')
+        else:
+            runner.tick()
+        self.map_view.set_reference(runner.sim.navigation_snapshot()['reference'] if runner.active else None)
+        label = runner.stage['label'] if runner.stage else '返回启停区，全部任务完成'
+        cargo = ','.join(str(c) for c in runner.cargo) or '空'
+        self.competition_status.setText('%s · 障碍%d · %.1f/180s · %s · 任务码 %s · 车载[%s] · 抓取%d/12 放置%d/12%s' % (
+            runner.status, len(runner.match['sim_obstacles']), runner.elapsed_s, label, runner.display_code or '未读取', cargo,
+            runner.grabs, runner.placements, (' · '+runner.reason) if runner.reason else ''))
+        if not runner.active:
+            self.competition_start.setEnabled(True)
+            self.map_view.set_reference(None)
+            self.log('比赛模拟%s：%.1fs，抓取%d，放置%d；%s' % (
+                runner.status, runner.elapsed_s, runner.grabs, runner.placements, runner.reason),
+                'info' if runner.status == 'COMPLETE' else 'warn')
+
+    def _export_competition(self):
+        runner = getattr(self, 'competition', None)
+        if runner is None:
+            self.competition_status.setText('尚无比赛模拟记录')
+            return
+        path, _ = QFileDialog.getSaveFileName(self, '导出完整比赛模拟记录', 'ilhc-competition.json', 'JSON (*.json)')
+        if path:
+            try:
+                Path(path).write_text(json.dumps(runner.export_snapshot(), ensure_ascii=False, indent=2,
+                    allow_nan=False, default=lambda obj: obj.as_dict()), encoding='utf-8')
+            except (ValueError, TypeError, AttributeError, OSError) as exc:
+                self.competition_status.setText('比赛记录导出失败：'+str(exc))
+
+    def _toggle_follow(self):
+        if self.follow is not None:
+            self._stop_follow("已取消连续跟踪并停止模拟车辆")
+            return
+        if self.sim is None or self.worker is not None:
+            self.map_status.setText("连续跟踪只在PC模拟模式可用；实车自动执行未开放")
+            return
+        res, ctx = self.planned_result, self._planned_context
+        if (not res or not ctx or not res.get("execution_safe") or
+                ctx["signature"] != self._navigation_signature()):
+            self.map_status.setText("没有连续安全Trajectory（含停转/转向fallback时不能跟踪），请重新规划")
+            return
+        sim = self.sim
+        snap = sim.navigation_snapshot()
+        if (not snap["wheel_enabled"] or self.wheel_state is False or snap["hold"] is None or
+                time.monotonic()-snap["frame_time"] > core.TELEMETRY_WARN_S or
+                snap["manual"] is not None or snap["goto"] is not None):
+            self.map_status.setText("模拟定位未就绪/过期、轮失能或已有运动，拒绝启动")
+            return
+        current = self._ops_to_field(*snap["hold"])
+        if (math.dist(current, ctx["start"]) > 5 or
+                abs((snap["yaw"]-ctx["yaw"]+180) % 360-180) > 1e-6):
+            self._clear_path("实际起点/航向已改变，请重新规划")
+            return
+        if not res.get("trajectory_safe") or not res.get("trajectory_continuous"):
+            self.map_status.setText("没有连续安全Trajectory（含停转/转向fallback时不能跟踪），请重新规划")
+            return
+        scene = self._scene_for_context(ctx)
+        mapping = (self.map_ox, self.map_oy, self.map_theta)
+        map_snapshot = copy.deepcopy(self.nav_map)
+        # 模拟器工作线程只读取普通Python状态，不读取Qt控件。
+        def valid():
+            return (self.sim is sim and self.worker is None and self.nav_map == map_snapshot and
+                    (self.map_ox, self.map_oy, self.map_theta) == mapping)
+        self._manual_stop()
+        if self.planned_result is not res or ctx["signature"] != self._navigation_signature():
+            self.map_status.setText("控制模式已变化，请重新规划")
+            return
+        try:
+            epoch = sim.begin_navigation()
+            goal_id = sim.submit_navigation_trajectory(epoch, res["trajectory"], res["smoothed_primitives"],
+                                                        mapping, scene, validity=valid)
+        except (ValueError, TypeError, RuntimeError) as exc:
+            sim.cancel_navigation()
+            self._clear_path("连续跟踪启动拒绝："+str(exc))
+            self.map_status.setText("连续跟踪启动拒绝："+str(exc))
+            return
+        now = time.monotonic()
+        self.follow = dict(sim=sim, epoch=epoch, goal_id=goal_id, scene=scene, signature=ctx["signature"],
+                           mapping=mapping, final=dict(res["trajectory"][-1]), t0=now,
+                           timeout=max(25.0, res["trajectory_length_mm"]/max(1.0, sim._nav_speed_mm_s)*3+5),
+                           frame_seq=-1, settled=0, progress_s_mm=0.0)
+        self.follow_btn.setText("停止跟踪")
+        self.follow_timer.start()
+        self.map_view.set_reference(sim.navigation_snapshot()["reference"])
+        self.log("SIM ONLY 整条Trajectory已接受（id=%d），100mm lookahead，中间点不停车" % goal_id, "info")
+
+    def _stop_follow(self, msg=None):
+        f = getattr(self, 'follow', None)
+        self.follow = None
+        sim = f["sim"] if f is not None else getattr(self, 'sim', None)
+        # 接受整条Trajectory的复检阶段尚未建立UI follow时，STOP也必须撤销epoch。
+        if sim is not None and (f is not None or sim.navigation_snapshot()["active"]):
+            sim.cancel_navigation()
+        if hasattr(self, 'map_view'):
+            self.map_view.set_reference(None)
+        if f is None:
+            return
+        core.discard_motion_commands(self.line_q)
+        core.discard_motion_commands(self.urgent_q)
+        self.follow_timer.stop()
+        self.follow_btn.setText("仿真行驶")
+        self.planned_result = None
+        self._planned_context = None
+        self._set_plan_info("连续跟踪结束/已取消；再次运行需重新规划", "idle")
+        if msg:
+            self.map_status.setText(msg)
+            self.log(msg, "info")
+
+    def _at_final_stop(self, snap=None):
+        f = self.follow
+        if f is None:
+            return False
+        snap = snap or f["sim"].navigation_snapshot()
+        if (snap["epoch"] != f["epoch"] or snap["goal_id"] != f["goal_id"] or
+                snap["completed_id"] != f["goal_id"] or snap["tracking_status"] != "COMPLETE" or
+                snap["hold"] is None or time.monotonic()-snap["frame_time"] > core.TELEMETRY_WARN_S or
+                snap["settled_frames"] < 10 or snap["speed_mm_s"] > 1 or abs(snap["yaw_rate_deg_s"]) > 1):
+            return False
+        lx, ly = self._ops_to_field(*snap["hold"])
+        actual = core.layout_to_field(lx, ly)
+        final = f["final"]
+        return (math.dist(actual, (final["x_mm"], final["y_mm"])) < 1 and
+                abs((self._field_heading(snap["yaw"])-final["field_yaw_deg"]+180) % 360-180) < 1)
+
+    def _follow_step(self):
+        f = self.follow
+        if f is None:
+            return
+        if self.worker is not None or self.sim is not f["sim"] or f["signature"] != self._navigation_signature():
+            self._stop_follow("地图/标定/参数/链路改变，连续跟踪已取消")
+            return
+        snap = f["sim"].navigation_snapshot()
+        if (snap["epoch"] != f["epoch"] or snap["goal_id"] != f["goal_id"] or
+                snap["fault"] or not snap["wheel_enabled"]):
+            self._stop_follow("模拟控制权失效，连续跟踪已停止："+snap["fault"])
+            return
+        if time.monotonic()-snap["frame_time"] > core.TELEMETRY_WARN_S:
+            self._stop_follow("模拟定位过期，连续跟踪已停止")
+            return
+        if time.monotonic()-f["t0"] > f["timeout"]:
+            self._stop_follow("连续跟踪总超时，已停止")
+            return
+        if self._at_final_stop(snap):
+            self._stop_follow("最终STOP点位置+航向到位并连续停稳200ms（PC仿真）")
+            return
+        if not snap["active"] or not snap["tracking"]:
+            self._stop_follow("连续跟踪状态失效，已停止")
+            return
+        if snap["frame_seq"] == f["frame_seq"]:
+            return
+        f.update(frame_seq=snap["frame_seq"], settled=snap["settled_frames"],
+                 progress_s_mm=snap["progress_s_mm"])
+        self.map_view.set_reference(snap["reference"])
+        ref = snap["reference"]
+        if ref:
+            self.map_status.setText("SIM 连续跟踪 s=%.1fmm · 参考s=%.1fmm X/Y=(%.1f,%.1f)mm Yaw=%.1f° · %s" % (
+                snap["progress_s_mm"], ref["s_mm"], ref["x_mm"], ref["y_mm"], ref["field_yaw_deg"], snap["tracking_status"]))
+
+    def _load_navigation_map(self):
+        path, _ = QFileDialog.getOpenFileName(self, "加载合法行驶区域与障碍", "", "JSON (*.json)")
+        if not path:
+            return
+        self._clear_path("开始加载地图，旧计划已作废")
+        try:
+            self.nav_map = nav.load_map(path)
+            self.map_view.set_navigation_map(self.nav_map)
+            self.map_status.setText("已加载地图 %s v%s；仅PC仿真，不代表实车放行" %
+                                    (self.nav_map["map_id"], self.nav_map["map_version"]))
+        except (OSError, ValueError, TypeError, KeyError) as exc:
+            self.map_status.setText("地图加载失败：" + str(exc))
+
+    def _export_navigation_plan(self):
+        if not self.planned_result or not self._planned_context:
+            self.log("无有效计划，不能导出", "warn")
+            return
+        if self._planned_context["signature"] != self._navigation_signature():
+            self._clear_path("计划版本过期，不能导出")
+            return
+        path, _ = QFileDialog.getSaveFileName(self, "导出规划快照（非指令）", "ilhc-plan.json", "JSON (*.json)")
+        if not path:
+            return
+        data = copy.deepcopy(self.planned_result)
+        for key in ("segments", "corners", "arcs"):
+            data[key] = [item.as_dict() if hasattr(item, "as_dict") else item
+                         for item in data.get(key, [])]
+        data["map_snapshot"] = self.nav_map
+        data["mapping"] = dict(ox_mm=self.map_ox, oy_mm=self.map_oy, theta_deg=self.map_theta)
+        for key in ("min_clearance", "body_clearance", "boundary_clearance"):
+            if data.get(key) is not None and not math.isfinite(data[key]):
+                data[key] = None
+        try:
+            Path(path).write_text(json.dumps(data, ensure_ascii=False, indent=2, allow_nan=False), encoding="utf-8")
+        except (OSError, ValueError, TypeError) as exc:
+            self.log("导出失败：" + str(exc), "warn")
+
+    def _export_trajectory(self):
+        res, ctx = self.planned_result, self._planned_context
+        if not res or not ctx:
+            self.log("无有效计划，不能导出Trajectory", "warn")
+            return
+        if ctx["signature"] != self._navigation_signature():
+            self._clear_path("计划版本过期，不能导出Trajectory")
+            return
+        if not res.get("trajectory_safe") or not res.get("trajectory_continuous"):
+            self.log("Trajectory不可导出："+res.get("trajectory_reason", "未通过完整整车检查"), "warn")
+            return
+        check = core.validate_trajectory(res["trajectory"], res["smoothed_primitives"],
+                                         self._scene_for_context(ctx))
+        if not check["ok"]:
+            res.update(trajectory=[], trajectory_safe=False, trajectory_continuous=False,
+                       trajectory_status=check["code"], trajectory_reason=check["reason"])
+            self.map_view.set_trajectory(None)
+            self.plan_text.setPlainText("\n".join(self._waypoint_lines()))
+            self._set_plan_info(self._plan_summary(res), "warn")
+            self.log("Trajectory导出前复检失败："+check["reason"], "warn")
+            return
+        path, _ = QFileDialog.getSaveFileName(self, "导出Trajectory（仅几何，不下发）", "ilhc-trajectory.json", "JSON (*.json)")
+        if not path:
+            return
+        try:
+            k = ctx["kwargs"]
+            core.export_trajectory_json(path, res, metadata=dict(
+                plan_id=res["plan_id"], map_id=res["map_id"], map_version=res["map_version"],
+                geometry_verified=res.get("geometry_verified", False),
+                collision_frame_id="LAYOUT_MM", collision_snapshot={key: k.get(key) for key in (
+                    "rects", "circles", "dynamic_rects", "dynamic_circles", "bounds", "pad", "footprint", "drivable_polygons")}))
+            self.log("已导出Trajectory：%d点，%.1fmm（未下发）" % (len(res["trajectory"]), res["trajectory_length_mm"]), "info")
+        except (OSError, ValueError, TypeError) as exc:
+            self.log("Trajectory导出失败："+str(exc), "warn")
 
     # ---------------- 控制台 ----------------
     def _send_console(self):
@@ -2505,6 +4105,8 @@ class MainWindow(QMainWindow):
         self.console.append('<span style="color:%s">[%s] %s</span>' % (color, stamp, safe))
 
     def closeEvent(self, event: QCloseEvent):
+        self._clear_path()
+        self._planner_pool.shutdown(wait=False, cancel_futures=True)
         self._manual_stop()
         if self.worker is not None:
             self._stop_worker(safe=True)
@@ -2520,7 +4122,10 @@ class MainWindow(QMainWindow):
                 self.recorder.close()
                 self.recorder = None
             if self.sim is not None:
+                self.sim.cancel_navigation()
                 self.sim.stop_flag = True
+                if self.sim.is_alive():
+                    self.sim.join(timeout=0.5)
                 self.sim = None
         finally:
             event.accept()

@@ -32,6 +32,9 @@ static uint8_t s_wheel_req, s_wheel_enabled=1, s_wheel_enable_pending;
 static uint8_t s_wheel_fault, s_wheel_disable_pending, s_stop_in_progress;
 static uint32_t s_wheel_enable_tick, s_wheel_fault_tick, s_wheel_error_seen;
 static uint8_t s_manual_active, s_goto_active, s_zdt_active, s_zdt_req;
+static uint8_t s_vision_req, s_vision_moving, vision_active;
+static uint8_t VisionTrack_IsActive(void){return vision_active;}
+static void VisionTrack_Stop(void){vision_active=0U;}
 static uint8_t s_dm_active, s_dm_start_pending, s_dm_disable_pending;
 static uint8_t s_dm_disable_fault, s_dm_enable_req, s_dm_mode_req;
 static uint8_t s_dm_disable_req, s_dm_zero_req, s_dm_mode=1;

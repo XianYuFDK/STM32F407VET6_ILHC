@@ -87,8 +87,23 @@
 #define configUSE_CO_ROUTINES                    0
 #define configMAX_CO_ROUTINE_PRIORITIES          ( 2 )
 
-/* Software timer definitions. */
-#define configUSE_TIMERS                         1
+/* Software timer definitions.
+ * 本工程完全不使用软件定时器与事件标志：全工程没有 osTimerNew/osTimerStart/
+ * xTimerCreate/xTimerPendFunctionCall/osEventFlags* 调用（ISR 也不调用任何 RTOS API）。
+ * configUSE_TIMERS 置 0 后内核不再创建 Tmr Svc 任务，timers.c 整体不参与编译，
+ * 实测（--rebuild）：Code 39184→36144、RW-data 472→452、ZI-data 24920→24572。
+ * 但这块 RAM 并没有全部收回：cmsis_os2.c 的弱函数 vApplicationGetTimerTaskMemory
+ * 只受 configSUPPORT_STATIC_ALLOCATION 守护、不看 configUSE_TIMERS，因此
+ * Timer_TCB(92B) + Timer_Stack(1024B) 仍留在 cmsis_os2.o(.bss) 里；链接器只删掉了
+ * 该函数体(24B)，而这段 .bss 与仍在使用的 Idle_TCB/Idle_Stack 同属一个节，
+ * 无法被垃圾回收。要真正拿回这 1116 字节需另做一步，见 AGENTS.md 该条目。
+ * 下面四个宏是同一条依赖链，必须一起改，否则分别撞到这四处编译错误：
+ *   - timers.c:41                  INCLUDE_xTimerPendFunctionCall==1 且 configUSE_TIMERS==0
+ *   - CMSIS_RTOS_V2/freertos_os2.h:223  configUSE_TIMERS==0 且 configUSE_OS2_TIMER==1
+ *   - CMSIS_RTOS_V2/freertos_os2.h:207  INCLUDE_xTimerPendFunctionCall==0 且
+ *                                       configUSE_OS2_EVENTFLAGS_FROM_ISR==1
+ * 只关闭 CMSIS 包装层，不影响裸 FreeRTOS API。 */
+#define configUSE_TIMERS                         0
 #define configTIMER_TASK_PRIORITY                ( 2 )
 #define configTIMER_QUEUE_LENGTH                 10
 #define configTIMER_TASK_STACK_DEPTH             256
@@ -96,9 +111,9 @@
 /* CMSIS-RTOS V2 flags */
 #define configUSE_OS2_THREAD_SUSPEND_RESUME  1
 #define configUSE_OS2_THREAD_ENUMERATE       1
-#define configUSE_OS2_EVENTFLAGS_FROM_ISR    1
+#define configUSE_OS2_EVENTFLAGS_FROM_ISR    0
 #define configUSE_OS2_THREAD_FLAGS           1
-#define configUSE_OS2_TIMER                  1
+#define configUSE_OS2_TIMER                  0
 #define configUSE_OS2_MUTEX                  1
 
 /* Set the following definitions to 1 to include the API function, or zero
@@ -111,7 +126,7 @@ to exclude the API function. */
 #define INCLUDE_vTaskDelayUntil              1
 #define INCLUDE_vTaskDelay                   1
 #define INCLUDE_xTaskGetSchedulerState       1
-#define INCLUDE_xTimerPendFunctionCall       1
+#define INCLUDE_xTimerPendFunctionCall       0
 #define INCLUDE_xQueueGetMutexHolder         1
 #define INCLUDE_uxTaskGetStackHighWaterMark  1
 #define INCLUDE_xTaskGetCurrentTaskHandle    1

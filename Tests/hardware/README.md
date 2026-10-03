@@ -1,5 +1,10 @@
 # 驱动主机回归测试
 
+X固件28/35步进通信：`python Tests/hardware/test_stepper_x_can.py`（需要GCC）。
+编译真实步进驱动及调试解析/调度函数，验证FD双包、RPM缩放、角度边界、状态/使能报文、
+邮箱不足重试、匹配回复与超时、事件队列及中断状态恢复。旧`test_debug_stepper.py`入口转调此测试。
+该测试使用HAL模拟，不代表实物CAN接线和运动已经验证。
+
 Flash参数保存：`test_spi_flash.py` 编译真实SPI驱动验证命令、ID、页边界、忙位和超时；
 `test_param_store.py` 编译真实存储状态机，模拟逐字节掉电、擦除中断、扇区轮换、CRC回退及故障；
 `test_param_integration.py` 编译真实调试桥接函数，验证16字段映射、恢复和临界区边界。
@@ -47,6 +52,21 @@ OPS ZERO 坐标系专项：`python Tests/hardware/test_ops_zero_frame.py`（需�
 `KPX` 写 `mKpx`、`KPY` 写 `mKpy`（超限钳位到 50）；`MANUAL` 按协议原序暂存并原样传给
 `MoveVelocity`（由 `test_debug_manual.py` 覆盖）；
 以及 `WHEELOFF` 失能后解析层仍丢弃 `MANUAL`/`GOTO`。该测试不连接设备，也不验证机械运动方向。
+
+视觉协议回放专项：`python Tests/hardware/test_vision_rx.py`（需要 GCC）。
+编译真实 `Hardware/vision.c` 与 `vision_track.c`，用 HAL 替身回放 V1.1 响应帧，覆盖：
+CRC-8 变体（规范§22 的 5 个标准向量 + 《V1.1 请求帧速查》15 条请求帧实测 CRC，含"黄/黑 CRC 碰撞"）、
+6 字节请求组帧与 SEQ 管理（新任务换序号、同一逻辑任务重发复用同一序号、HAL 忙时保留待发）、
+16 字节响应解析与滑动重同步（帧前噪声、载荷内嵌 `0x66`/`0x77`、CRC 错、帧尾错、字节间隔超时）、
+`STATUS=0x06 INVALID_DATA` 与 `payload[0]` 错误详情、队列深度、接收错误重挂、
+批量任务 INDEX 位图去重与 COMPLETE 完整性；以及应用层的两种 `COORD_MODE` 增益、
+`VALID_FLAGS` 逐轴放行、150ms 时效和 SEQ 过滤。
+该测试不连接 USART3，**不代表与 Jetson 的真实联调已验证**；两端 CRC 变体一致是联调前提。
+
+视觉调度仲裁专项：`python Tests/hardware/test_vision_control.py`（需要 GCC）。
+从 `debug_usart.c` 抠出 `Debug_ServiceVision` 编译，验证启停、四轮闸门、停车去重与 ACK 上报。
+它与 `test_parse_line_axes.py`（`VTRACK=` 语法落点）、`test_debug_wheel.py`（VTRACK 应答文本下标）
+共同覆盖视觉命令链路，都不涉及帧字节，因此协议版本变化（V1.0→V1.1）不影响这三个套件。
 
 使用主机 GCC 直接编译 `hcan.c`、`stepper_2835.c`、`OLED_SoftSPI.c`，以本目录 HAL 替身代替寄存器访问，不连接设备。测试头文件只能用于本测试，禁止加入固件包含路径。
 

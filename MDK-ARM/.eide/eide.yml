@@ -15,6 +15,8 @@ virtualFolder:
         - path: ../Hardware/stepper_2835.c
         - path: ../Hardware/OLED_SoftSPI.c
         - path: ../Hardware/ops.c
+        - path: ../Hardware/vision.c
+        - path: ../Hardware/vision_track.c
         - path: ../Hardware/hcan.c
         - path: ../Hardware/dm_j4310.c
         - path: ../Hardware/debug_usart.c

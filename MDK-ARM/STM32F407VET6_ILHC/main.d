@@ -29,6 +29,7 @@ stm32f407vet6_ilhc\main.o: ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_fla
 stm32f407vet6_ilhc\main.o: ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash_ramfunc.h
 stm32f407vet6_ilhc\main.o: ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr.h
 stm32f407vet6_ilhc\main.o: ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr_ex.h
+stm32f407vet6_ilhc\main.o: ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_spi.h
 stm32f407vet6_ilhc\main.o: ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_tim.h
 stm32f407vet6_ilhc\main.o: ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_tim_ex.h
 stm32f407vet6_ilhc\main.o: ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_uart.h
@@ -53,5 +54,6 @@ stm32f407vet6_ilhc\main.o: ../Hardware/debug_usart.h
 stm32f407vet6_ilhc\main.o: ../Hardware/zdt_x42s.h
 stm32f407vet6_ilhc\main.o: ../Hardware/mecanum_control.h
 stm32f407vet6_ilhc\main.o: ../Hardware/ops.h
+stm32f407vet6_ilhc\main.o: ../Hardware/vision.h
 stm32f407vet6_ilhc\main.o: ../Hardware/OLED_SoftSPI.h
 stm32f407vet6_ilhc\main.o: D:\keil51\ARM\ARMCC\Bin\..\include\stdlib.h

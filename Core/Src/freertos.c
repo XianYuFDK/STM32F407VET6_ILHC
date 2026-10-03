@@ -22,6 +22,7 @@
 #include "task.h"
 #include "main.h"
 #include "debug_usart.h"
+#include "vision.h"
 #include "cmsis_os.h"
 
 /* Private includes ----------------------------------------------------------*/
@@ -126,6 +127,7 @@ void StartDefaultTask(void *argument)
   const uint32_t period = osKernelGetTickFreq() / 50U;
   for(;;)
   {
+    Vision_ServiceRx();
     DebugUsart_Send();
     /* 调试器可读取栈余量；CMSIS 返回字节数。 */
     default_task_stack_free = osThreadGetStackSpace(defaultTaskHandle);

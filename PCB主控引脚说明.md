@@ -14,12 +14,12 @@
 | 调试接收 | PA10 | USART1_RX，AF7 | USB转串口TX | 已实现空闲中断+DMA及异常恢复 |
 | OPS发送 | PD5 | USART2_TX，AF7 | OPS的RX | 已配置 |
 | OPS接收 | PD6 | USART2_RX，AF7 | OPS的TX | 已实现定位接收 |
-| 摄像头发送 | PB10 | USART3_TX，AF7 | 摄像头的RX | 通信预留，已初始化115200/8N1 |
-| 摄像头接收 | PB11 | USART3_RX，AF7 | 摄像头的TX | 协议及接收启动尚未实现 |
+| 视觉串口发送 | PB10 | USART3_TX，AF7 | 工控机的RX | 已接入视觉协议V1.1任务请求发送（6字节+CRC8+SEQ），115200/8N1 |
+| 视觉串口接收 | PB11 | USART3_RX，AF7 | 工控机的TX | 已接入视觉协议V1.1定长响应接收（16字节） |
 | 底盘电机发送 | PA0 | UART4_TX，AF8 | ZDT驱动器RX | Emm协议发送 |
 | 底盘电机接收 | PA1 | UART4_RX，AF8 | ZDT驱动器TX | F3/F6/FE应答接收 |
-| CAN发送 | PA12 | CAN1_TX，AF9 | CAN收发器TXD | 已启用CAN1，1Mbps |
-| CAN接收 | PA11 | CAN1_RX，AF9 | CAN收发器RXD | DM、28/35电机共用总线 |
+| CAN发送 | PB6 | CAN2_TX，AF9 | CAN收发器TXD | 已启用CAN2，1Mbps |
+| CAN接收 | PB5 | CAN2_RX，AF9 | CAN收发器RXD | DM、28/35电机共用总线 |
 | 夹爪舵机信号 | PE9 | TIM1_CH1，AF1 | 舵机信号输入 | PWM资源预留，尚未启动 |
 | 通信指示灯 | PB2 | 推挽输出，低速 | 板载LED，高电平亮 | led on点亮；led off熄灭；默认关闭 |
 | VM电源开关 | PD0 | 推挽输出，低速 | 外部电源开关EN，高电平开启 | 初始化输出低，默认关闭 |
@@ -66,7 +66,7 @@ if (HAL_GPIO_ReadPin(START_KEY1_GPIO_Port, START_KEY1_Pin) == GPIO_PIN_RESET)
 
 ## 3. 舵机和摄像头预留的边界
 
-- USART3不是摄像头图像总线，目前只预留串口通信。需按摄像头协议添加数据接收/解析；不要将PB10/PB11误接到并行图像接口。
+- USART3是工控机视觉结果串口，不是摄像头图像总线；已接收视觉协议V1.1响应（16字节+CRC8+SEQ），不要将PB10/PB11误接到并行图像接口。
 - PE9只预留TIM1_CH1。当前PSC=1679、ARR=65535，在168MHz定时器时钟下周期约655.36ms，并非通常的20ms舵机周期；尚未启动PWM。
 - 本次不自动改变频率或输出中位脉冲，避免夹爪意外动作。确定舵机型号、供电、频率和安全脉宽后再实现驱动和机械限位。
 - 舵机电源使用独立适配的电源支路并共地，核实3.3V控制信号是否满足其输入要求，不从GPIO或MCU小电流3.3V支路供电。
@@ -94,7 +94,7 @@ VM_EN与补光灯EN优先连接板内驱动电路；若需外接控制板，接�
 
 ## 5. 重要引脚冲突
 
-1. **PA11/PA12当前用于CAN1，不能同时作为Type-C USB D-/D+。** 新PCB不要把两者直接同时连接到CAN收发器和USB数据接口。若保留当前固件，可把Type-C仅用于电源；若要USB数据，先重新分配CAN并修改固件。当前也没有USB CDC。
+1. **当前固件使用CAN2：PB5接CAN收发器RXD，PB6接TXD。** 当前未实现USB CDC，调试串口使用USART1。
 2. 原开发板PD2/PD3连接TF卡电路；新PCB已分配启动按键，不再沿用该TF接线。
 3. 原开发板PA0连接WKUP支路、PB2连接BOOT1/LED。新PCB不必照搬PA0的按键，避免与UART4重复分配。
 4. PB13、PC3、PE2~PE4归OLED，PB10/PB11归摄像头，PE9归舵机，不作为通用空闲接口再次使用。

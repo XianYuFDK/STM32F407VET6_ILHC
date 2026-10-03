@@ -1,5 +1,628 @@
 # 工程导航与维护约定
 
+## 2026-10-03 完整比赛静态障碍（当前有效）
+
+- 用户要求比赛仿真加入障碍；仅PC静态圆柱，不增加动态障碍、雷达或STM32接入。
+- 完整比赛启动保留sim_obstacles，compile_match冻结LAYOUT_MM坐标，最多4个φ50×100mm。
+  固定地图与障碍快照独立保存，不重复合并；碰撞scene用于搜索/平滑/Trajectory、实际控制预演、MANEUVER和运行扫掠。
+- “障碍比赛场景”按钮显式加载初赛地图和4个演示障碍，中央障碍迫使绕行；可清除后点击地图/随机补齐。
+  预设为演示坐标，不能声称现场坐标。没有障碍仍允许比赛；任意随机摆放不能保证整轮可行。
+- 非法放置、出入库/停靠区占用和连续路线封路明确拒绝发车；保留障碍，不复位车辆或强行平滑。
+  障碍编辑取消预检/运行/作业，冻结列表有效性门禁在每步提交前保护绕过GUI的修改；迟到预检不得启动。
+- 比赛栏显示障碍数量，JSON新增sim_obstacles、LAYOUT_MM、radius25/height100；固定地图快照不混入圆柱。
+- 4障碍两启停区均约122.6s整轮完成12抓取/12放置，全实际矩形扫掠安全。
+  新增6项无GUI、5项Qt；6组自检+206项无GUI+112项Qt通过，日志competition_obstacles_regression_20261003.log。
+  使用说明和截图见HostTools/ILHC_Debugger/ILHC_Qt_v2/Docs/COMPETITION_SIMULATION_20261003.md。
+
+## 2026-10-03 完整初赛流程模拟（当前有效）
+
+- 用户要求不需要动态障碍/雷达，参考比赛文档新增完整流程路径模拟；仅改PC上位机。
+  依据`E:/STM32/ILHC/命题与运行.txt`第3/4/6/7/8页及`评分与规则.txt`第2/3页，并查看PDF图1。
+  决赛现场公布，不能伪造决赛流程。初赛一键→二维码→两批原料/粗加工/暂存→返回抽签启停区。
+- 新增`competition_simulation.py`、`competition_map.json`，比赛地图“一键比赛模拟”后台预检后自动启动。
+  可输入四组任务码；第二批粗加工取第四组，暂存按同色第一批所在环码垛，不能套用第四组。
+  物料每次抓一件并入车载仓，粗加工全部放好再按序取回；正常抓取12/放置12，库存三环同色双层。
+- 独立名义静态场景：400mm中间车道、450mm黄色禁区、圆盘按正文直径300mm、粗加工/暂存580×150mm。
+  原navigation_map保留；启停区/停车区/设备接近点/静态车道节点可配置，geometry_verified=false。
+- 图搜索Manhattan骨架→复用圆弧/Trajectory全矩形校验→生产控制器真实运动预演；检查100mm参考切内偏差。
+  所有路线安全后才发车；失败显式fallback。启停区不能旋转，采用经完整扫掠校验的固定车头麦轮出入库。
+  停车区显式MANEUVER旋转后对齐下段，区间连续跟踪20mm样本仍不停车；不能把这些动作伪装切线Trajectory。
+- CompetitionRunner只消耗新积分帧，RUNNING/ACTION/COMPLETE/CANCELLED/FAULT；整轮180秒，单作业15秒上限。
+  抓放/扫码为0.5秒逻辑模拟，无真实传感器或机构ACK。没有调试倒计时或转盘等待的物理模型。
+- STOP、清路径、重规划、地图/任务码/启停区/参数/标定/链路变化取消预检和运行，作业也立即停止计数。
+  每阶段会话/目标ID、实际终点/停稳门、作业期间静止和库存语义均检查；伪造到位/缺料/错色码垛不能成功。
+- 地图显示整轮骨架、平滑轨迹、参考与实际轨迹；显示任务码/阶段/车载/统计/计时，导出完整比赛JSON及实际FIELD轨迹。
+  两个启停区默认例码156+123+516+231均102.2s完成；新增15项无GUI/3项Qt，6组自检+200项无GUI+107项Qt通过。
+  最终完整回归含输入深拷贝与规划侧栏可读布局修订。说明/日志在`HostTools/ILHC_Debugger/ILHC_Qt_v2/Docs/COMPETITION_SIMULATION_20261003.md`
+  与`competition_regression_20261003.log`；未改固件/协议，未接STM32、雷达或动态障碍。
+
+## 2026-10-03 PC连续轨迹跟踪（当前有效，覆盖下方仅预览/固定航向逐点执行约定）
+
+- 用户明确要求修改PC模拟器为连续跟踪，完成模拟及故障注入后停止；不得接STM32。
+  新增`trajectory_tracking.py`，整条安全Trajectory一次接受一个epoch/goal_id，不逐样本GOTO或等待到位。
+- 实际FIELD位置投影到LINE/ARC精确几何，进度单调；前向窗口=实际位移+20mm，同距取早分支。
+  100mm弧长lookahead给出连续X/Y/unwrap切线Yaw，初始位置/切线须在5mm/5°内，不隐式原地旋转。
+- core50Hz更新实际XY及航向，PC限速250mm/s、120°/s，小半径限速；中间点不停车。
+  最终STOP必须实际位置<1mm、航向<1°、速度≤1mm/s、角速度≤1°/s，连续10个积分帧200ms。
+  GUI另核对会话和完成ID/实际终点；旧误差、重复轮询或伪造完成ID不得判成功。
+- 接受前全轨迹矩形复检，运行每步真实矩形+pad连续扫掠；drivable完整包含、固定/模拟/动态障碍都检查。
+  实际运动包络是端点矩形凸包+旋转弦高外扩，不能只检查规划车心或固定航向。
+- STOP、清路径、重规划、地图版本/几何变化同步取消core跟踪；可观察地图顶层变更先取消再写入。
+  每积分步读取普通Python快照/标定/链路有效性，不从模拟器工作线程读取Qt控件。
+  重几何接受检查在锁外，最后接受/运动提交再次检查epoch与有效性，取消与XY/yaw提交共锁。
+- NaN/Inf、定位>50mm或航向>15°跳变、碰撞/检查异常、轨迹偏离>75mm、3秒无进展/总超时停止。
+  接受检查与运动保护回调中的取消/版本变化不得恢复跟踪或提交迟到运动。
+- 地图黄色虚线Manhattan骨架、绿色连续轨迹、紫色参考姿态、蓝色实际轨迹；保留真实轨迹历史。
+  清路径同时清规划与参考；连续生成失败/TURN/真实直角/fallback拒绝执行，旧手动GOTO调试保留。
+- 新增19项无GUI专项、2项真实Qt专项，完整6组核心自检、185项无GUI、104项Qt通过。
+  说明/完整日志在`HostTools/ILHC_Debugger/ILHC_Qt_v2/Docs/CONTINUOUS_TRACKING_20261003.md`
+  与`continuous_tracking_regression_20261003.log`；仅改上位机及测试/文档，未连接STM32。
+
+## 2026-10-03 连续Trajectory（当前有效）
+
+- 用户要求LineSegment/ArcSegment连续Trajectory：新增`trajectory.py`，core薄包装；成功规划自动从
+  安全`smoothed_primitives`生成，原A*及动作台账不改。不得接STM32或用密集点替换旧GOTO执行。
+- 输出五字段x_mm/y_mm/field_yaw_deg/s_mm/segment_type，**统一FIELD_MM场地坐标**，与原
+  LAYOUT_MM规划坐标区别明确。位置=(2250-layout_y,2250-layout_x)，切线航向=-90-layout_yaw。
+  航向由几何有向切线计算，不取原车头/OPS Z角；真实矩形按该新切线航向重新检查。
+- 全局s=0,20,40…，额外保留连接点和终点，间距≤20mm；圆弧s用真实弧长；切点仅一行并归后段。
+  unwrap累计最短角差，多圈可超过360°，不得导出前再取模。位置与有向切线必须连续。
+- 保留TURN/真实直角/掉头明确FALLBACK_REQUIRED，不把unwrap当平滑、不强行连接或发布假连续样本。
+  EMPTY/NO_FOOTPRINT/INVALID_INPUT/UNSAFE/CANCELLED/RESOURCE_LIMIT等失败清空trajectory且safe=false。
+- 最终检查所有样本矩形+pad、drivable完整包含、固定/模拟/动态障碍；全直线连续凸包扫掠，圆弧
+  再按≤20mm且≤3°及凸包+顶点弦高包络检查完整间隙。共用CollisionScene.arc_interval_reason。
+- 输出trajectory_status/safe/continuous/reason/length_mm/spacing_mm/frame_id/yaw_convention。
+  core.validate_trajectory可按最新场景重检，包括样本几何/弧长/类型/unwrap一致性。
+- 地图箭头正确处理FIELD→LAYOUT镜像和Qt y翻转；直线100mm、圆弧40mm稀疏显示，失败/清除即清空。
+  原计划JSON包含Trajectory；独立“导出Trajectory JSON”导出前重新复检并保存碰撞快照，禁止过期导出。
+- 新增20项专项及1项Qt箭头测试，扩展Qt真实导出按钮验证；文档及日志：
+  `HostTools/ILHC_Debugger/ILHC_Qt_v2/Docs/TRAJECTORY_20261003.md`、`trajectory_regression_20261003.log`。
+  6组核心自检、166项无GUI、102项离屏Qt全部通过。固件/地图/协议未改，未连STM32；完成后停止。
+
+## 2026-10-02 90°圆弧平滑（当前有效，覆盖下方禁止圆弧的旧阶段约定）
+
+- 用户明确要求90°圆弧；原A*曼哈顿台账仍保留，安全后处理由`arc_smoothing.py`实现。
+- 每个真实单次90°、同模式且航向/几何方向一致的Corner严格按120/110/100/90/80/70/60mm尝试。
+  输出ArcSegment入口切点、圆心、出口切点、CW/CCW、真实航向和姿态采样，不取整车体。
+  只换轮模式/掉头/混合动作保留；相邻圆弧扣除已占用的直线，禁止切点重叠。
+- CollisionScene.pose_safe(x,y,yaw)以真实矩形+pad完整包含于drivable白名单并排除所有固定/模拟/动态障碍。
+  禁止退回车心、顶点或pad-only模型假装完整车体。接触障碍拒绝，区域边界完整覆盖可接受。
+- 圆弧同时满足≤20mm弧长与≤3°角采样，含入口/出口；每姿态检查，再用相邻矩形凸包+顶点弦高外扩
+  覆盖采样间隙。剩余直线、保留原地转向与整条轨迹位置/航向连续性都复检。
+- 全部半径失败明确ALL_RADII_FAILED并记录7次原因；绝不强行平滑。整轨迹失败不发布平滑几何。
+- 新增arcs/arc_attempts/arc_fallbacks/smoothed_primitives/smoothed_points/smoothed_length/
+  smoothing_status/smoothing_model_safe；原points/steps/segments/corners/搜索代价不变。
+  地图显示圆弧采样轨迹，台账/JSON显示所有切点、方向和fallback；净空仍注明原台账。
+- 固定/模拟/动态障碍都进入规划快照；地图可含dynamic_rects/circles；UI线程set_dynamic_obstacles更新
+  完整快照、取消旧计划/仿真目标；输入复制及版本签名拒绝旧结果。未新增雷达数据接入或时空预测。
+- 仿真执行器仍只支持固定航向，含圆弧明确拒绝。实车整条路径执行未开放，固件/地图/协议未改。
+- 新增25项专项、2项Qt测试；6组核心自检、146项无GUI、101项离屏Qt全部通过；实现与验证详见
+  `HostTools/ILHC_Debugger/ILHC_Qt_v2/Docs/ARC_SMOOTHING_20261002.md`及回归日志。
+
+## 2026-10-02 路径算法审查修复（当前有效，覆盖下方旧算法细节）
+
+- 修复上位机6个反例：重复旋转导致转向漏检、非轴向实际航向被拒、L形直接返回非最优路线、
+  共线动作信息丢失、操作区端点豁免覆盖整段道路、dataclass无法导出JSON。
+- 四个航向状态保留实际初始角、相差90°；车体碰撞模型不取整。动作按最近主轴分类；
+  目标航向须与起始角相差90°整数倍。真实姿态/裕量越界仍正确拒绝，不能删掉一致性或边界校验。
+- 转向：用零角局部车体顶点旋转到绝对角；相邻采样姿态凸包加含pad半径弦高外扩覆盖采样间隙。
+  按航向对缓存扫掠，按准确车心判碰撞，量化后的转向也复检；整车净空包含转向的保守下界。
+- L形候选作搜索上界；启发式为曼哈顿×最低平移系数+必要净转向代价；保留不同连接额度候选，
+  终点连接按到达状态逐段复查。最优性只限当前有界网格及枚举的连接图，不宣称连续空间全局最优。
+- 横移额度精确记录区外距离，区内不计额度但穿过操作区不清零；前进/后退/转向清零。
+  不再用6档连续向上取整。保留400000状态上限、时限和取消，超限明确失败。
+  `max_strafe_run_mm`是完整物理连续横移；新增`max_outside_strafe_run_mm`及台账
+  `outside_strafe_run_mm`是用于限额的区外连续横移，两者界面同时显示。
+- `points`是几何共线压缩；`segments`是MOVE动作分段，同一直线的动作/航向切换点保留，
+  所以段数可以多于`len(points)-1`。角点按坐标与台账出现顺序匹配；`reverse`表示后退或横移主动作。
+  UI完整显示steps里的所有转向，axis_matched=false不能显示成功，含转向路线不显示固定航向GOTO台账。
+- JSON导出转换segments/corners的as_dict。仿真仍只执行固定航向，实车整条路径执行未开放。
+- 回归：6组核心自检、121项无GUI（新增17项审查修复回归）、99项离屏Qt通过。
+  详见`HostTools/ILHC_Debugger/ILHC_Qt_v2/Docs/NAVIGATION_FIXES_20261002.md`。
+  只改上位机及测试/文档；固件/地图/协议未变，本次无需烧录；未验证实机。
+
+## 2026-10-02 共线压缩输出 LineSegment / Corner（当前有效）
+
+- 需求：实现 Manhattan 路径共线压缩与 90° 角点识别；**只能删除共线节点**；保留 A* 输出的
+  动作与航向语义；输出 LineSegment 与 Corner 对象；**不得生成任意斜直连**；补直线/L/Z/U 形测试。
+- 实现（`navigation_planner.py`）：新增 `LineSegment` 与 `Corner`（`@dataclass(frozen=True)`，
+  各带 `as_dict()` 供 JSON/CSV）与 `path_axes(points, steps=None)`；`core.geometry_axes()` 是
+  给界面/测试的薄包装。规划结果新增 `segments` / `corners` / `axis_matched`，
+  只修改成功分支（失败分支保持 `[]`/`False`，与其他结果字段的约定一致）。**没有新的节点删除规则**：
+  共线合并仍只由既有的 `simplify_collinear`（`check=False`）负责，`path_axes` 只做两件事——
+  删掉与前一点重合的点（零长度段）、把拐点识别成角点。某段 `dx` 与 `dy` 都不为 0 直接
+  `raise ValueError`（这正是 string-pull 会犯的错，也是本模块禁止的"任意斜直连"）。
+- **角点 ≠ 转向**（这次实测踩到的坑，别再按顺序发动作令牌）：
+  * 几何角点未必有转向——"横移 → 后退"只是轮模式变了、航向没动（实测
+    启停区1→暂存区 第1个角点就是这种）；"180° 原地掉头"也未必留角点——转完继续沿同一条
+    直线走时那个顶点被共线合并掉了。
+  * 因此 `Corner.action` 按**坐标**去台账 `steps` 里找转向动作，找不到就是空串（真的没转），
+    `Corner.steps` = 该点实际转过的 90° 数（0 表示只换轮模式，2 表示掉头）。
+    角点数**不能**当步数用（`len(segments) != len(corners) + 1` 是合法的）。
+  * `Segment`/`Corner` 的 `heading_deg`/`action` 全部**照抄**台账，不重新推断；
+    配对用 0.01mm 规整化的坐标（UI 量化会改坐标，配不上就留空串 + `axis_matched=False`，绝不猜）。
+  * `axis_matched` 只看**线段**（每条线段都必须配上台账行）：真实规划里线段与角点都由台账决定，
+    若某条线段配不上就必须报警。
+- 语义字段：线段 `axis`(x/y=沿哪条轴走) / `direction`(±1) / `length_mm` / `heading_deg` /
+  `reverse`(航向与该方向相差 >1° ⇒ 后退或横移) / `action`；角点 `turn`(LEFT/RIGHT，
+  逆时针为正、与 +Z 一致) / `heading_in_deg` / `heading_out_deg` / `steps` / `action`。
+  `heading_in == heading_out` 的角点就是"只换轮模式"。
+- UI（`main.py::_waypoint_lines`）：台账末尾追加「压缩后 N 直线段 / M 个90°角点」明细；
+  航向不变的角点明写"航向不变：只换轮模式（不是转向）"，有转向的行补「该点 TURN_X，共 n×90°」。
+- 测试：`tests/test_navigation_safety.py::PathAxesTests`（8 个）——直线（两段、无角点）、
+  L 形（两段一个左角）、Z 形（三段两角、左右相反）、U 形（∩ 形两个左转、∪ 形两个右转，
+  且每段仍轴对齐）、**只删重复点**（共线合并不在 `path_axes` 里做）、斜段被拒、
+  角点≠转向的两种情形、以及真实规划里"每段航向/动作与台账逐条一致 + 角点数 == 折线方向改变数
+  + 有转向的角点数 == `turn_count`"。回归：`run_tests.py` 104 用例、`run_tests.py --qt`
+  99 用例全过。只动上位机（`navigation_planner.py`/`core.py`/`main.py`/`tests/`），
+  **固件与协议未变、无需烧录**；未连硬件。
+- 顺带修掉一处老误报（**产品行为未变**）：`test_debugger.py::test_map_click_plans_without_sending_anything`
+  的 `line_q.empty()` 改成 `core.commanding_commands(...) == []` + "队列里除 `GET …` 外不得有
+  任何条目"。这就是 2026-09-29 记过的那个坑（参数回读轮询每秒放一条 `GET`），当时只改了
+  `test_map_click_qt.py`，`test_debugger.py` 这处漏改；本次因整类运行触发而暴露。
+  追踪确认队列里只有一条 `GET XVMIN`，没有下发任何机构命令。
+
+## 2026-09-30 「禁横移」改成「限制长距离横移」（当前有效）
+
+- 起因：勾「道路禁横移」后**任何点位都规划不出来**。定位到失败在**起点侧**（插桩后
+  `sources=0`，目标侧 18 个格全好），所以换目标没用。根因链：① 启停区中心离两墙各 150mm；
+  ② 禁横移后唯一换向方式是原地 90° 转向；③ 转向的采样扫掠判据要求**每个方向**都有
+  ≈207.7mm 净空（半对角线 191 + pad 10 + 扫掠外扩 2.63；扫掠里含 45° 姿态，那个姿态伸得最远，
+  所以不能用车长一半 140 估）；④ 150 < 207.7 ⇒ 起点和它周围所有 L 形拐角都转不动，
+  连接段必有一条垂直边 ⇒ `attach()` 返回空；⑤ 就算接进去了，起点航向线（y=2250）整条离墙
+  150mm、线上处处转不动，禁横移又不能在线上横出去 ⇒ 车被困死（网格调细到 5cm 让起点落在
+  网格线上时，报的从 `NO_CONNECTION` 变成 `NO_PATH`，同一个根因）。pad 改 0 也没用（仍要 193.7mm）。
+- 需求：不是完全禁止横移，而是**禁止长距离横移**——短横移（出库、对位微调）照常可用。
+- 口径（已与用户确认）：**单次连续横移 ≤ N**，默认 **N=500mm**。连续横移被前进/后退/转向
+  打断后重新计数，**不是全程总量**。已知代价（用户知情接受）：打断后可以再接一段，所以
+  转向代价被调得极高时会出现"阶梯"式横向推进（见下面实测）。
+- 实现（`navigation_planner.py`）：新参数 `strafe_run_limit_mm`（None=不限，0=完全禁横移）。
+  规则：**操作区（`strafe_polygons`）内不受限**，否则 `已连续横移 + 本次横移 ≤ N` 才放行；
+  `allow_strafe=False` 与 `N=0` 等价（有测试锁等价性）。状态随之扩成 **(格 i, 格 j, 航向, 连续横移桶)**：
+  桶按网格步长精确离散（`floor(N/step) ≤ 8` 时），细网格下退化为最多 6 档并**向上取整**
+  （只会高估已用横移量 ⇒ 判据更严，绝不会放行更长的横移）。前进/后退/转向把桶清零。
+  `connector_seq()` 也按上限判定：垂直边若横移会超限，就退回"原地转向对齐再直行"的老行为；
+  它现在返回末尾剩余的连续横移量，`attach()` 用它给出**接进网格那一刻**的横移量（起点侧是
+  连接段末尾剩下的，终点侧是连接段开头要接着走的，终点侧在到点时与到达状态一起判），
+  两个 L 形都能走时优先选**不消耗横移额度**的那个。`finish()` 逐段复查里再自查一遍上限
+  （合并/回溯不许放出更长的横移），台账每步新增 `strafe_run_mm`，结果新增
+  `max_strafe_run_mm` 与 `strafe_run_limit_mm`。
+- 修掉一个测试当场抓出来的真 bug：操作区多边形的解析守卫原写成"上限 > 0 才解析"，
+  于是 `N=0`（完全禁横移）时操作区**完全失效**，区内连出库都做不到。现为"给了上限就解析"。
+- UI（`main.py`）：勾选框改为「限制长距离横移」，参数区新增「横移上限」（0..200cm，
+  默认 50cm，未勾选时置灰）；`_prepare_plan` 传 `strafe_run_limit_mm`，`_navigation_signature`
+  带上勾选状态与上限，结果卡多一行「单次最长连续横移 X mm（上限 Y mm）」。**不再传
+  `allow_strafe=False`**——完全禁横移现在靠把上限调到 0 表达，侧栏提示里写明那是陷阱。
+- 实测（默认 pad=10mm、grid=100mm、起点=启停区1中心）：
+  * 上限 500/300mm：原料区→(1200,2100) 成功，1.20m，横移 150mm（就是出角落那一下）。
+  * 上限 0：`NO_CONNECTION`，提示改为「已完全禁横移：起点/终点附近若转不动…放宽横移上限」。
+  * 转向等效代价调到 5000mm（本版仿真行驶不执行路径中转向时会这么调）时，不限上限会一路
+    横移 1450mm（最长连续 800mm）；上限 500 后变成 450/500/500 三段横移夹 50~150mm 前进后退，
+    代价 2718→2932；上限 300 则四段 300mm，代价 3148。**阶梯是口径的已知后果**，
+    要堵死就得改成"全程横移总量"口径（另一维状态，未做）。
+  * 上限放宽 ⇒ 可行集变大 ⇒ 最优代价单调不增（已锁）；不设上限的结果与"给个极大上限"逐位相同。
+- 测试：`tests/test_navigation_safety.py::StrafeRunLimitTests`（7 个：短横移出库可用、
+  上限 0 与 allow_strafe=False 等价、长横移被切到上限内且代价单调、台账 `strafe_run_mm`
+  自洽且不超限、操作区豁免、上限单调性、不设上限＝行为不变）与
+  `UiLogicTests::test_strafe_limit_check_reaches_the_planner`（勾选/置灰/上限真的进规划器/
+  上限 0 时如实失败且不下发任何命令）。回归：`run_tests.py` 95 用例、`run_tests.py --qt`
+  96 用例全过。只动上位机 `navigation_planner.py`/`core.py`/`main.py`/`tests/`，
+  **固件与协议未变、无需重新烧录**；未连硬件。
+
+## 2026-09-29 A* 状态升级为 (格, 航向) + 动作代价（当前有效）
+
+- 需求：① 状态从 (ix,iy) 升为 (ix,iy,heading)；② 前进/后退/横移/转向分别计价，默认
+  forward=1.0、backward=1.15、lateral=1.8、turn_penalty=180mm 等效；③ 启发式仍用曼哈顿距离 ×
+  最小移动代价；④ 回溯必须同时给出 x,y,heading,action；⑤ 普通道路可配 allow_strafe=false、
+  操作区可允许横移；⑥ 测试证明提高 lateral 系数后横移总距离不增加；⑦ 不做圆弧；⑧ 串口/STM32 不动。
+- 实现（都在 `navigation_planner.py`）：
+  * 航向 4 值（布局帧 0/90/180/270° 逆时针，`heading_index/heading_deg/heading_vector`）⇒
+    **每个航向一套 `CollisionScene`**：车体朝向随航向变，平移的整段检查用"当时航向"的模型。
+  * 平移仍是严格 4 邻域，按当前航向分类（`action_for_move` = 前进/后退/横移），代价 = 步长 ×
+    `move_factor`；启发式 `h = 曼哈顿(mm) × cost_forward`（最便宜动作 ⇒ 可采纳且一致 ⇒ 加权最优）。
+  * **转向只在原地**做 90° 整数倍（`TURN_LEFT/RIGHT/AROUND`），每 90° 记 `turn_penalty_mm`；
+    没有圆弧，输出折线仍是直角。转向可行性：把车体在起止航向之间**采样旋转（15° 步长）**扫出的
+    区域并集，再按"外接半径×(1−cos7.5°)+1mm"外扩，要求整块在合法区域内且不碰障碍
+    （`turn_sweep`/`turn_free_point`）。**不要改回"外接圆盘"判据**：圆盘要 402mm，会把 400mm
+    走廊里的转向全否掉——禁横移时整条走廊都走不通（实测 NO_CONNECTION）。
+  * 连接段（起点/终点不在网格上）走轴对齐 L 形；**禁横移时靠原地转向对齐每条边**，最后转回该侧
+    状态要求的航向（`connector_seq`），动作序列存进 attach 结果供回溯复用。起点贴墙角
+    （启停区中心离两墙各 150mm）时原地转不动 ⇒ 禁横移会以 NO_CONNECTION 明确报出并给提示，
+    这是物理正确的拒绝，不是 bug。
+  * `finish()` 逐段按"当时航向"复查（**不能**用单一航向的 scene.validate 整条折线：路径可能含
+    原地转向）；共线合并传 `check=False`（只把同向共线段并成一条，扫掠区域不变）。
+  * 输出：`points`/`raw`（几何折线、直角保留）、**`steps`**（x,y,to_x,to_y,heading_deg,action,
+    kind,distance_mm,cost_mm；同向直行合并、转向零位移成步）、`search_cost`（加权）、`trace_cost`
+    （按 steps 复算，必须 == search_cost）、`lateral_mm`/`turn_cost_mm`/`turn_count`。
+  * **安全校验**：`footprint` 的航向必须等于 `start_heading_deg`，否则 INVALID_INPUT——
+    不然等于静默换一个车体朝向求解。
+- UI：规划侧栏新增「道路禁横移」（默认关）与「转向等效代价」（默认 180mm）；`_prepare_plan` 传
+  start=goal=当前布局航向 + `allow_strafe` + `turn_penalty_mm`，并读地图 JSON 的 `strafe_polygons`
+  作为操作区。**仿真行驶只执行固定航向、不执行路径中转向**：`turn_count>0` 的路线会被明确拒绝
+  （提示改写规划或只看台账）——不拿单一航向的模型去"复查"各段朝向不同的路径。
+- 测试：`HeadingPlanTests`（台账四要素与动作自洽、加权系数、**提高 lateral 后横移总距离不增加**、
+  禁横移改用转向 + 操作区放开、航向/车体一致性拒绝）；`test_independent_dijkstra_40_scenes` 的
+  独立参照升级为 **(格,航向) 状态 Dijkstra**（同一动作模型）。回归：`run_tests.py` 88 用例、
+  `run_tests.py --qt` 88 用例全过。未连硬件、未烧录。
+- 代价变化（预期）：会"绕路换朝向"。例：启停区1→暂存区 2.97m / 加权 3472（含 2 次转向、150mm 横移）。
+- 连带注意事项：① 规划比原来慢（4 倍状态 + 转向扫掠），**Qt 测试里不能再用 `QTest.qWait` 等规划**
+  （qWait 期间工作线程拿不到 GIL，会被误判"超过时限"），要用 `processEvents()+sleep`；
+  ② headless/测试里规划后要**重新喂帧**（350ms 定位闸门 vs 秒级规划时间）；
+  ③ UI 的量化复检改为**按段航向**（`_validate_quantized`），否则转向路径会被误报
+  "坐标量化后不安全：第2段：中央物料区"。
+
+## 2026-09-29 navigation_planner 改为严格 4 邻域曼哈顿搜索（当前有效）
+
+- 需求：A* 从 8 邻域改为**严格 4 邻域（上下左右）**、启发式用曼哈顿距离、输出直角折线，
+  且**不允许**再把直角拉成斜线；串口与 STM32 不动。
+- `plan()`：邻居集合固定为 `((-1,0),(1,0),(0,-1),(0,1))`，每步代价恒为 `step`，
+  启发式 `h_manhattan`（可采纳且一致 ⇒ 网格代价最优）；**每条相邻边仍整段检查**
+  （`edge_free → segment_reason`），不是只看目标格是否空闲。
+- **连接段也必须轴对齐**：`attach()` 改成 L 形连接（先横后竖 / 先竖后横，两段都整段检查，
+  代价取曼哈顿距离），返回 `{cell: (cost, corner)}`，还原路径时把 corner 插进折线；
+  "直线可达"的快路径也从 `[start, goal]` 换成 `l_shape()` 的 L 形——否则斜线会从这两处漏进输出。
+  端点仍精确，不替换、不吸附。
+- 简化：`plan()` 改用新增的 `simplify_collinear()`（**只合并共线节点**，方向改变的拐点一律保留），
+  不再用 `simplify_checked()` 的任意视线直连。`simplify_checked` 原样保留，
+  `core.simplify_path()` 兼容接口仍走它。
+- **不变量**：每段 `dx==0 或 dy==0` ⇒ 折线欧氏长度 == 曼哈顿搜索代价
+  （`search_cost == path_length(raw)` 继续成立）。
+- 测试：新增 `tests/test_navigation_safety.py::ManhattanPlanTests`——6 组用例逐段断言轴对齐
+  （含两端都不在网格上、同列、长对角、有/无模拟障碍），共线合并不加长且保留直角。
+  `test_independent_dijkstra_40_scenes` 的**独立参照改成 4 邻域曼哈顿 Dijkstra + L 形连接**
+  （原参照是 8 邻域欧氏，度量不同必然不符——改的是参照，不是放宽断言）。
+- 回归：`run_tests.py` 82 用例、`run_tests.py --qt` 96 用例全过。未连硬件、未烧录。
+- 代价变化（预期）：路径变为曼哈顿长度。例：启停区1→暂存区 2.67m→2.95m，
+  恰好等于 `|Δx|+|Δy|` 下界，说明仍是该度量下的最优。
+
+## 2026-09-29 模拟障碍 φ50×100mm（≤4 个，点击/随机放置）（当前有效）
+
+- 需求：加黑色模拟障碍 φ50×100mm（顶视 r=25mm 圆），支持点击放置与随机，最多 4 个，
+  放置后规划必须绕开。
+- 实现：`core.SIM_OBSTACLE_R_MM/H_MM/MAX/NAME`；`sim_obstacle_circles()`（转 circles 表）、
+  `obstacle_placement_blocked()`（判据是"把既有障碍按 radius+margin 膨胀再看圆心"——
+  圆精确、矩形保守）、`random_obstacle_points()`（避开固定禁区/已有障碍/场地边缘/keep_clear；
+  放不满时如实返回少放数量与原因，绝不返回非法点；`rng=` 可注入 `random.Random` 供测试确定化）。
+- **障碍是运行时演示物体，不写进 `navigation_map.json`**（那是实测场地数据）。
+  `MainWindow.sim_obstacles` 存布局坐标，`_obstacle_circles()` 并入 `_prepare_plan` 与
+  `_request_plan_anchor` 的 `circles`，因此 `_scene_for_context`（仿真行驶前复查）自动带上。
+- **障碍进 `_navigation_signature`**：放置/清除/随机都走 `_obstacles_changed()` → 重画 +
+  `_clear_path()`，旧计划立刻失效——不让旧路径去执行一个已经变了的场景。
+- 界面：规划侧栏新增「点击地图 = 放障碍」「随机补齐」「清除障碍」与计数行；放置模式**优先于**
+  规划开关（放置时既不规划也不下发）。`FieldView.set_sim_obstacles()` 画黑色实心圆 + 浅色描边，
+  z=12.5（在规划路径之上、车体之下，车压上去看得出来）。
+- 随机放置带 `keep_clear`（车心 + `CAR_HALF_DIAG_MM` + 半径 + 20mm）：否则障碍可能压在车上，
+  之后每次规划都会以"起点：模拟障碍"失败。
+- 连带：`_goto_field`（直接 GOTO 调试通道）的目标/直线检查改为读 **`nav_map` 几何 + 模拟障碍**，
+  不再读 `core.FIELD_FORBIDDEN_*` 旧副本，少一份漂移来源。
+- `tests/headless_support.py`：假控件补 `setChecked`/`set_sim_obstacles`，`make_window` 增加
+  `sim_obstacles` 与 `obstacle_info`/`obstacle_mode_check`——该 harness 按固定属性名造假控件，
+  **新增界面状态必须同步这里**，否则无 GUI 套件会整片红。
+- 回归：`run_tests.py` 79 用例、`run_tests.py --qt` 96 用例全过。新增
+  `tests/test_navigation_safety.py::SimulatedObstacleTests`（φ50 表、冲突/边缘判定、随机合法性
+  与放不满说明、keep_clear、**规划必须绕开且整条路径在含障碍的同一模型下合法**）与
+  `test_debugger.py::SimulatedObstacleUiTests`（点击放置不规划不下发、上限/冲突/压车拒绝、
+  旧计划失效+重规划改道、随机不压车+清除）。未连硬件、未烧录。
+- 端到端实测（离屏）：堵住中间+右侧走廊后，启停区1→暂存区 的规划改为
+  (2250,2250)→(400,2000)→(350,1200)，车心线距障碍 823mm。
+
+## 2026-09-29 上位机视觉跟踪页 + 参数回读"黑洞"修复（当前有效）
+
+- 起因：现场发 `GET VDBMM` **完全无反应**，看着像板子没响应。**根因在上位机，不在固件**：
+  参数回读行在 `core.FrameParser` 里就被 `PARAM_ECHO_RE` 分流进 `param_q`、
+  **根本不进日志文本**（`core.py` 的 `_scan_text`：匹配 `^名称=数值$` 就 `continue`），
+  而 `main._apply_param_readback` 当时对"界面没有对应参数行"的名字直接 `return`——
+  视觉那 6 个参数当时没有对应的参数行，于是整条回读被静默吞掉。
+- **诊断这类"没反应"的正确探针**（重要，别再误判成固件故障）：
+  ① 若板上是旧固件，`GET VDBMM` 会回 `ERR PARAM UNKNOWN; GET ...`，那行**不匹配**正则、
+  会照常进日志；**什么都看不到**才说明固件回的是 `VDBMM=数值` 形式。
+  ② 想确认固件版本，发 `GET ZZZ`（不存在的名字）：它回的那条提示文本会进日志，
+  里面列出全部参数名——**含 `VDBMM|VDBPX|VMIN|VMAX` 就是新固件**。
+  ③ 参数设置命令（`VMIN=2` 这类）**本来就没有任何应答**，且这 6 个视觉参数不在 Flash
+  快照里，连 `ACK PARAM SAVED TO FLASH` 都不会有（KPX 那类在 Flash 记录里才会有）。
+- 修法：`_apply_param_readback` 遇到界面没有参数行的名字改为**打一行日志**（`回读 X=Y（界面无该参数行）`）
+  而不是静默返回；`test_unknown_param_readback_is_logged_not_swallowed` 锁住这条。
+- 新增「视觉跟踪」页（**下标 8，追加在末尾**——`page_names`/`self.pages`/`_build_vision_page()`
+  三处同序插入；既有测试与 `_render_ui` 依赖页面下标，只能往后加）：6 色启动按钮
+  （`core.VISION_COLORS`）+ 停止 + 刷新回读 + 6 个参数行（复用 `ParamRow`，回读通道全 `None`）。
+  进页面时 `_select_page` 钩子里批量刷新一次回读，**刻意不并入 1Hz 的 `_poll_param_readback`**：
+  那会把无通道参数的轮询周期从 2s 拉到 8s，每条应答还要占一个遥测帧位。
+- 顺带修掉两个真实竞态（都是"新页面会发 VTRACK"才暴露出来的）：
+  ① `send_line` 的"停止键盘续发"名单补 `VTRACK`——固件启动跟踪时会清 `s_manual_active`，
+  但上位机 20Hz 的 MANUAL 流不会自己停，会把固件立刻拉回手动、与视觉速度互相打架；
+  ② `core.discard_motion_commands` 的丢弃集合补 `VTRACK`——否则"先点跟踪、再按 STOP"时，
+  排在 STOP 之后的那条 `VTRACK=1` 会在停止之后把跟踪重新拉起来（与 GOTO/MANUAL 同类竞态）。
+  `core.COMMANDING_COMMANDS` 也补了 `VTRACK`，让 test_map_click_qt 的"规划模式不得下发"守卫覆盖它。
+- 模拟器：补 6 个视觉参数（设置+限幅+`GET` 回读）与 `VTRACK=` 状态记录，`--simulate` 下回读
+  不再恒为"—"。**但 `Simulator` 没有 `text_q`**，固件那些 `ACK VTRACK ...` 文本只在真实串口下出现；
+  页面上的状态标签只反映本机请求，不代表工控机已开始识别。
+- 回归：`run_tests.py --qt` **92 用例全过**（新增 14 个视觉用例，含"逐个点真按钮"以抓
+  闭包全绑最后值的经典 bug）；`core.selftest()` 第[3]步加了视觉参数断言。
+- **未做/未验证**：未连硬件、未烧录。**目前板上是否已是新固件仍未确认**——用上面 ② 的
+  `GET ZZZ` 探针判。24 通道遥测里**没有视觉位**，所以页面上看不到实时 EX/EY/FLAGS/CONF
+  （那些只在工控机自己的 VNC 画面上）；要让上位机也看到，需固件侧另开可 `GET` 的状态量或占通道，
+  属独立改动。
+
+## 2026-09-29 功能区接近点改为几何现算 + 地图数据合规守卫（当前有效）
+
+- 现象：点击「原料区」显示"规划失败"。根因**不是规划器**：`core.QUICK_TARGETS` 里
+  写死的 (1200,2200) 对 280×260 车体是**非法停车位**——离原料区圆盘（(1200,2400) r=110）
+  表面只有 90mm，而车体轴向要 140/150mm、斜向（(150+140)/√2）要 **205mm**，
+  于是新模型的固定航向整车校验如实拒绝（`INVALID_GOAL`）。用户自己的
+  `tests/test_navigation_safety.py::test_default_material_goal_rejected` 与
+  `test_unsafe_goal_cannot_start_simulation` 早就把"该点必须被拒"写死了，
+  **是数据没跟上模型**（这批坐标是"车还是质点"时代挑的）。
+- 修法（已做）：`QUICK_TARGETS` 换成 `core.QUICK_ANCHORS`（名称 → 功能区锚点 +
+  由功能区指向场内的单位方向：原料区用圆心、暂存区用右缘中点、粗加工区用上缘中点），
+  目标改为**每次现算**：`core.approach_target()` → `navigation_planner.approach_point()`。
+  界面 `_request_plan_anchor()` 用 `_plan_preconditions()`（新抽出的公共前置：起点/航向/模式）
+  与 `_layout_yaw_for()` 取**同一个**航向，再规划；算不出就明说，不猜点。
+- `approach_point(anchor, outward, margin, footprint, standoff, step=5)`：沿方向逐点判定，
+  **判据是车体外缘净空**（`CollisionScene.body_clearance`，含合法行驶区边界），不是
+  "扫到第一个合法点"。后者会把窄的可停窗口整段跳过去——实测 pad=60mm 时原料区那条
+  合法缝只有几十毫米宽、且位于"刚好合法距离"的**内侧**，粗扫 25mm 直接漏掉并误报"没有
+  合法停车位"（这个缺陷是本次新加的守卫测试当场抓出来的）。找不到满足 standoff 的点时
+  `ok=False, code=NO_STANDOFF`，并把"合法但净空不足"的 `fallback_point` 一并返回，
+  由界面**明示建议**（"建议改用场地(x,y)cm 并人工确认走法"），绝不静默采用。
+- 地图数据：`navigation_map.json` 升 `map_version=2`，新增 `rulebook` 块记录官方场地图尺寸
+  （2400/450/400/150×580/400×150/300×300）与**带区间的可变项**：转盘圆心距右边缘
+  `1100–1300`、暂存区孔位距左边缘 `75–85`、以及 `raw_turntable_radius_mm: null`
+  （**图上没有 R/⌀，属未实测**；为 null 时守卫会要求 `geometry_verified` 保持 false）。
+  当前几何一律取区间中值——比赛当天若摆到区间边缘，rects/circles 必须按实测改。
+- 新增守卫（`tests/test_navigation_safety.py::MapDataComplianceTests`）：
+  ① `test_map_matches_rulebook_dimensions`（地图几何 vs rulebook 标注）；
+  ② `test_turntable_declared_position_and_radius`（圆心在边界上、x 落在允许区间、
+     半径未实测时不得声称 verified）；
+  ③ `test_quick_targets_are_legal_for_every_heading`（3 个功能区 × 裕量 10/30/60mm ×
+     8 个航向，现算的点必须被同一模型判为合法、且净空 ≥ standoff）；
+  ④ `test_hardcoded_quick_target_removed_and_still_illegal`（旧坐标必须已删除且仍判非法）。
+- 顺带修掉两个把回归盖红的测试问题（**产品行为未变**）：
+  ① `test_map_click_qt.py` 的 4 处 `line_q.empty()` 改为新增的
+     `core.commanding_commands()` 判定——参数回读轮询每秒往同一队列放一条 `GET …`，
+     真实事件循环下 `empty()` 必然误报；`COMMANDING_COMMANDS` 与
+     `discard_motion_commands` 的集合**刻意不同**（后者只清可丢的旧目标，绝不含 STOP）。
+  ② 保留了"规划不得下发机构命令"的强度：断言队列里除 `GET …` 外不得有任何机构命令。
+- **仍待处理（本次未改）**：`QTest.qWait` 等待期间占住 GIL 会饿死规划线程，使 8s 时限
+  在**没有任何人取消**的情况下触发，报的却是"规划已取消或超过时限"（实测同一规划
+  qWait 等待 8243ms/CANCELLED，`processEvents+sleep` 等待 13.8ms/OK）。建议：
+  测试改用 `processEvents()+sleep`（或直接等 future）；规划器把 `TIME_LIMIT` 与
+  `CANCELLED` 分开报，且不要让"被抢占"的时间吃掉预算。
+- 回归：`run_tests.py`（74 用例）与 `run_tests.py --qt`（78 用例）**全过**；
+  端到端实测：原料区 → (1200,2100)、暂存区 → (350,1200)、粗加工区 → (1200,340)，
+  三者都不下发机构命令，旧坐标 (1200,2200) 仍被拒。未连硬件、未烧录。
+
+## 2026-09-29 视觉协议升级到 V1.1（坐标系修正版，当前有效）
+
+- 需求：把固件从视觉协议 V1.0（请求4字节无校验、响应15字节逐字节异或）升到 **V1.1**。
+  对端 Jetson 的 `GongChuang/` 实现**默认就是 V1.1**（可 `--protocol v1` 退回），帧长与校验
+  两端不匹配时**不会静默出错，而是完全不通**——固件的 4 字节请求会被按 6 字节消费后校验失败，
+  按规范§15 要求静默丢弃，所以联调时看到的现象是"发了请求、工控机毫无反应"。
+- **权威文档**：`E:/STM32/ILHC/jetson/STM32F407_视觉通信协议_V1.1_坐标系修正版_AI_Agent版.md`
+  （请求帧速查：同目录 `V1.1_请求帧速查.md`，含全部 TASK×TARGET 的实测 CRC）。
+  **`Jetson_视觉通信协议_V1.1_AI_Agent版.md` 是不带"坐标系修正版"的早期草案，已被作废**：
+  它把车体坐标写成 `+X=前、+Y=左`（TRACK 载荷用 `ERROR_A/ERROR_B`）。修正版第 9 行明确
+  "不得参考旧草案"，并统一为 `+X=左、+Y=前、+Yaw=逆时针`——**与本工程 2026-09-17 的坐标契约
+  完全一致**，所以 TRACK 载荷到 `MecanumControl_MoveVelocity(vx=左, vy=前)` **不需要轴交换或取反**。
+  由此**删掉了 V1.0 那套"图像 u/v → 车体轴"的翻转**（`error_x=x-320`、`vy=-f(error_x)`）：
+  规范§11.1 明确方向换算由 Jetson 按相机安装完成，固件不得再自行翻转。别把这套翻转翻回去。
+- 协议要点（全部有回归锁定）：请求 **6 字节** `66 TASK TARGET SEQ CRC8 77`、响应 **16 字节**
+  `66 TASK STATUS SEQ PAYLOAD[10] CRC8 77`；`CRC-8` 为 **poly=0x07 / init=0x00 / 不反转**，
+  请求覆盖前4字节、响应覆盖前14字节，自检值 `Check("123456789")=0xF4`。
+  `SEQ` 由本端生成、每个新逻辑任务+1、连续跟踪期间不变，**同一逻辑任务重发必须复用同一 SEQ**
+  （换 SEQ 会被 Jetson 当成新任务）；只接受 `task` 与 `seq` 同时匹配活动任务的结果，
+  这**取代**了 V1.0 用 `received_tick >= s_start_tick` 近似配对迟到回包的做法。
+  TRACK 载荷 = `TARGET_ID / COORD_MODE / VALID_FLAGS / ERROR_X(i16) / ERROR_Y(i16) /
+  YAW_CDEG(i16) / CONFIDENCE`；`COORD_MODE` 分像素(0x01)与车体毫米(0x02)**两套系数**；
+  **只有 `VALID_FLAGS` 置位的轴才驱动**（未置位输出0，不能当成"误差恰好为0"）；
+  `unknown coord_mode` 整帧作废。时效 **300→150ms**（规范§17，丢帧时更早停车，属行为变化）。
+  STATUS 扩到 `0x06 INVALID_DATA`，错误帧 `payload[0]=error_detail`。
+- 实现：`vision.c/.h` 加 `Vision_Crc8()`（逐位移位、不查表）与 BE 读写、
+  `Vision_SendRequest()` 内部管理 SEQ/待发/活动任务、`Vision_DecodeTrack()`、
+  SCAN 的 INDEX 位图去重与 COMPLETE 校验（`Vision_GetBatch()`，规范§14 强制项）。
+  **`ops.c` 那张 `s_crc8_table` 不能复用**：它是 poly=0x31/init=0xFF/**反射**的 DJI 变体
+  （Check=0xA1），且是 `static`；两者是不同算法，改 init 也换不过来。
+  `vision_track.c/.h` 按 `COORD_MODE` 选系数（像素 0.18 RPM/像素+`VDBPX`(默认12px) 死区；
+  毫米 0.5 RPM/mm+`VDBMM`(**默认2mm**) 死区），输出钳 `VMIN`~`VMAX`（默认 8~60 RPM），vz 恒 0。
+  **死区是2026-09-29按现场要求从10mm收到2mm的**：8RPM≈33.6mm/s、20ms周期走约0.67mm，
+  2mm单侧余量容易被一帧过冲穿过；现场若出现目标附近"停→起→停"的极限环，先降 `VMIN`
+  （如 `VMIN=3`），不要只把死区改回去。像素模式无法表达"2mm"——固件没有毫米/像素标定系数，
+  需要毫米级死区就得让工控机用 `COORD_MODE=0x02`。
+  **`VisionTrack_Start/Stop/Service/IsActive` 与 `VisionTrackOutput` 的签名刻意保持不变**，
+  ACK 事件表 0..25 也未动 —— 因此 `debug_usart.c` 的仲裁层和
+  `test_vision_control/test_parse_line_axes/test_debug_wheel/test_runtime_faults` 都不用改。
+- 新增调参 `VCONF`/`VKPMM`/`VDBMM`/`VDBPX`/`VMIN`/`VMAX` 加在 `s_params[]` **末尾**
+  （`Debug_SetParam`/`Debug_ReplyParam` 按 `sizeof` 遍历，自动可设置可回读）。
+  **它们是 RAM 参数、不存 Flash**：Flash 记录是固定 `float value[16]` + `VERSION=2`，且有效性
+  校验要求 `size == sizeof(DebugParamValues)`，扩字段必须升 v3 并迁移旧记录，属独立改动，本次刻意没做。
+  **应答文本已接近缓冲上限**：`ERR PARAM UNKNOWN; GET ...` 那条现在是 **94 字节**，而
+  `s_tx` 是 `4*24+4=100` 字节；`test_debug_wheel.py` 加了长度守卫（阈值96，余量只有2字节），
+  **再加参数名会直接触发守卫失败**，届时要么精简该提示、要么扩大 `s_tx`。
+- 测试：`Tests/hardware/test_vision_rx.py` 重写为 16 字节帧 + CRC-8 + SEQ，含规范§22 的
+  5 个标准向量与速查表 15 条实测 CRC（覆盖全部 TASK×TARGET 与"黄/黑 CRC 碰撞"）。
+  改动过程中该测试抓到一个真实偏移错误：SCAN 载荷是 `[0]TARGET_ID [1]INDEX [2]TOTAL`，
+  批量组装原先按 V1.0 的字段序读成了 `frame[4]=INDEX`。
+- 回归：`Tests/hardware/` 11 个套件全过；AC5 **全量重编**（51 个 C 文件）0 错误 0 警告，
+  `Code=39460 RO-data=10400 RW-data=524 ZI-data=25156`。磁盘上唯一可比的历史构建日志是
+  09-21 的 38764/10072/472/24536，**早于 09-27 的视觉功能本身，不是本次的同口径基线**。
+- **未做/未验证**：未烧录、未上电、未与 Jetson 联调（本次只做静态与回放验证）。
+  YAW 与 STABLE 位已解码但未接控制；批量任务没有命令触发，其状态机目前只被测试覆盖；
+  `getBatch` 之外的 SCAN/QR 启动 API 也未接入调试命令。
+- 已知语义缺口（规范也不要求，属设计取舍）：**没有"启动确认超时"**。若 Jetson 在跟踪期间重启，
+  它会恢复成空闲态不再推流，而固件不会自动重发请求（§21："启动命令成功后不需要周期性重发"），
+  于是底盘停在原地且只在 150ms 时效上表现为"没数据"，恢复需显式 `VTRACK=0` 再 `VTRACK=1`
+  （换新 SEQ）。台架联调时按这条排查。
+
+## 2026-09-29 Qt 比赛地图 A* 路径规划（仿真验证，当前有效）
+
+- 需求：点地图/快速目标能自动算出绕开中央物料区的 **GOTO 航点路径**；这一阶段
+  **只验证算法可行性，不接 STM32**（不下发任何命令）。
+- 位置：算法在 `core.plan_path()`（纯函数、无 Qt），界面是 `main.py` 地图页**右侧固定宽度侧栏**
+  `_build_plan_side()`（在 QHBoxLayout 里与地图并列，不挤占地图高度）；绘制用
+  `FieldView.set_path()`（绿色虚线 + 航点圆点，z=11/12，在轨迹之上、车体之下）。
+  **没有改固件、没有改协议、不需要烧录。**
+- 算法要点：场地按网格离散（默认 `core.GRID_MM`=10cm），禁区按 `pad` 向外膨胀
+  （默认 `core.CAR_INFLATE_MM`=15cm，把 28×26cm 车当质点）；8 邻域 A*，
+  `g`=实际步长、`h`=到目标欧氏距离（可采纳⇒最优）；**斜向必须禁止切角**
+  （`if di and dj and (blocked[i+di][j] or blocked[i][j+dj]): continue`）——不加这条
+  时路径会贴着障碍拐角"削"进去，实测能侵入膨胀区约 41mm/h。最后用"视线可达"拉直
+  （`simplify_path`），所以 5/10/20cm 网格给出的航点数与长度接近。
+- **膨胀量不是精度、是模型**：13.0/14.0cm = 半宽/半长（只在已知航向时成立）、
+  19.1cm = 半对角线（`core.CAR_HALF_DIAG_MM`，与航向无关）。中央物料区之间的走廊只有
+  400mm 净宽，**膨胀 ≥200mm 就会把它们封死**：此时 `plan_path` 返回
+  `ok=False, reason="没有可行路径（禁区把通路封死…）"`，界面照实显示，绝不硬穿
+  （回归 `test_astar_reports_sealed_corridors` 锁住这条）。
+- 规划结果另外给出**真实余量** `min_clearance`（`path_clearance()` 逐段采样到**未膨胀**
+  真实障碍表面的最小距离）：≥半对角线=任意航向可过、≥半宽=沿走廊可过、<半宽=会刮。
+  默认参数下走中间走廊约 180mm，正好卡在"能过但要直着走"这一档。
+- 起点/目标落在**膨胀后**的禁区里（例如 原料区 快速目标离圆盘只有 90mm）时，
+  `plan_path` 仍会出路径，但把 `start_in_inflate`/`goal_in_inflate` 报出来，界面提示
+  "末端只能贴到附近"。目标点在**真实**禁区内则由界面层用 `field_point_blocked()` 直接拒绝。
+- 界面约定（**这是本阶段最需要守住的一条**）：
+  `plan_click_check` 勾选时，`_on_map_click()` 只调 `plan_to()`（计算+显示+列出 GOTO 文本），
+  **一条命令都不进队列**；取消勾选才走原来的 `_goto_field()` 直接下发。
+  回归 `test_map_click_plans_without_sending_anything` 断言点击后 `line_q`/`urgent_q` 全空。
+- 「仿真沿路径行驶」`_toggle_follow()`：**仅 `self.sim is not None` 时可用**（模拟不是 STM32），
+  200ms 一拍按航点逐个下发 GOTO，到位判据用固件上报的误差（`|devx|,|devy|<2cm 且 |devz|<3°`，
+  刚下发那一拍先跳过以免用上一目标的误差误判），单航点 25s 超时即停；
+  STOP/ZERO、断开、关模拟都会 `_clear_path()` 并停止。
+  `test_planned_path_is_drivable_in_simulation` 在仿真里整条走完并断言全程车心不进入真实禁区。
+- 版式（同日）：规划面板做成地图右侧 316px 固定宽度侧栏，地图因此拿回整页高度
+  （此前它被上面几行面板挤到页面下半部）。新增 QSS 类 `#PlanText`（等宽航点台账）、
+  `#PlanInfo`（结果卡，`[state=ok|warn|bad|idle]`）、`#PlanBadge`（「不下发 STM32」标记）；
+  结果卡配色由 `_plan_state()` 决定：余量 < 半宽 → `bad`、< 半对角线或起/终点落在膨胀区内
+  → `warn`、否则 `ok`。`FieldView` 场景留白由 ±180 收到 ±150（刻度文字画在 -80/-100，仍够），
+  场地在视图里更大。
+- 回归：`test_serial_lifecycle` + `test_debugger` 共 74 用例全过；`core.selftest()` 增加
+  第 [6] 步（直线=2 航点、绕行各段干净、膨胀 400 判不可达）。未连硬件、未烧录。
+- 下一步（未做）：车体膨胀后的 `field_path_blocked` 用于**下发前**的整条路径检查、
+  以及把规划结果真正接进 STM32（需要先决定是逐航点 GOTO 还是固件侧路径跟随）。
+
+## 2026-09-27 Qt 比赛地图车体图标与航向口径修正（当前有效）
+
+- 需求：地图小车从"圆点 + 方向线"改为长 28cm、宽 26cm 的车体轮廓，航向变化要看得出来。
+- 根因（本次一并修正）：`_ops_to_field` 的线性部分是 `(s·dx−c·dy, −c·dx−s·dy)`，行列式 **−1**
+  —— 地图绘制帧是统一坐标系的**镜像旋转**，旧代码 `set_pose(map_theta + v[2])` 把航向当角度
+  直接相加，车头必然错。仿真可复现：按 W 前进，车点向上走、箭头却指向下。
+- 车头方向的唯一依据是固件 `mecanum_control.c:317-322` 的 `body = R(zangle)·世界误差`，
+  即 `世界 = R(−zangle)·body` ⇒ **车头在世界帧 = (sin z, cos z)、世界角 = 90°−z**，
+  车左 = (cos z, −sin z)。四处独立佐证一致：该旋转公式、"ZERO 后 +Y=当时车头 / +X=当时车左"、
+  模拟器 `make_frame` 的手动运动学、以及 `test_simulator_heading_and_zero_physical_axes`。
+- 据此**同时修正四处**（用户已确认）：① 地图车体图标；②「航向=…（0°左/90°上）」数字；
+  ③ 图例口径（保持原文，现在才真正成立）；④「目标航向=场地N°」下拉框。核心是互逆的
+  `_field_heading(z)=90−z−map_theta` 与 `_field_to_body_yaw(F)=90−map_theta−F`。
+  **地图航向数字是顺时针增大的**（0°左→90°上→180°右→270°下），与固件 z 的逆时针相反，
+  这是有意保留的地图口径，不要再当 bug 翻回去。
+- 实现：`core.CAR_LENGTH_MM=280`/`CAR_WIDTH_MM=260`；`FieldView.set_pose(cx,cy,nose,left)`
+  改吃**绘制帧单位向量**（四角 = 车心 ± 车长/2·nose ± 车宽/2·left），新增 `car_nose` 楔形
+  （前缘两点 + 车心），删除原 `dir_item`；`MainWindow._ops_dir_to_map()` 提供与轨迹同源的线性
+  变换，`_body_nose_left()` 给出车头/车左。方向不再经过任何角度约定，镜像帧问题从根上消除。
+- 回归：`test_serial_lifecycle` + `test_debugger` 共 64 用例全过（新增
+  `test_car_icon_is_scaled_car_body`、`test_map_heading_readout_matches_icon`、
+  `test_field_target_yaw_is_inverse_of_readout`、`test_car_icon_basis_matches_actual_travel`）。
+  守卫已验证会咬人：注入旧的"世界角=z"约定 → 三个用例失败；车左取镜像 → 位移用例失败；
+  车长车宽对调 → 三个用例失败。
+- 注意：`QGraphicsPolygonItem.boundingRect()` 对"旋转 + 宽笔迹"的外扩**不对称**（实测 3px 笔
+  在 15° 时上下 1.449 / 左右 1.837，中心差 0.19mm），取车心必须用顶点均值，不能用它。
+- 只动上位机 `core.py`/`main.py`/`test_debugger.py`，固件与协议未变、无需重新烧录；未连硬件。
+- 仍需台架/实车确认一次：真机 ZERO 后按 W，地图上车应向上走且车头朝上、数字显示 90°（map_theta=0）。
+
+## 2026-09-23 UART4 实车失动排查（当前有效）
+
+- 实车反馈：改为 UART4 中断队列后，键盘/GOTO 不动，`WHEELOFF` 也未让四轮失能；
+  上电锁轴，上位机未显示 `ERR WHEEL TX FAILED`。这说明问题需要沿 UART4 出线和
+  驱动器收帧继续实测，不能仅凭 HAL 提交成功认定驱动器已执行。
+- 已发现并修复确定的队列错误：停止/失能安全帧优先于速度帧出队，但旧速度帧原先
+  仍留在队列里，会在安全帧之后发送并重新使能；现在停止/失能入队时清除同地址
+  尚未发送的旧速度。此错误解释失能后再锁轴的风险，不单独证明所有运动失效的原因。
+- 旧版阻塞发送每帧后有 `HAL_Delay(1)`，新队列原先在 TC 后立刻发下一帧。
+  为排除驱动器需要帧间空闲的可能，现由 TIM7 毫秒中断在 TC 后等待至少 1ms
+  再启动下一帧，控制任务不等待；启动时的初始四轮命令也由 TIM7 推进。
+  这推翻下文“无需帧间延时”的未上电推断，但是否是失动根因仍待悬空实测。
+- `HAL_UART_Transmit_IT` 返回及 TX 完成中断只证明 MCU 发送流程完成，不能证明
+  PA0 波形、接线、电机参数或驱动器执行。未烧录这次修复，需先核对新 HEX 与
+  UART4 PA0 实际帧，再在悬空状态验证 `WHEELOFF`/`WHEELEN`、单轮和手动运动。
+
+## 2026-09-23 UART4 改非阻塞发送队列（当前有效）
+
+- 背景：轮速下发原先每条命令都等 TC 再 `HAL_Delay(1)`，四条命令约占控制周期 6.8ms，
+  串口抖动时还要叠加 `ZDT_X42S_Send` 的 10ms×3 次重试（最坏四帧 ≈128ms 阻塞）。
+- **安全语义按方案 (a) 保留**：发送失败仍然要取消运动、尝试失能、锁存到显式 `WHEELEN`。
+  这是本次改造的硬约束，不能因为改成非阻塞就丢掉。
+- 实现：`ZDT_X42S_InitTx()` 注册 TX 完成回调并复位队列；控制任务只把帧压入固定长度队列
+  （16 帧 × 8 字节），由 `HAL_UART_Transmit_IT` 的完成回调链式推进；完成回调里
+  **必须清 `s_tx_active_valid`**，否则 `TxKick` 会把同一帧反复重发（这个 bug 是
+  重写后的 `test_zdt_tx.py` 抓出来的）。同地址速度帧覆盖尚未发送的旧帧；使能/失能/停止
+  帧不参与覆盖且始终优先。队列只用 192 字节 RAM，没有采用被回退版本的
+  per-address 门控数组（`s_motor_enabled[256]`+`s_motor_ready_tick[256]` 共 1.5KB）——
+  失能/使能闸门本来就由 debug 层的 `Debug_WheelReady()` 与 `WHEELEN` 状态机负责，
+  在驱动层再存一份会成为第二个真相来源。
+- **失败上报刻意不依赖 UART 错误标志**：过载(ORE)等是接收侧错误，总线噪声不该把整车
+  锁存成故障。判定只有两个来源，且都在任务上下文完成，因此 `s_tx_error_count` 只被任务
+  读写、不需要 ISR 同步：① 单帧占用总线超过 `ZDT_X42S_TX_SLOT_TIMEOUT_MS`(10ms，
+  正常 8 字节 @115200 只要 0.7ms)；② 同一帧累计超过 `ZDT_X42S_TX_RETRY_BUDGET_MS`(1s)。
+  超预算时**丢弃该帧并计一次失败**，避免它永久占住队首把后面的安全帧一起堵死。
+- 队列满、`InitTx` 之前提交，也会计一次失败 —— 不静默丢弃，让次序错误暴露出来。
+- 接口语义变化：`ZDT_X42S_Enable/Disable/Stop/Speed/SpeedAcc` 的返回值现在只表示
+  **"是否已入队"**，不代表 HAL 已发出、更不代表电机收到；发送结果看
+  `ZDT_X42S_GetTxErrorCount()`。`MecanumControl_*` 是 void，不受影响。
+- 接线：`main.c` 在 `OPS_Init()` 之后依次调用 `ZDT_X42S_InitTx()` / `ZDT_X42S_InitRx()`
+  （调度器启动前没有任务推进队列，靠完成中断链式发送，顺序不能反）；
+  `debug_usart.c` 的 `Debug_ServiceZdtReplies()` 在 `ZDT_X42S_ServiceRx()` 之后
+  增加 `ZDT_X42S_ServiceTx()`。
+- **`Debug_ServiceWheelFault` 一行未改**：它本来就靠"`GetTxErrorCount` 是否变化"锁存，
+  与错误怎么产生解耦，所以 `test_runtime_faults.py` 也不需要改（它把那两个函数桩掉了）。
+- 被回退分支的教训：`809932a` 的队列实现里 ERROR 回调只置 `s_rx_fault`，
+  **完全没有上报 TX 失败**（只有无访问器的 `s_tx_drop_count`），等于把上面那条安全契约
+  弄丢了。这很可能就是它被 `git reset` 回退的原因；因此本次是**在主线之上重做**，
+  不是把它捡回来。
+- 连带修改：`Tests/hardware/test_zdt_tx.py` 全部重写（原子 `ZDT_X42S_Send` 已删除），
+  覆盖组帧逐字节、同地址覆盖、安全帧优先、队列满、`InitTx` 前提交、在途超时只中止 TX、
+  超预算丢弃、正常完成不误判；并含结构守卫"TX 区域不得出现 `HAL_Delay` 或阻塞式
+  `HAL_UART_Transmit(`"（守卫先剥掉注释，避免命中说明文字）。
+- 尺寸（AC5 全量重编，0 错误 0 警告）：相对档0+档1 的 36144/452/24572 →
+  Code 36800、RW-data 460、ZI-data 24764，即队列净增约 656 字节 Code + 200 字节 RAM。
+- 回归：`Tests/hardware/` 23/23、C 回归、Qt selftest 与 60 用例全通过。
+  **未上电实测**：四个驱动器在连续饱和发送下是否丢帧、以及 TX 超时/重试预算的
+  实际触发时机，都必须在悬空状态下确认。
+
+## 2026-09-23 FreeRTOS 任务精简与 UART4 帧间延时（当前有效）
+
+- **任务数从 3 个降到 2 个。** `configUSE_TIMERS` 置 0 后内核不再创建 `Tmr Svc`
+  任务（本工程从未使用任何软件定时器或事件标志），只剩 `defaultTask` 与内核 `IDLE`。
+- **四个宏必须同进同退**，否则分别撞到四处编译错误（都已实测）：
+  `configUSE_TIMERS=0`、`configUSE_OS2_TIMER=0`（`CMSIS_RTOS_V2/freertos_os2.h:223`）、
+  `INCLUDE_xTimerPendFunctionCall=0`（`FreeRTOS/Source/timers.c:41`）、
+  `configUSE_OS2_EVENTFLAGS_FROM_ISR=0`（`freertos_os2.h:207`）。
+  只关闭 CMSIS-RTOS2 包装层，不影响裸 FreeRTOS API；ISR 本来也不调用任何 RTOS API。
+  改回时四个都要翻回 1。
+- 收益（`unify_builder --rebuild` 实测）：Code 39184→36144、RW-data 472→452、
+  ZI-data 24920→24572；`prvTimerTask`/`xTimerCreateTimerTask`/`osTimerNew`/
+  `xTimerPendFunctionCall` 在 `.map` 中各出现 0 次。**省的主要是 flash 和一个调度任务，
+  RAM 只收回了 348 字节**，原因见下一条。
+- **已知未收回：1116 字节死内存（这条是本次实测才发现的反直觉点）。**
+  `cmsis_os2.c` 的弱函数 `vApplicationGetTimerTaskMemory` 只受
+  `configSUPPORT_STATIC_ALLOCATION` 守护、**不看 `configUSE_TIMERS`**，所以
+  `Timer_TCB`(92B) 与 `Timer_Stack[configTIMER_TASK_STACK_DEPTH]`(256 字 = 1024B)
+  仍然占着 `cmsis_os2.o(.bss)`（`.map` 的 Data 行可见）。链接器只删掉了该函数体 24 字节：
+  这段 `.bss` 与仍在使用的 `Idle_TCB`/`Idle_Stack` 同属一个节，ARM 链接器按节回收，
+  无法只丢掉其中两个死符号。两条回收路线，**都还没做**（128KB SRAM 目前只用 19.1%，
+  暂不值得为此引入风险）：
+  ① `configSUPPORT_STATIC_ALLOCATION=0`：整块 1720B `.bss` 消失，idle 任务改从 heap 取
+  （约 604B 堆），净省静态 RAM，但等于换了内核分配模型；
+  ② 调小 `configTIMER_TASK_STACK_DEPTH`（现在只被这个死数组使用）：省约 1KB，
+  但重新开启定时器时必须记得改回 256 —— **有坑，不推荐**。
+- **`SetMotorVoltageAndDirection()` 删掉每条命令后的 `HAL_Delay(1U)`。** 依据：
+  `HAL_UART_Transmit` 阻塞模式返回前无条件等待 `UART_FLAG_TC`（见
+  `stm32f4xx_hal_uart.c` 该函数末尾），末位停止位发完时线路已空闲，四帧本就严格串行，
+  不存在粘包。原先白付约 4ms/周期，串口抖动时还要叠加 `ZDT_X42S_Send` 的重试超时。
+- 连带影响与守卫：`Tests/hardware/test_mecanum_mixer.py` 不再提供 `HAL_Delay` 桩，
+  **若固件重新引入帧间延时，该测试会以 `-Werror=implicit-function-declaration` 拦下**
+  （已用注入方式验证过会失败）。这与既有 `must_not` 文本锁是同类护栏。
+- 未做：未上电实测，需在悬空状态下确认四个 ZDT 驱动器在高帧率下均不丢帧。
+  （非阻塞发送队列已于同日单独完成，见上一条。）
+- 回归：`Tests/hardware/` 23/23、C 回归、Qt selftest 与 60 用例全通过；
+  AC5 全量重编 0 错误 0 警告。未烧录。
+
 ## 2026-09-22 底盘参数文字回读 `GET 名称`（当前有效）
 
 - 背景：`XVMIN`/`ZVMIN` 只在 `s_params` 里有写入路径，遥测 `data[0..23]` 没有它们
@@ -429,9 +1052,9 @@ STM32F407VET6_ILHC/
 4. `OPS_Init()` → `MecanumControl_Init()` → `MecanumControl_Enable()` → `DebugUsart_Init()`。
 5. 初始化 RTOS 内核、创建默认任务、启动调度器。
 
-`Core/Src/freertos.c` 当前只有一个显式创建的业务任务 `defaultTask`，正常优先级，栈 512 字节。循环为 `DebugUsart_Send(); osDelay(20);`。RTOS tick 为 1kHz，使用 `heap_4`，堆配置为 15360 字节。
+`Core/Src/freertos.c` 当前只有一个显式创建的业务任务 `defaultTask`，正常优先级，栈 2048 字节，已启用栈溢出检测（`configCHECK_FOR_STACK_OVERFLOW=2`，溢出钩子直接 `NVIC_SystemReset()`）。循环采用绝对周期 50Hz：`DebugUsart_Send()` 之后 `osDelayUntil` 到下一个绝对时刻，超期不补跑、只累加 `default_task_overruns`，`default_task_stack_free` 记录栈余量供调试器读取。除 `defaultTask` 外只剩内核 `IDLE` 任务（2026-09-23 起 `Tmr Svc` 已随 `configUSE_TIMERS=0` 移除，见文首该条）。RTOS tick 为 1kHz，使用 `heap_4`，堆配置为 15360 字节。
 
-`DebugUsart_Send()` 不只是发送函数：它还处理 STOP/ZERO、GOTO 位置控制、DM 模式切换和周期控制、主机失联保护。移除或降低其调用频率会同时改变运动控制行为。实际循环周期是处理耗时加 20ms 延时；UART4 阻塞发送及命令间延时会增加周期，不能视为严格的 50Hz。
+`DebugUsart_Send()` 不只是发送函数：它还处理 STOP/ZERO、GOTO 位置控制、DM 模式切换和周期控制、主机失联保护。移除或降低其调用频率会同时改变运动控制行为。循环按绝对周期调度：单次执行小于 20ms 时周期稳定在 50Hz；一旦超过 20ms 则跳过旧周期、按实际耗时运行并计入超期，不补跑。超期的主要来源仍是 UART4 阻塞发送（四条轮速命令，最坏每帧 10ms×3 次尝试）。
 
 HAL 毫秒时基由 TIM7 中断和 `HAL_TIM_PeriodElapsedCallback()` 维护；RTOS 使用自己的系统 tick。TIM1 PWM 和 TIM6 已初始化，但当前业务代码没有启动它们来驱动控制任务。
 
@@ -441,7 +1064,7 @@ HAL 毫秒时基由 TIM7 中断和 `HAL_TIM_PeriodElapsedCallback()` 维护；RT
 | --- | --- | --- |
 | USART1 | PA9 TX、PA10 RX；115200、8N1 | 调试；RX DMA2 Stream2 Ch4 + IDLE，TX DMA2 Stream7 Ch4 |
 | USART2 | PD5 TX、PD6 RX；115200、8N1 | OPS；RX DMA1 Stream5 Ch4 + IDLE，命令阻塞发送 |
-| USART3 | PB10 TX、PB11 RX；115200、8N1 | 已初始化，当前业务未接入 |
+| USART3 | PB10 TX、PB11 RX；115200、8N1 | 视觉工控机（Jetson）；RX 逐字节中断收16字节响应，TX 中断发6字节请求 |
 | UART4 | PA0 TX、PA1 RX；115200、8N1 | 四个张大头电机，当前阻塞发送，无 UART4 DMA 接收解析 |
 | CAN1 | PA11 RX、PA12 TX；1Mbps | DM 电机；FIFO0 接收中断、全接收滤波 |
 
@@ -526,7 +1149,7 @@ Qt 完整运行依赖见其 `requirements.txt`，`--selftest` 在加载 Qt 界�
 - CubeMX 自定义代码尽量放 `USER CODE` 块；引脚、DMA、中断和 HAL 配置变更同时核对 `.ioc`。当前存在手工维护的初始化/IRQ 代码，再生成后必须检查差异。
 - 中断回调只做必要解析和状态更新；阻塞发送、等待、复杂控制放任务中。共享结构快照保护需恢复进入临界区前的 PRIMASK，不可无条件开中断。
 - 新增 UART4 轮速输出前先确认四轮使能状态：ZDT_X42S 在速度模式下收到速度命令会重新使能并锁轴，失能后多一条速度帧就会把失能帧覆盖掉。停车分两条路径，`MecanumControl_Stop()` 会发速度 0 帧，`MecanumControl_ClearTarget()` 只清软件目标。
-- DMA 发送缓冲区在传输完成前不能重写；新增任务或增加局部缓冲区时核对默认任务 512 字节栈及 RTOS 堆。
+- DMA 发送缓冲区在传输完成前不能重写；新增任务或增加局部缓冲区时核对默认任务 2048 字节栈及 RTOS 堆。
 - OPS 当前使用 64 字节 DMA 缓冲和逐字节流式解析，支持 V1/V2 拆包、粘包和噪声后重同步；
   但仍然依赖真实 USART2/DMA 中断时序和 OPS 端 CRC 正确，不能把主机回放测试等同于实车验证。
 - 主机失联保护在调试任务中执行，不是所有底层运动 API 的统一保护。UART4 发送仍阻塞且未解析电机应答；DM 模式切换也未读回确认。

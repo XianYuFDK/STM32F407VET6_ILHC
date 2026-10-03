@@ -3,5 +3,23 @@
     "project": ".",
     "config": "STM32F407VET6_ILHC",
     "log_dir": ".embeddedskills/build"
+  },
+  "serial": {
+    "port": "COM13",
+    "baudrate": 115200,
+    "bytesize": 8,
+    "parity": "none",
+    "stopbits": 1,
+    "encoding": "utf-8"
+  },
+  "jlink": {
+    "device": "STM32F407VE",
+    "interface": "SWD",
+    "speed": "4000"
+  },
+  "keil": {
+    "project": "STM32F407VET6_ILHC.uvprojx",
+    "target": "STM32F407VET6_ILHC",
+    "log_dir": ".embeddedskills/build/stepper_x_fix"
   }
 }

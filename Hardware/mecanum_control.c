@@ -211,8 +211,8 @@ void SetMotorVoltageAndDirection(int MotorSpeed1, int MotorSpeed2,
     /* Emm 速度模式：地址 + 0xF6 + 方向 + 速度 + 加速度0 + 同步 + 0x6B */
     ZDT_X42S_SpeedAcc(motor_addr[i], dir, rpm, 0U);
 
-    /* 每条命令间隔 1ms，避免粘包 */
-    HAL_Delay(1U);
+    /* 仅入队；驱动层用 UART4 中断串行发送，并在两帧之间留出空闲时间。
+     * 本函数不等待传输完成，发送失败由调试层的故障闸门处理。 */
   }
 }
 
@@ -363,9 +363,9 @@ void chassis_move(int x, int y, int z)
     near_pos = 0U;
   }
 
-  if ((devx < 20.0f) && (devx > -20.0f) &&
-      (devy < 20.0f) && (devy > -20.0f) &&
-      (devz < 1.0f) && (devz > -1.0f))
+  if ((devx < 5.0f) && (devx > -5.0f) &&
+      (devy < 5.0f) && (devy > -5.0f) &&
+      (devz < 0.5f) && (devz > -0.5f))
   {
     if (s_settle_ms < 220U) s_settle_ms += s_control_dt_ms;
     if (delay_pos < 255U)

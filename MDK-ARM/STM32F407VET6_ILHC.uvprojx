@@ -627,6 +627,16 @@
             <FilePath>../Hardware/ops.c</FilePath>
           </File>
           <File>
+            <FileName>vision.c</FileName>
+            <FileType>1</FileType>
+            <FilePath>../Hardware/vision.c</FilePath>
+          </File>
+          <File>
+            <FileName>vision_track.c</FileName>
+            <FileType>1</FileType>
+            <FilePath>../Hardware/vision_track.c</FilePath>
+          </File>
+          <File>
             <FileName>hcan.c</FileName>
             <FileType>1</FileType>
             <FilePath>../Hardware/hcan.c</FilePath>

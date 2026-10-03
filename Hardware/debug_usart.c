@@ -24,6 +24,7 @@
 #include "usart.h"
 #include "mecanum_control.h"
 #include "ops.h"
+#include "vision_track.h"
 #include "dm_j4310.h"
 #include "hcan.h"
 #include "stepper_2835.h"
@@ -31,6 +32,7 @@
 #include "debug_param_store.h"
 
 #include <string.h>
+#include <stdio.h>
 
 
 /* --------------------------- 调试参数 ------------------------------ */
@@ -64,7 +66,12 @@ typedef struct
   float       max;
 } DebugParam_t;
 
-/* 可调参数表：KPX 直接写 X=左右轴增益 mKpx，KPY 直接写 Y=前后轴增益 mKpy。 */
+/* 可调参数表：KPX 直接写 X=左右轴增益 mKpx，KPY 直接写 Y=前后轴增益 mKpy。
+ *
+ * 末尾三项是视觉跟踪调参，属于"RAM参数"：Debug_CaptureParams 只快照前7项
+ * （Flash记录固定为16字段、VERSION=2），因此它们可设置、可 GET 回读，但不随
+ * 底盘参数存Flash，掉电回到编译期默认值。要让它们持久化必须升级Flash记录版本
+ * 并迁移旧记录，属于独立改动。 */
 static const DebugParam_t s_params[] =
 {
   {"KPX",   &mKpx,   0.0f,   50.0f},
@@ -74,6 +81,12 @@ static const DebugParam_t s_params[] =
   {"ZVMAX", &ZVmax,  0.0f,   3000.0f},
   {"XVMIN", &XYVmin, 0.0f,   100.0f},
   {"ZVMIN", &ZVmin,  0.0f,   100.0f},
+  {"VCONF", &vTrackConfMin,    0.0f, 100.0f},
+  {"VKPMM", &vTrackKpMm,       0.0f,   5.0f},
+  {"VDBMM", &vTrackDeadbandMm, 0.0f, 100.0f},
+  {"VDBPX", &vTrackDeadbandPx, 0.0f, 200.0f},
+  {"VMIN",  &vTrackMinRpm,     0.0f,  60.0f},
+  {"VMAX",  &vTrackMaxRpm,     0.0f, 3000.0f},
 };
 
 /* --------------------------- 私有变量 ------------------------------ */
@@ -109,7 +122,12 @@ static volatile uint8_t s_manual_active;
 static volatile int16_t s_manual_velocity[3];
 static volatile uint32_t s_manual_tick;
 
-/* 底盘四轮锁轴控制：接收中断只置请求，UART4阻塞发送由任务执行。
+/* 视觉跟踪命令由USART1接收中断发布，默认任务执行。
+ * 0无请求，1..6开始跟踪对应颜色，0xFF停止跟踪。 */
+static volatile uint8_t s_vision_req;
+static uint8_t s_vision_moving;
+
+/* 底盘四轮锁轴控制：接收中断只置请求，UART4帧由任务入队。
  * 0无请求、1使能（锁轴）、2失能（不锁轴）；同一周期后到的请求覆盖先到的。
  * s_wheel_enabled 由任务写、中断读：失能后不锁轴，GOTO/MANUAL/ZDT
  * 一律拒绝，必须显式 WHEELEN 恢复。main.c 启动时已使能四轮，初值为1。 */
@@ -138,6 +156,12 @@ static uint8_t s_ack_frames[16][4];
  * 默认任务只读 s_ack_read 槽，与 s_ack_frames 同一套无锁约定。
  * 24 字节足够最长一条 "XVMAX=3000.000\r\n"。 */
 static char s_ack_param[16][24];
+typedef struct
+{
+  uint8_t index, kind, command, length;
+  uint8_t data[8];
+} DebugStepperEvent_t;
+static DebugStepperEvent_t s_ack_stepper[16];
 static uint8_t s_zdt_watch;
 /* 单轮测试期间"期望的应答"：必须同时匹配 地址 + 功能码，状态码单独判读。
  * 只比地址是不够的：Stop(0xFE)/Enable(0xF3) 的回包同样是 4 字节且尾字节 0x6B，
@@ -148,6 +172,12 @@ static uint32_t s_zdt_watch_tick;
  * 20为动态参数回读文本（文本在 s_ack_param 槽里，见 Debug_ReplyParam）。 */
 #define DEBUG_ACK_PARAM_UNKNOWN 19U
 #define DEBUG_ACK_PARAM_TEXT    20U
+#define DEBUG_ACK_VTRACK_START  21U
+#define DEBUG_ACK_VTRACK_STOP   22U
+#define DEBUG_ACK_VTRACK_FORMAT 23U
+#define DEBUG_ACK_VTRACK_BUSY   24U
+#define DEBUG_ACK_VTRACK_ERROR  25U
+#define DEBUG_ACK_STEPPER       26U
 static const char * const s_ack_text[] = {
   "ACK ZDT ACCEPTED\r\n",
   "ERR ZDT BUSY\r\n",
@@ -168,7 +198,16 @@ static const char * const s_ack_text[] = {
   "INFO PARAM DEFAULTS; NO VALID FLASH RECORD\r\n",
   "ACK PARAM SAVED TO FLASH\r\n",
   "ERR PARAM FLASH; UNSAVED CHANGES LOST ON POWER OFF\r\n",
-  "ERR PARAM UNKNOWN; GET KPX|KPY|KPZ|XVMAX|ZVMAX|XVMIN|ZVMIN\r\n"
+  /* 这条提示是应答表里最长的一条，必须留在 s_tx(100字节) 之内：
+   * 再加参数名时要同时核对长度（test_debug_wheel.py 有长度守卫）。 */
+  "ERR PARAM UNKNOWN; GET KPX|KPY|KPZ|XVMAX|ZVMAX|XVMIN|ZVMIN|VCONF|VKPMM|VDBMM|VDBPX|VMIN|VMAX\r\n",
+  NULL, /* 事件20为动态参数回读文本。 */
+  "ACK VTRACK START REQUESTED\r\n",
+  "ACK VTRACK STOP REQUESTED\r\n",
+  "ERR VTRACK FORMAT; USE VTRACK=0..6\r\n",
+  "ERR VTRACK BUSY\r\n",
+  "ERR VTRACK VISION ERROR\r\n",
+  NULL /* 事件26为28/35命令诊断或CAN原始回复。 */
 };
 
 static void Debug_ZdtAck(uint8_t event)
@@ -191,6 +230,7 @@ static void Debug_ServiceZdtReplies(void)
 {
   uint8_t frame[4], next, i;
   ZDT_X42S_ServiceRx();
+  ZDT_X42S_ServiceTx();
   while (ZDT_X42S_PopReply(frame))
   {
     /* 只在"地址 + 期望功能码"都匹配时才认定本次测试收到了有效回包；
@@ -262,9 +302,103 @@ typedef struct
   uint32_t queued_tick;
   uint16_t speed;
   uint8_t direction;
-  uint8_t action; /* 0无请求，1回零，2机械目标，3原始计数 */
+  uint8_t action; /* 0无请求，1回零，2机械目标，3角度目标，4读状态，5使能 */
 } DebugStepperRequest_t;
 static volatile DebugStepperRequest_t s_stepper_req[2]; /* 35、28 */
+static uint32_t s_stepper_seen[2], s_stepper_watch_tick[2];
+static uint8_t s_stepper_watch_cmd[2];
+
+/* kind: 0请求入队、1取消待发、2格式错误、3提交成功、4提交失败、
+ * 5待发超时、6原始回包、7电机回包超时。中断中只入队，任务中格式化。 */
+static void Debug_StepperEvent(uint8_t index, uint8_t kind, uint8_t command,
+                               const Stepper2835Reply_t *reply)
+{
+  uint32_t mask = __get_PRIMASK();
+  uint8_t next;
+  __disable_irq();
+  next = (uint8_t)((s_ack_write + 1U) % 16U);
+  if (next != s_ack_read)
+  {
+    DebugStepperEvent_t *event = &s_ack_stepper[s_ack_write];
+    memset(event, 0, sizeof(*event));
+    event->index = index;
+    event->kind = kind;
+    event->command = command;
+    if (reply != NULL)
+    {
+      event->length = reply->length;
+      memcpy(event->data, reply->data, sizeof(event->data));
+    }
+    s_ack_queue[s_ack_write] = DEBUG_ACK_STEPPER;
+    s_ack_write = next;
+  }
+  if (mask == 0U) __enable_irq();
+}
+
+static uint16_t Debug_FormatStepperEvent(char *out, uint16_t capacity,
+                                         const DebugStepperEvent_t *event)
+{
+  static const char * const messages[] = {
+    "ACK S%u QUEUED (NO MOTOR ACK)\r\n",
+    "ACK S%u CANCELLED UNSENT ONLY\r\n",
+    "ERR S%u FORMAT/RANGE\r\n",
+    "ACK S%u CAN_SUBMITTED CMD=%02X (NO MOTOR ACK)\r\n",
+    "ERR S%u CAN_TX_FAILED CMD=%02X\r\n",
+    "WARN S%u CAN_TX_TIMEOUT\r\n",
+    NULL,
+    "WARN S%u NO_REPLY CMD=%02X IN 500MS\r\n"
+  };
+  unsigned int motor = event->index == 0U ? 35U : 28U;
+  int n;
+  if (capacity == 0U) return 0U;
+  if (event->kind == 6U)
+  {
+    uint8_t j;
+    n = snprintf(out, capacity, "S%u RX CAN=%04X DATA=", motor,
+                 (unsigned int)(event->index == 0U ? MOTOR35_CAN_ID : MOTOR28_CAN_ID));
+    if (n < 0 || n >= capacity) return 0U;
+    for (j = 0U; j < event->length && j < 8U; ++j)
+    {
+      int added = snprintf(out + n, capacity - n, "%02X ", (unsigned int)event->data[j]);
+      if (added < 0 || added >= capacity - n) return 0U;
+      n += added;
+    }
+    if (n + 2 >= capacity) return 0U;
+    out[n++] = '\r'; out[n++] = '\n'; out[n] = '\0';
+  }
+  else
+  {
+    if (event->kind >= sizeof(messages) / sizeof(messages[0])) return 0U;
+    n = snprintf(out, capacity, messages[event->kind], motor, (unsigned int)event->command);
+  }
+  return n > 0 && n < capacity ? (uint16_t)n : 0U;
+}
+
+static void Debug_ServiceStepperReplies(void)
+{
+  uint8_t i;
+  for (i = 0U; i < 2U; ++i)
+  {
+    Stepper2835Reply_t reply;
+    uint16_t id = i == 0U ? MOTOR35_CAN_ID : MOTOR28_CAN_ID;
+    if (Stepper2835_GetReply(id, &reply) && reply.count != s_stepper_seen[i])
+    {
+      s_stepper_seen[i] = reply.count;
+      Debug_StepperEvent(i, 6U, 0U, &reply);
+      /* 功能码必须匹配；EE格式错误使用功能码00。迟到的其他回包不能消除超时。 */
+      if (reply.length >= 3U && reply.data[reply.length - 1U] == 0x6BU &&
+          (reply.data[0] == s_stepper_watch_cmd[i] ||
+           (reply.data[0] == 0U && reply.data[1] == 0xEEU)))
+        s_stepper_watch_cmd[i] = 0U;
+    }
+    if (s_stepper_watch_cmd[i] != 0U &&
+        (uint32_t)(HAL_GetTick() - s_stepper_watch_tick[i]) >= 500U)
+    {
+      Debug_StepperEvent(i, 7U, s_stepper_watch_cmd[i], NULL);
+      s_stepper_watch_cmd[i] = 0U;
+    }
+  }
+}
 
 /* 快照只复制参数，Flash 操作全部在短临界区之外。 */
 static uint8_t s_param_error_reported;
@@ -687,6 +821,7 @@ static uint8_t Debug_ParseStepper(const char *line)
   if (Debug_StrCaseCmp(line, "CANCEL") == 0U)
   {
     s_stepper_req[index].action = 0U;
+    Debug_StepperEvent(index, 1U, 0U, NULL);
     return 1U;
   }
   if (Debug_StrCaseCmp(line, "HOME") == 0U)
@@ -694,17 +829,22 @@ static uint8_t Debug_ParseStepper(const char *line)
     action = 1U;
     v[0] = v[1] = v[2] = 0U;
   }
+  else if (Debug_StrCaseCmp(line, "STATUS") == 0U || Debug_StrCaseCmp(line, "EN") == 0U)
+  {
+    action = Debug_StrCaseCmp(line, "STATUS") == 0U ? 4U : 5U;
+    v[0] = v[1] = v[2] = 0U;
+  }
   else if (Debug_StrCaseCmpN(line, "MOVE=", 5U) == 0U)
   {
-    if (!Debug_ParseUnsignedList(line + 5, v, 2U)) return 1U;
+    if (!Debug_ParseUnsignedList(line + 5, v, 2U)) goto invalid;
     if (index == 0U)
     {
       if (v[0] < MOTOR35_HOME_HEIGHT - MOTOR35_MAX_TRAVEL ||
-          v[0] > MOTOR35_HOME_HEIGHT || v[1] < 1U || v[1] > 2184U) return 1U;
+          v[0] > MOTOR35_HOME_HEIGHT || v[1] < 1U || v[1] > STEPPER_X_MAX_RPM / 30U) goto invalid;
     }
     else if (v[0] < MOTOR28_HOME_RADIUS ||
              v[0] > MOTOR28_HOME_RADIUS + MOTOR28_MAX_TRAVEL ||
-             v[1] < 2U || v[1] > 65535U) return 1U;
+             v[1] < 2U || v[1] > (STEPPER_X_MAX_RPM * 100U + 99U) / 53U) goto invalid;
     v[2] = v[1];
     v[1] = v[0];
     v[0] = 0U;
@@ -713,15 +853,19 @@ static uint8_t Debug_ParseStepper(const char *line)
   else if (Debug_StrCaseCmpN(line, "RAW=", 4U) == 0U)
   {
     if (!Debug_ParseUnsignedList(line + 4, v, 3U) ||
-        v[0] > 1U || v[2] < 1U || v[2] > 65535U) return 1U;
+        v[0] > 1U || v[2] < 1U || v[2] > STEPPER_X_MAX_RPM) goto invalid;
     action = 3U;
   }
-  else return 1U;
+  else goto invalid;
   s_stepper_req[index].direction = (uint8_t)v[0];
   s_stepper_req[index].position = v[1];
   s_stepper_req[index].speed = (uint16_t)v[2];
   s_stepper_req[index].queued_tick = HAL_GetTick();
   s_stepper_req[index].action = action;
+  Debug_StepperEvent(index, 0U, 0U, NULL);
+  return 1U;
+invalid:
+  Debug_StepperEvent(index, 2U, 0U, NULL);
   return 1U;
 }
 
@@ -734,17 +878,55 @@ static void Debug_ServiceSteppers(void)
     HAL_StatusTypeDef status = HAL_ERROR;
     uint32_t mask = __get_PRIMASK();
     uint16_t id = i == 0U ? MOTOR35_CAN_ID : MOTOR28_CAN_ID;
+    uint8_t command = 0U;
     __disable_irq();
-    if ((uint32_t)(HAL_GetTick() - s_stepper_req[i].queued_tick) > DEBUG_HOST_TIMEOUT_MS)
+    if (s_stepper_req[i].action != 0U &&
+        (uint32_t)(HAL_GetTick() - s_stepper_req[i].queued_tick) > DEBUG_HOST_TIMEOUT_MS)
+    {
       s_stepper_req[i].action = 0U;
+      Debug_StepperEvent(i, 5U, 0U, NULL);
+    }
+    /* 等前一条命令的匹配回包或500ms超时，避免连续FD指令的分包互相穿插。 */
+    if (s_stepper_req[i].action == 0U || s_stepper_watch_cmd[i] != 0U)
+    {
+      if (mask == 0U) __enable_irq();
+      continue;
+    }
     if (s_stepper_req[i].action == 1U)
+    {
+      command = 0x9AU;
       status = Motor_Homing(id);
+    }
     else if (s_stepper_req[i].action == 2U)
+    {
+      command = 0xFDU;
       status = i == 0U ? Motor35_AbsPosition(s_stepper_req[i].position, s_stepper_req[i].speed)
                        : Motor28_AbsPosition(s_stepper_req[i].position, s_stepper_req[i].speed);
+    }
     else if (s_stepper_req[i].action == 3U)
+    {
+      command = 0xFDU;
       status = Motor_AbsPosition(s_stepper_req[i].direction, id,
                                 s_stepper_req[i].position, s_stepper_req[i].speed);
+    }
+    else if (s_stepper_req[i].action == 4U)
+    {
+      command = 0x3AU;
+      status = Stepper2835_ReadStatus(id);
+    }
+    else if (s_stepper_req[i].action == 5U)
+    {
+      command = 0xF3U;
+      status = Stepper2835_Enable(id);
+    }
+    if (status == HAL_OK)
+    {
+      s_stepper_watch_cmd[i] = command;
+      s_stepper_watch_tick[i] = HAL_GetTick();
+      Debug_StepperEvent(i, 3U, command, NULL);
+    }
+    else if (status != HAL_BUSY)
+      Debug_StepperEvent(i, 4U, command, NULL);
     if (status != HAL_BUSY) s_stepper_req[i].action = 0U;
     if (mask == 0U) __enable_irq();
   }
@@ -840,6 +1022,61 @@ static void Debug_ServiceManual(void)
   }
 }
 
+/* 视觉任务只在默认任务操作底盘。接收中断仅发布启停请求，确保STOP、
+ * 四轮失能和发送故障仍由调试层统一仲裁。没有新鲜目标时只停车一次，
+ * 不在每个20ms周期重复挤占UART4发送队列。 */
+static void Debug_ServiceVision(void)
+{
+  uint8_t request, was_active;
+  uint32_t mask = __get_PRIMASK();
+  VisionTrackOutput output;
+
+  __disable_irq();
+  request = s_vision_req;
+  s_vision_req = 0U;
+  if (mask == 0U) __enable_irq();
+
+  if (request == 0xFFU) {
+    VisionTrack_Stop();
+    if (s_vision_moving) Debug_ChassisStop();
+    s_vision_moving = 0U;
+  } else if (request != 0U) {
+    if (!Debug_WheelReady() || s_zdt_active || s_zdt_req ||
+        s_stop_req || s_zero_req || s_offset_req) {
+      Debug_ZdtAck(DEBUG_ACK_VTRACK_BUSY);
+    } else {
+      s_manual_active = s_goto_active = 0U;
+      Debug_ChassisStop();
+      (void)VisionTrack_Start(request);
+      s_vision_moving = 0U;
+    }
+  }
+
+  if (VisionTrack_IsActive() &&
+      (!Debug_WheelReady() || s_stop_req || s_zero_req || s_offset_req)) {
+    VisionTrack_Stop();
+    if (s_vision_moving) Debug_ChassisStop();
+    s_vision_moving = 0U;
+  }
+
+  was_active = VisionTrack_IsActive();
+  VisionTrack_Service(HAL_GetTick(), &output);
+  if (was_active && !VisionTrack_IsActive())
+    Debug_ZdtAck(DEBUG_ACK_VTRACK_ERROR);
+  if (!VisionTrack_IsActive()) {
+    if (s_vision_moving) Debug_ChassisStop();
+    s_vision_moving = 0U;
+    return;
+  }
+  if (output.move) {
+    MecanumControl_MoveVelocity(output.vx_rpm, output.vy_rpm, 0.0f);
+    s_vision_moving = 1U;
+  } else if (s_vision_moving) {
+    Debug_ChassisStop();
+    s_vision_moving = 0U;
+  }
+}
+
 /* GOTO 位置闭环服务。
  * DEBUG_GOTO_MOVE: 到位后取消目标并停车。
  * DEBUG_GOTO_HOLD: 到位后继续保持目标和位置环，人工扰动后自动纠回。 */
@@ -880,7 +1117,7 @@ static void Debug_ServiceGoto(void)
   if (reached) Debug_ChassisStop();
 }
 
-/* 任务上下文执行四轮使能/失能：先取消运动并停车，再发UART4阻塞帧。
+/* 任务上下文执行四轮使能/失能：先取消运动并停车，再把UART4帧入队。
  * 失能只释放锁轴，不改变DM、28/35状态，也不停止串口遥测。
  * 请求在中断中只置位，因此同一周期内只有最后一次状态切换生效。
  * 本函数在每个周期内最后执行，保证失能帧是该周期UART4上的最后一批帧；
@@ -904,6 +1141,9 @@ static void Debug_ServiceWheel(void)
     return;
   }
   s_manual_active = s_goto_active = 0U;
+  s_vision_req = 0U;
+  if (VisionTrack_IsActive()) VisionTrack_Stop();
+  s_vision_moving = 0U;
   s_wheel_enable_pending = 0U;
   s_wheel_enabled = 0U;
   /* 显式请求开启新一轮恢复；发送失败会在周期尾重新锁存故障。 */
@@ -931,6 +1171,9 @@ static void Debug_ServiceWheelFault(void)
     s_wheel_enable_pending = 0U;
     s_wheel_enabled = 0U;
     s_manual_active = s_goto_active = s_zdt_active = s_zdt_req = 0U;
+    s_vision_req = 0U;
+    if (VisionTrack_IsActive()) VisionTrack_Stop();
+    s_vision_moving = 0U;
     MecanumControl_ClearTarget();
     Debug_ZdtAck(14U);
   }
@@ -1161,7 +1404,7 @@ static void Debug_ParseLine(char *line)
     return;
   }
 
-  /* 底盘四轮锁轴/释放：中断只置请求，UART4阻塞发送由任务执行。
+  /* 底盘四轮锁轴/释放：中断只置请求，UART4帧由任务入队。
    * 失能只释放锁轴，不影响DM、28/35和串口遥测；失能期间的运动命令
    * 在本函数后面的MANUAL/GOTO/ZDT分支被丢弃，必须显式WHEELEN恢复。
    * STOP/ZERO/OPSOFFSET不是使能命令，失能后它们只清目标不发速度帧。 */
@@ -1177,6 +1420,37 @@ static void Debug_ParseLine(char *line)
     return;
   }
 
+  /* VTRACK=1..6按颜色启动物料居中跟踪，VTRACK=0停止。
+   * 中断只提交请求，视觉帧发送和底盘运动均由默认任务执行。 */
+  if (Debug_StrCaseCmpN(line, "VTRACK=", 7U) == 0U)
+  {
+    const char *color = line + 7U;
+    if (color[0] < '0' || color[0] > '6' || color[1] != '\0')
+    {
+      Debug_ZdtAck(DEBUG_ACK_VTRACK_FORMAT);
+    }
+    else if (color[0] == '0')
+    {
+      s_vision_req = 0xFFU;
+      Debug_ZdtAck(DEBUG_ACK_VTRACK_STOP);
+    }
+    else if (!Debug_WheelReady())
+    {
+      Debug_ZdtAck(10U);
+    }
+    else if (s_stop_req || s_zero_req || s_offset_req ||
+             s_zdt_active || s_zdt_req)
+    {
+      Debug_ZdtAck(DEBUG_ACK_VTRACK_BUSY);
+    }
+    else
+    {
+      s_vision_req = (uint8_t)(color[0] - '0');
+      Debug_ZdtAck(DEBUG_ACK_VTRACK_START);
+    }
+    return;
+  }
+
   /* ZDT=地址,有符号RPM,秒数；只允许底盘1~4号，限速300、限时1~5秒。
    * 测试期间拒绝新的单轮/MANUAL/GOTO命令，防止上位机周期刷新覆盖测试。
    * 接收成功仅表示请求入队，不代表电机已应答；STOP始终可以取消。 */
@@ -1189,7 +1463,8 @@ static void Debug_ParseLine(char *line)
       Debug_ZdtAck(10U);
       return;
     }
-    if (s_stop_req || s_zero_req || s_offset_req || s_zdt_active || s_zdt_req)
+    if (s_stop_req || s_zero_req || s_offset_req || s_zdt_active || s_zdt_req ||
+        VisionTrack_IsActive() || (s_vision_req >= 1U && s_vision_req <= 6U))
     {
       Debug_ZdtAck(1U);
       return;
@@ -1205,7 +1480,8 @@ static void Debug_ParseLine(char *line)
     else Debug_ZdtAck(2U);
     return;
   }
-  if ((s_zdt_active || s_zdt_req) &&
+  if ((s_zdt_active || s_zdt_req || VisionTrack_IsActive() ||
+       (s_vision_req >= 1U && s_vision_req <= 6U)) &&
       (Debug_StrCaseCmpN(line, "MANUAL=", 7U) == 0U ||
        Debug_StrCaseCmpN(line, "GOTO=", 5U) == 0U ||
        Debug_StrCaseCmpN(line, "GOTOHOLD=", 9U) == 0U)) return;
@@ -1451,8 +1727,13 @@ static void Debug_ServiceDm(void)
 void DebugUsart_Init(void)
 {
   memset((void *)s_stepper_req, 0, sizeof(s_stepper_req));
+  memset(s_stepper_seen, 0, sizeof(s_stepper_seen));
+  memset(s_stepper_watch_cmd, 0, sizeof(s_stepper_watch_cmd));
+  memset(s_stepper_watch_tick, 0, sizeof(s_stepper_watch_tick));
   s_offset_req = 0U;
   s_manual_active = 0U;
+  s_vision_req = 0U;
+  s_vision_moving = 0U;
   s_line_len = 0U;
   s_stop_req = 0U;
   s_zero_req = 0U;
@@ -1539,6 +1820,8 @@ void DebugUsart_Send(void)
   {
     s_stepper_req[0].action = s_stepper_req[1].action = 0U;
     s_dm_enable_req = s_dm_mode_req = s_dm_zero_req = 0U;
+    if (VisionTrack_IsActive() || (s_vision_req >= 1U && s_vision_req <= 6U))
+      s_vision_req = 0xFFU;
     if (s_goto_active != 0U)
     {
       s_goto_active = 0U;
@@ -1568,6 +1851,8 @@ void DebugUsart_Send(void)
     s_stepper_req[0].action = s_stepper_req[1].action = 0U;
     s_manual_active = 0U;
     s_goto_active = 0U;
+    s_vision_req = 0xFFU;
+    s_vision_moving = 0U;
     /* STOP 不是使能命令：四轮已失能时只清目标，不下发速度帧。 */
     Debug_ChassisStop();
     s_dm_active = 0U;
@@ -1583,6 +1868,8 @@ void DebugUsart_Send(void)
     s_manual_active = 0U;
     s_zero_req = 0U;
     s_goto_active = 0U;
+    s_vision_req = 0xFFU;
+    s_vision_moving = 0U;
     Debug_ChassisStop();
     OPS_ZeroCoordinates();
   }
@@ -1596,10 +1883,14 @@ void DebugUsart_Send(void)
     x_mm = s_offset_x; y_mm = s_offset_y;   /* X=左偏移、Y=前偏移 */
     s_offset_req = 0U;
     s_manual_active = s_goto_active = 0U;
+    s_vision_req = 0xFFU;
+    s_vision_moving = 0U;
     if (primask == 0U) __enable_irq();
     Debug_ChassisStop();
     (void)OPS_SetMountOffset(x_mm, y_mm);
   }
+
+  Debug_ServiceVision();
 
   Debug_ServiceGoto();
 
@@ -1613,6 +1904,7 @@ void DebugUsart_Send(void)
 
   Debug_ServiceDm();
 
+  Debug_ServiceStepperReplies();
   Debug_ServiceSteppers();
 
   Debug_ServiceParams(); /* DMA忙也必须推进保存；每周期至多一个短Flash步骤。 */
@@ -1641,6 +1933,16 @@ void DebugUsart_Send(void)
       }
       s_tx[19] = '\r'; s_tx[20] = '\n';
       reply_len = 21U;
+    }
+    else if (s_ack_queue[s_ack_read] == DEBUG_ACK_STEPPER)
+    {
+      reply_len = Debug_FormatStepperEvent((char *)s_tx, sizeof(s_tx),
+                                           &s_ack_stepper[s_ack_read]);
+      if (reply_len == 0U)
+      {
+        s_ack_read = (uint8_t)((s_ack_read + 1U) % 16U);
+        return;
+      }
     }
     else if (s_ack_queue[s_ack_read] == DEBUG_ACK_PARAM_TEXT)
     {

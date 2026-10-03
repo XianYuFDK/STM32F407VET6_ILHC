@@ -1,0 +1,78 @@
+
+RUN: /opt/pyvenv/bin/python main.py --selftest
+[1] FrameParser 基本解析 ...
+    ok
+[2] payload 内嵌帧尾 (+inf) ...
+    ok
+[3] Simulator 参数/DM ...
+    ok
+[4] 场地禁区 ...
+    ok
+[5] 四轮使能/失能闸门 ...
+    ok
+[6] A* 路径规划 ...
+    ok
+全部核心自检通过 ✔
+
+RUN: /opt/pyvenv/bin/python -m unittest tests.test_navigation_safety -v
+test_adjacent_legal_rectangles_must_be_unioned (tests.test_navigation_safety.CoreSafetyTests.test_adjacent_legal_rectangles_must_be_unioned) ... ok
+test_bounded_runtime (tests.test_navigation_safety.CoreSafetyTests.test_bounded_runtime) ... ok
+test_cancelled_search (tests.test_navigation_safety.CoreSafetyTests.test_cancelled_search) ... ok
+test_clearance_single_point_and_empty_obstacles (tests.test_navigation_safety.CoreSafetyTests.test_clearance_single_point_and_empty_obstacles) ... ok
+test_clearance_uses_custom_scene (tests.test_navigation_safety.CoreSafetyTests.test_clearance_uses_custom_scene) ... ok
+test_coarse_grid_edge_cannot_jump_over_cylinder (tests.test_navigation_safety.CoreSafetyTests.test_coarse_grid_edge_cannot_jump_over_cylinder) ... ok
+test_concave_lane_sweep_cannot_cut_corner (tests.test_navigation_safety.CoreSafetyTests.test_concave_lane_sweep_cannot_cut_corner) ... ok
+test_continuous_clearance_cannot_skip_midpoint (tests.test_navigation_safety.CoreSafetyTests.test_continuous_clearance_cannot_skip_midpoint) ... ok
+test_default_material_goal_rejected (tests.test_navigation_safety.CoreSafetyTests.test_default_material_goal_rejected) ... ok
+test_empty_whitelist_rejected (tests.test_navigation_safety.CoreSafetyTests.test_empty_whitelist_rejected) ... ok
+test_first_and_last_connectors_checked (tests.test_navigation_safety.CoreSafetyTests.test_first_and_last_connectors_checked) ... ok
+test_fixed_body_is_checked_and_hardware_gate_stays_closed (tests.test_navigation_safety.CoreSafetyTests.test_fixed_body_is_checked_and_hardware_gate_stays_closed) ... ok
+test_fixed_rect_not_disc_and_diagonal_corner (tests.test_navigation_safety.CoreSafetyTests.test_fixed_rect_not_disc_and_diagonal_corner) ... ok
+test_independent_dijkstra_40_scenes (tests.test_navigation_safety.CoreSafetyTests.test_independent_dijkstra_40_scenes) ... ok
+test_legal_region_not_just_absence_of_obstacles (tests.test_navigation_safety.CoreSafetyTests.test_legal_region_not_just_absence_of_obstacles) ... ok
+test_nondivisible_grid_cannot_escape_wall (tests.test_navigation_safety.CoreSafetyTests.test_nondivisible_grid_cannot_escape_wall) ... ok
+test_nonfinite_and_invalid_inputs_return_failure_not_exception (tests.test_navigation_safety.CoreSafetyTests.test_nonfinite_and_invalid_inputs_return_failure_not_exception) ... ok
+test_pad_only_plan_is_not_car_execution_approval (tests.test_navigation_safety.CoreSafetyTests.test_pad_only_plan_is_not_car_execution_approval) ... ok
+test_raw_connectors_and_cost_are_included (tests.test_navigation_safety.CoreSafetyTests.test_raw_connectors_and_cost_are_included) ... ok
+test_self_intersecting_map_rejected (tests.test_navigation_safety.CoreSafetyTests.test_self_intersecting_map_rejected) ... ok
+test_simplification_cannot_fallback_to_bad_adjacent_edge (tests.test_navigation_safety.CoreSafetyTests.test_simplification_cannot_fallback_to_bad_adjacent_edge) ... ok
+test_start_equals_goal_no_division_by_zero (tests.test_navigation_safety.CoreSafetyTests.test_start_equals_goal_no_division_by_zero) ... ok
+test_swept_polygon_not_just_corners (tests.test_navigation_safety.CoreSafetyTests.test_swept_polygon_not_just_corners) ... ok
+test_two_point_simplification_checks_segment (tests.test_navigation_safety.CoreSafetyTests.test_two_point_simplification_checks_segment) ... ok
+test_vehicle_centre_on_outer_boundary_rejected (tests.test_navigation_safety.CoreSafetyTests.test_vehicle_centre_on_outer_boundary_rejected) ... ok
+test_whole_body_outside_boundary (tests.test_navigation_safety.CoreSafetyTests.test_whole_body_outside_boundary) ... ok
+test_actual_motion_guard_cancels_collision (tests.test_navigation_safety.UiLogicTests.test_actual_motion_guard_cancels_collision) ... ok
+test_actual_start_drift_requires_replan (tests.test_navigation_safety.UiLogicTests.test_actual_start_drift_requires_replan) ... ok
+test_async_request_then_poll (tests.test_navigation_safety.UiLogicTests.test_async_request_then_poll) ... ok
+test_cancel_drops_simulators_own_pending_goal (tests.test_navigation_safety.UiLogicTests.test_cancel_drops_simulators_own_pending_goal) ... ok
+test_cancel_pending_background_search (tests.test_navigation_safety.UiLogicTests.test_cancel_pending_background_search) ... ok
+test_cannot_start_unverified_injected_point_list (tests.test_navigation_safety.UiLogicTests.test_cannot_start_unverified_injected_point_list) ... ok
+test_changed_map_without_signal_is_detected_before_start (tests.test_navigation_safety.UiLogicTests.test_changed_map_without_signal_is_detected_before_start) ... ok
+test_clear_path_stops_current_goal (tests.test_navigation_safety.UiLogicTests.test_clear_path_stops_current_goal) ... ok
+test_fixed_heading_rotation_request_rejected (tests.test_navigation_safety.UiLogicTests.test_fixed_heading_rotation_request_rejected) ... ok
+test_mapping_change_invalidates_plan (tests.test_navigation_safety.UiLogicTests.test_mapping_change_invalidates_plan) ... ok
+test_mapping_roundtrip (tests.test_navigation_safety.UiLogicTests.test_mapping_roundtrip) ... ok
+test_old_background_result_is_ignored (tests.test_navigation_safety.UiLogicTests.test_old_background_result_is_ignored) ... ok
+test_old_goal_epoch_cannot_restart (tests.test_navigation_safety.UiLogicTests.test_old_goal_epoch_cannot_restart) ... ok
+test_old_zero_errors_not_current_goal_completion (tests.test_navigation_safety.UiLogicTests.test_old_zero_errors_not_current_goal_completion) ... ok
+test_plan_does_not_emit_serial_commands (tests.test_navigation_safety.UiLogicTests.test_plan_does_not_emit_serial_commands) ... ok
+test_queue_cancel_discards_only_motion (tests.test_navigation_safety.UiLogicTests.test_queue_cancel_discards_only_motion) ... ok
+test_rejected_target_invalidates_old_plan (tests.test_navigation_safety.UiLogicTests.test_rejected_target_invalidates_old_plan) ... ok
+test_replan_cancels_old_snapshot (tests.test_navigation_safety.UiLogicTests.test_replan_cancels_old_snapshot) ... ok
+test_route_executes_in_real_simulator_with_full_body_checks (tests.test_navigation_safety.UiLogicTests.test_route_executes_in_real_simulator_with_full_body_checks) ... ok
+test_same_frame_cannot_accumulate_settle (tests.test_navigation_safety.UiLogicTests.test_same_frame_cannot_accumulate_settle) ... ok
+test_simulation_stays_gated_from_real_serial (tests.test_navigation_safety.UiLogicTests.test_simulation_stays_gated_from_real_serial) ... ok
+test_stale_sim_pose_stops (tests.test_navigation_safety.UiLogicTests.test_stale_sim_pose_stops) ... ok
+test_stop_button_stops_current_goal_not_only_timer (tests.test_navigation_safety.UiLogicTests.test_stop_button_stops_current_goal_not_only_timer) ... ok
+test_timeout_stops_current_goal (tests.test_navigation_safety.UiLogicTests.test_timeout_stops_current_goal) ... ok
+test_unsafe_goal_cannot_start_simulation (tests.test_navigation_safety.UiLogicTests.test_unsafe_goal_cannot_start_simulation) ... ok
+test_urgent_stop_prevents_queued_goal_replay (tests.test_navigation_safety.UiLogicTests.test_urgent_stop_prevents_queued_goal_replay) ... ok
+test_wheel_disabled_cannot_start (tests.test_navigation_safety.UiLogicTests.test_wheel_disabled_cannot_start) ... ok
+test_zero_offset_wheel_changes_invalidate_navigation (tests.test_navigation_safety.UiLogicTests.test_zero_offset_wheel_changes_invalidate_navigation) ... ok
+
+----------------------------------------------------------------------
+Ran 54 tests in 1.770s
+
+OK
+
+完成。本次仅无GUI测试；完整Qt验收请加 --qt。

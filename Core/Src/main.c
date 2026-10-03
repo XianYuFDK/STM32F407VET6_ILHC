@@ -32,8 +32,8 @@
 #include "zdt_x42s.h"
 #include "mecanum_control.h"
 #include "ops.h"
+#include "vision.h"
 #include "OLED_SoftSPI.h"
-#include "zdt_x42s.h"
 
 /* USER CODE END Includes */
 
@@ -126,7 +126,11 @@ int main(void)
 
   /* OPS 定位模块初始化（USART2 空闲中断 + DMA 接收） */
   OPS_Init();
-  /* 在首次电机使能前启动UART4接收，避免遗漏启动应答。 */
+  /* USART3 视觉响应接收；只入队结果，不自动触发底盘运动。 */
+  if (Vision_Init() != HAL_OK) Error_Handler();
+  /* 先建立UART4非阻塞发送队列和接收回调，再首次使能电机：
+   * 调度器启动前由 TX 完成中断和 TIM7 毫秒中断交替推进，顺序不能反。 */
+  if (ZDT_X42S_InitTx() != HAL_OK) Error_Handler();
   if (ZDT_X42S_InitRx() != HAL_OK) Error_Handler();
   MecanumControl_Init();
   MecanumControl_Stop(); /* MCU复位后先清掉驱动器可能保持的旧速度。 */
@@ -223,6 +227,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
   if (htim->Instance == TIM7)
   {
     HAL_IncTick();
+    ZDT_X42S_TxTick();
   }
   /* USER CODE BEGIN Callback 1 */
 

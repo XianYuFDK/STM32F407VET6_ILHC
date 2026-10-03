@@ -1,24 +1,47 @@
 {
   "last_build": {
-    "provider": "eide",
+    "provider": "keil",
     "action": "build",
-    "project": ".",
-    "config": "STM32F407VET6_ILHC",
-    "log_dir": ".embeddedskills/build",
+    "project": "STM32F407VET6_ILHC.uvprojx",
+    "target": "STM32F407VET6_ILHC",
+    "log_dir": ".embeddedskills/build/stepper_x_fix",
     "artifacts": {
-      "hex_file": "build/STM32F407VET6_ILHC/STM32F407VET6_ILHC.hex",
-      "axf_file": "build/STM32F407VET6_ILHC/STM32F407VET6_ILHC.axf",
-      "flash_file": "build/STM32F407VET6_ILHC/STM32F407VET6_ILHC.hex",
-      "debug_file": "build/STM32F407VET6_ILHC/STM32F407VET6_ILHC.axf",
-      "build_dir": "build/STM32F407VET6_ILHC",
-      "log_file": ".embeddedskills/build/MDK-ARM-STM32F407VET6_ILHC-build.log"
+      "axf_file": "STM32F407VET6_ILHC/STM32F407VET6_ILHC.axf",
+      "hex_file": "STM32F407VET6_ILHC/STM32F407VET6_ILHC.hex",
+      "flash_file": "STM32F407VET6_ILHC/STM32F407VET6_ILHC.hex",
+      "debug_file": "STM32F407VET6_ILHC/STM32F407VET6_ILHC.axf",
+      "output_dir": "STM32F407VET6_ILHC",
+      "log_file": ".embeddedskills/build/stepper_x_fix/STM32F407VET6_ILHC-STM32F407VET6_ILHC-build.log"
     },
-    "hex_file": "build/STM32F407VET6_ILHC/STM32F407VET6_ILHC.hex",
-    "axf_file": "build/STM32F407VET6_ILHC/STM32F407VET6_ILHC.axf",
-    "flash_file": "build/STM32F407VET6_ILHC/STM32F407VET6_ILHC.hex",
-    "debug_file": "build/STM32F407VET6_ILHC/STM32F407VET6_ILHC.axf",
-    "build_dir": "build/STM32F407VET6_ILHC",
-    "log_file": ".embeddedskills/build/MDK-ARM-STM32F407VET6_ILHC-build.log",
-    "timestamp": "2026-09-21T17:06:26+08:00"
+    "axf_file": "STM32F407VET6_ILHC/STM32F407VET6_ILHC.axf",
+    "hex_file": "STM32F407VET6_ILHC/STM32F407VET6_ILHC.hex",
+    "flash_file": "STM32F407VET6_ILHC/STM32F407VET6_ILHC.hex",
+    "debug_file": "STM32F407VET6_ILHC/STM32F407VET6_ILHC.axf",
+    "output_dir": "STM32F407VET6_ILHC",
+    "log_file": ".embeddedskills/build/stepper_x_fix/STM32F407VET6_ILHC-STM32F407VET6_ILHC-build.log",
+    "timestamp": "2026-10-02T13:24:36+08:00"
+  },
+  "last_serial_send": {
+    "port": "COM13",
+    "baudrate": 115200,
+    "bytes_sent": 4,
+    "timestamp": "2026-09-28T22:28:29+08:00"
+  },
+  "last_observe": {
+    "type": "serial_hex",
+    "port": "COM13",
+    "baudrate": 115200,
+    "bytes_received": 0,
+    "duration_sec": 4.1,
+    "timestamp": "2026-09-28T22:29:12+08:00"
+  },
+  "last_debug": {
+    "provider": "jlink",
+    "action": "go",
+    "device": "STM32F407VE",
+    "interface": "SWD",
+    "speed": "4000",
+    "serial_no": "000020090928",
+    "timestamp": "2026-09-30T00:13:33+08:00"
   }
 }

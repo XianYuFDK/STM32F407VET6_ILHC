@@ -36,10 +36,9 @@ static int out_rpm[4];
 static int out_calls;
 static int last_Speed[4];
 
-static void HAL_Delay(uint32_t delay_ms)
-{
-  (void)delay_ms;
-}
+/* 这里不再提供 HAL_Delay 桩：被切片的 SetMotorVoltageAndDirection 已不在帧间
+ * 调用 HAL_Delay（阻塞式 HAL_UART_Transmit 返回时已等 TC，无需额外间隔）。
+ * 若固件重新引入帧间延时，本桩需一并加回，否则 -Werror 会以未声明函数报错。 */
 
 static void Mecanum_NormalizeWheelSpeed(int *speed, int limit)
 {

@@ -295,3 +295,39 @@ QGraphicsView#FieldView {
     border: 1px solid #2B333D;
     border-radius: 10px;
 }
+
+/* A* 规划侧栏 */
+QTextEdit#PlanText {
+    background: #101318;
+    border: 1px solid #2B333D;
+    border-radius: 9px;
+    font-family: "Consolas", "JetBrains Mono", monospace;
+    font-size: 8.5pt;
+    selection-background-color: #29475B;
+}
+QLabel#PlanInfo {
+    background: #20262E;
+    border: 1px solid #343E49;
+    border-radius: 8px;
+    padding: 8px 10px;
+    color: #A9B4C2;
+    font-size: 8.5pt;
+}
+QLabel#PlanInfo[state="ok"] {
+    color: #5AD68A; border-color: #315D45; background: #1A2B22;
+}
+QLabel#PlanInfo[state="warn"] {
+    color: #FFB74D; border-color: #66512C; background: #2B2519;
+}
+QLabel#PlanInfo[state="bad"] {
+    color: #FF7078; border-color: #6A3438; background: #2C1D20;
+}
+QLabel#PlanBadge {
+    color: #FFB74D;
+    background: #2B2519;
+    border: 1px solid #66512C;
+    border-radius: 8px;
+    padding: 3px 8px;
+    font-size: 8.5pt;
+    font-weight: 700;
+}

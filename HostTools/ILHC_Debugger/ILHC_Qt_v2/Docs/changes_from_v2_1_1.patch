@@ -1,0 +1,559 @@
+--- a/README.md
++++ b/README.md
+@@ -1,6 +1,11 @@
+-# ILHC Qt 上位机 v2.1.1 — A* 安全修复版
++# ILHC Qt 上位机 v2.1.2 — 地图点击修复版
+ 
+-本包直接修改自你上传的 `ILHC_Qt_v2.zip`，不是 GitHub 旧代码。保留原有 Qt 界面、串口调参、手动调试、参数回读和显示坐标适配。
++本包在上一版 `ILHC_Qt_v2_Astar_fixed_v2_1_1.zip` 上修复地图点击失败，源头是你上传的 `ILHC_Qt_v2.zip`，不是 GitHub 旧代码。
++
++**v2.1.2 修复：`main.py` 漏了 `import threading`，地图点击在 `threading.Event()` 抛出 NameError；现已补齐，并把规划启动/计算/结果处理异常显示到界面和日志。**
++
++本次没有新增第三方依赖。已能启动 v2.1.1 的环境解压后直接运行即可。
++完整修复与验证记录见 `Docs/CLICK_FIX_NOTES.md` 和 `Docs/TEST_REPORT.md`。保留原有 Qt 界面、串口调参、手动调试、参数回读和显示坐标适配。
+ 
+ **默认只规划。自动沿路线执行仍只开放给 PC 模拟器，不会向 STM32 执行整条路径。未实现不停顿转弯或雷达动态避障。**
+ 
+@@ -74,7 +79,7 @@
+ python run_tests.py
+ ```
+ 
+-前者是6组原核心自检；后者是新增无GUI测试（几何、路径、主窗口真实方法和真实模拟器）。`tests/headless_support.py` 使用控件桩，不创建 Qt 窗口，不连接串口，不是完整 GUI 验收。
++前者是6组原核心自检；后者运行70项无GUI回归（54项安全测试＋16项地图点击测试）；另有6组核心自检。`tests/headless_support.py` 使用控件桩，但只加载生产 main.py 的真实导入，禁止辅助器掩盖漏导入。它不创建Qt窗口，不连接串口，不是完整GUI验收。
+ 
+ 安装完整依赖后运行 Qt 回归：
+ 
+@@ -92,10 +97,13 @@
+ - `core.py`：原通信/参数/模拟器 + 规划兼容入口；不改变旧 GOTO cm 协议。
+ - `navigation_planner.py`：纯计算 A*、矩形扫掠、多边形白名单、连续净空。
+ - `navigation_map.json`：显式未核实的演示地图，可加载测量后的白名单。
+-- `tests/test_navigation_safety.py`：无GUI安全回归。
++- `tests/test_navigation_safety.py`：54项无GUI安全回归。
++- `tests/test_map_click_regression.py`：16项点击入口/错误可见性回归。
++- `test_map_click_qt.py`：4项真实Qt点击冒烟测试入口（本环境未执行）。
+ - `test_debugger.py`、`test_serial_lifecycle.py`：Qt完整回归入口。
+ - `Docs/FIX_NOTES.md`：技术说明、边界和剩余工作。
+-- `Docs/changes.patch`：与本次上传源码的差异，供 Agent 审阅。
++- `Docs/changes_from_v2_1_1.patch`：本次点击修复与v2.1.1的差异。
++- `Docs/history_v2_1_1/changes.patch`：上一版相对原始上传源码的历史差异。
+ - `Docs/README_before_astar_fix.md`：上传版本旧文档，仅供历史对照；其中旧A*与安全描述不再适用。
+ 
+ 旧的直接 GOTO / MANUAL 调试仍是单独的人为调试通道，不是本版的自动导航执行器。不要把取消规划勾选当成实车路径执行开关。
+--- a/core.py
++++ b/core.py
+@@ -62,7 +62,7 @@
+ except ImportError:
+     serial = None
+ 
+-APP_VERSION = "v2.1.1 Qt A* safety fix"
++APP_VERSION = "v2.1.2 Qt A* map click fix"
+ FRAME_TAIL = b"\x00\x00\x80\x7F"
+ FRAME_FLOATS = 24
+ FRAME_DATA_LEN = 4 * FRAME_FLOATS
+--- a/main.py
++++ b/main.py
+@@ -1,5 +1,5 @@
+ # -*- coding: utf-8 -*-
+-"""ILHC Control Station v2.0 — PySide6 + PyQtGraph UI.
++"""ILHC Control Station v2.1.2 — PySide6 + PyQtGraph UI.
+ 
+ 保留 v1.1 的通信/安全核心，重做桌面 UI：
+ - PySide6 Qt Widgets
+@@ -21,7 +21,9 @@
+ import os
+ import queue
+ import sys
++import threading
+ import time
++import traceback
+ from pathlib import Path
+ 
+ import numpy as np
+@@ -798,7 +800,7 @@
+     def __init__(self, args):
+         super().__init__()
+         self.args = args
+-        self.setWindowTitle("ILHC Control Station v2.1.1 — A*修复版 / STM32F407VET6")
++        self.setWindowTitle("ILHC Control Station v2.1.2 — 地图点击修复 / STM32F407VET6")
+         self.resize(1500, 930)
+         self.setMinimumSize(1180, 760)
+ 
+@@ -841,6 +843,7 @@
+         self._plan_cancel = None
+         self._plan_context_pending = None
+         self._planner_pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix="ILHC-planner")
++        self._planner_error_log = BASE_DIR / "logs" / "ilhc-planner-error.log"
+         self.nav_map = nav.load_map(BASE_DIR / "navigation_map.json")
+         self.last_heartbeat_enqueue = 0.0
+         self.fps_count = 0
+@@ -2852,18 +2855,54 @@
+         return nav.CollisionScene(k["rects"], k["circles"], k["bounds"],
+                                   k["pad"], k["footprint"], k["drivable_polygons"])
+ 
++    def _report_plan_exception(self, stage, exc, context=None):
++        """Fail visibly and invalidate the plan; never turn an error into a GOTO.
++
++        This method runs on the GUI thread. Background workers only compute.
++        Stale requests are discarded rather than replacing the current UI state.
++        """
++        if context is not None and context.get("request_id") != self._plan_request_id:
++            return None
++        details = "".join(traceback.format_exception(type(exc), exc, exc.__traceback__))
++        self._clear_path()
++        message = "规划%s失败：%s: %s" % (stage, type(exc).__name__, exc)
++        self._set_plan_info(message, "bad")
++        self.map_status.setText(message)
++        self.log(message, "warn")
++        # A Qt signal-slot exception is otherwise easily missed when launched
++        # from a BAT/double click. Keep the original traceback on disk too.
++        path = Path(getattr(self, "_planner_error_log",
++                            BASE_DIR / "logs" / "ilhc-planner-error.log"))
++        try:
++            path.parent.mkdir(parents=True, exist_ok=True)
++            with path.open("a", encoding="utf-8") as fh:
++                fh.write("\n[%s] %s\n%s" %
++                         (time.strftime("%Y-%m-%d %H:%M:%S"), message, details))
++        except OSError as log_error:
++            # Read-only project folders must not hide the original failure.
++            self.log("诊断日志写入失败：%s\n%s" % (log_error, details), "warn")
++        else:
++            self.log("规划异常详情：%s" % path, "warn")
++        return {"ok": False, "execution_safe": False, "points": [], "reason": message}
++
+     def _request_plan(self, fx, fy):
+         """UI entry: CPU/geometry work runs outside Qt; timer only applies results."""
+-        context = self._prepare_plan(fx, fy)
+-        if context is None:
+-            return
+-        event = threading.Event()
+-        self._plan_cancel = event
+-        self._plan_context_pending = context
+-        self._plan_future = self._planner_pool.submit(
+-            core.plan_path, context["start"], context["goal"], cancel=event, **context["kwargs"])
+-        self._set_plan_info("正在规划（只计算，未下发）…", "idle")
+-        self.map_status.setText("正在规划；可取消或点击新目标")
++        context = None
++        try:
++            context = self._prepare_plan(fx, fy)
++            if context is None:
++                return
++            event = threading.Event()
++            self._plan_cancel = event
++            self._plan_context_pending = context
++            self._plan_future = self._planner_pool.submit(
++                core.plan_path, context["start"], context["goal"], cancel=event, **context["kwargs"])
++            self._set_plan_info("正在规划（只计算，未下发）…", "idle")
++            self.map_status.setText("正在规划；可取消或点击新目标")
++        except Exception as exc:
++            # Covers preparation, Event creation and submit(), not only the
++            # asynchronous calculation. v2.1.1 silently failed here on click.
++            self._report_plan_exception("启动", exc, context)
+ 
+     def _poll_plan(self):
+         future = self._plan_future
+@@ -2872,23 +2911,31 @@
+         context = self._plan_context_pending
+         self._plan_future = None
+         self._plan_context_pending = None
++        if context is None or context.get("request_id") != self._plan_request_id:
++            return
+         try:
+             result = future.result()
+         except Exception as exc:
+-            result = {"ok": False, "execution_safe": False, "points": [],
+-                      "reason": "后台规划异常：" + str(exc)}
+-        self._finish_plan(result, context)
++            self._report_plan_exception("计算", exc, context)
++            return
++        try:
++            self._finish_plan(result, context)
++        except Exception as exc:
++            # Coordinate quantization / geometry recheck / presentation can
++            # fail as well. Clear an incomplete result instead of keeping it.
++            self._report_plan_exception("结果处理", exc, context)
+ 
+     def plan_to(self, fx: float, fy: float):
+         """Synchronous test/programmatic API. UI uses _request_plan(), not this."""
+-        context = self._prepare_plan(fx, fy)
+-        if context is None:
+-            return None
++        context = None
+         try:
++            context = self._prepare_plan(fx, fy)
++            if context is None:
++                return None
+             result = core.plan_path(context["start"], context["goal"], **context["kwargs"])
++            return self._finish_plan(result, context)
+         except Exception as exc:
+-            result = {"ok": False, "execution_safe": False, "points": [], "reason": str(exc)}
+-        return self._finish_plan(result, context)
++            return self._report_plan_exception("计算", exc, context)
+ 
+     def _finish_plan(self, result, context):
+         if (context is None or context["request_id"] != self._plan_request_id or
+@@ -2989,6 +3036,7 @@
+         event = getattr(self, "_plan_cancel", None)
+         if event is not None:
+             event.set()
++        self._plan_cancel = None
+         future = getattr(self, "_plan_future", None)
+         if future is not None:
+             future.cancel()
+--- a/run_tests.py
++++ b/run_tests.py
+@@ -14,7 +14,8 @@
+     args=parser.parse_args()
+     root=Path(__file__).resolve().parent
+     commands=[[sys.executable,'main.py','--selftest'],
+-              [sys.executable,'-m','unittest','tests.test_navigation_safety','-v']]
++              [sys.executable,'-m','unittest','tests.test_navigation_safety',
++               'tests.test_map_click_regression','-v']]
+     if args.qt:
+         missing=[name for name in ('PySide6','pyqtgraph','serial','shapely','numpy')
+                  if importlib.util.find_spec(name) is None]
+@@ -22,7 +23,7 @@
+             print('无法运行Qt回归，缺少：'+', '.join(missing),file=sys.stderr)
+             print('请执行 python -m pip install -r requirements.txt',file=sys.stderr)
+             return 2
+-        commands.append([sys.executable,'-m','unittest','test_debugger','test_serial_lifecycle','-v'])
++        commands.append([sys.executable,'-m','unittest','test_debugger','test_serial_lifecycle','test_map_click_qt','-v'])
+     env=dict(os.environ,QT_QPA_PLATFORM=os.environ.get('QT_QPA_PLATFORM','offscreen'))
+     for cmd in commands:
+         print('\nRUN: '+' '.join(cmd),flush=True)
+--- /dev/null
++++ b/test_map_click_qt.py
+@@ -0,0 +1,110 @@
++"""Real Qt map-click smoke tests (requires installed GUI dependencies).
++
++Uses an offscreen QApplication, QTest mouse events, the real FieldView signal,
++MainWindow, ThreadPoolExecutor and result polling timer. Never opens a serial port.
++"""
++from __future__ import annotations
++import argparse
++import os
++from pathlib import Path
++import tempfile
++import time
++import unittest
++from unittest.mock import patch
++
++os.environ.setdefault('QT_QPA_PLATFORM', 'offscreen')
++from PySide6.QtTest import QTest, QSignalSpy
++import core
++import main
++
++
++class MapClickQtTests(unittest.TestCase):
++    @classmethod
++    def setUpClass(cls):
++        cls.app = main.QApplication.instance() or main.QApplication([])
++
++    def setUp(self):
++        self.temp = tempfile.TemporaryDirectory(prefix='ilhc-qt-click-')
++        self.w = main.MainWindow(argparse.Namespace(port=None, baud=115200, simulate=False))
++        self.w._planner_error_log = Path(self.temp.name) / 'planner.log'
++        # Unstarted thread: production simulator state, no background motion.
++        self.w.sim = core.Simulator(self.w.frame_q, self.w.line_q, self.w.urgent_q)
++        self.w.sim.handle_line('ZERO')
++        self.w.sim.make_frame(0.0)
++        self.w._select_page(2)
++        self.w.show()
++        self.app.processEvents()
++        QTest.qWait(30)
++        self.w.sim.make_frame(0.0)
++        self.errors = []
++        self.excepthook = patch.object(main.sys, 'excepthook',
++                                      side_effect=lambda t, e, tb: self.errors.append((t, e, tb)))
++        self.excepthook.start()
++
++    def tearDown(self):
++        self.w.close()
++        self.w._planner_pool.shutdown(wait=True, cancel_futures=True)
++        self.app.processEvents()
++        self.excepthook.stop()
++        self.temp.cleanup()
++
++    def click_layout(self, x, y):
++        self.w.sim.make_frame(0.0)
++        view = self.w.map_view
++        pos = view.mapFromScene(main.QPointF(x, view.sy(y)))
++        self.assertTrue(view.viewport().rect().contains(pos))
++        spy = QSignalSpy(view.gotoRequested)
++        QTest.mouseClick(view.viewport(), main.Qt.LeftButton, main.Qt.NoModifier, pos)
++        self.assertEqual(spy.count(), 1, 'FieldView click signal was not emitted')
++        return spy.at(0)
++
++    def wait_plan(self):
++        deadline = time.monotonic() + 15.0
++        while self.w._plan_future is not None and time.monotonic() < deadline:
++            # Let the production QTimer invoke _poll_plan; do not call it manually.
++            QTest.qWait(10)
++        self.assertIsNone(self.w._plan_future, 'no completion from Qt polling timer')
++        self.assertEqual(self.errors, [], 'unhandled Qt slot exception')
++
++    def test_mouse_click_reaches_planner_and_draws_route(self):
++        self.click_layout(330, 1200)
++        self.wait_plan()
++        self.assertIsNotNone(self.w.planned_result, self.w.map_status.text())
++        self.assertTrue(self.w.planned_result['ok'], self.w.planned_result)
++        self.assertGreater(self.w.map_view.path_item.path().elementCount(), 1)
++        self.assertIn('已规划', self.w.map_status.text())
++        self.assertTrue(self.w.line_q.empty())
++        self.assertTrue(self.w.urgent_q.empty())
++        self.assertIsNone(self.w.sim.goto)
++
++    def test_invalid_click_displays_failure_without_motion(self):
++        self.click_layout(700, 700)
++        self.wait_plan()
++        self.assertIn('规划失败', self.w.map_status.text())
++        self.assertEqual(self.w.planned_points, [])
++        self.assertTrue(self.w.line_q.empty())
++        self.assertTrue(self.w.urgent_q.empty())
++
++    def test_slot_submission_exception_is_shown_not_swallowed(self):
++        with patch.object(self.w._planner_pool, 'submit', side_effect=RuntimeError('submit failure')):
++            self.click_layout(330, 1200)
++        self.assertEqual(self.errors, [])
++        self.assertIn('submit failure', self.w.map_status.text())
++        self.assertIsNone(self.w._plan_future)
++        self.assertTrue(self.w._planner_error_log.exists())
++        self.assertTrue(self.w.line_q.empty())
++
++    def test_quick_target_button_reaches_planner(self):
++        buttons = [b for b in self.w.findChildren(main.QPushButton) if b.text() == '暂存区']
++        self.assertEqual(len(buttons), 1)
++        self.w.sim.make_frame(0.0)
++        QTest.mouseClick(buttons[0], main.Qt.LeftButton)
++        self.wait_plan()
++        self.assertIsNotNone(self.w.planned_result, self.w.map_status.text())
++        self.assertTrue(self.w.planned_result['ok'])
++        self.assertTrue(self.w.line_q.empty())
++        self.assertTrue(self.w.urgent_q.empty())
++
++
++if __name__ == '__main__':
++    unittest.main(verbosity=2)
+--- a/tests/headless_support.py
++++ b/tests/headless_support.py
+@@ -21,9 +21,32 @@
+ source = next(n for n in tree.body if isinstance(n, ast.ClassDef) and n.name == 'MainWindow')
+ klass = ast.ClassDef(name='WindowMethods', bases=[], keywords=[],
+                     body=[n for n in source.body if isinstance(n, ast.FunctionDef)], decorator_list=[])
+-module = ast.Module(body=[ast.ImportFrom(module='__future__', names=[ast.alias(name='annotations')], level=0), klass], type_ignores=[])
+-namespace = dict(core=core, nav=nav, math=math, queue=queue, time=time, copy=copy,
+-                 Path=Path, json=json, threading=threading, BASE_DIR=ROOT)
++# Execute only imports that really exist at main.py module scope.  The v2.1.1
++# helper injected threading from this test module even when main.py had NOT
++# imported it, hiding the exact NameError seen after a real map click.
++SAFE_IMPORT_ROOTS = {
++    '__future__', 'argparse', 'copy', 'concurrent', 'csv', 'faulthandler',
++    'html', 'json', 'logging', 'math', 'os', 'queue', 'sys', 'threading',
++    'time', 'traceback', 'pathlib', 'numpy', 'core', 'navigation_planner',
++}
++
++def _production_imports(statements):
++    result = []
++    for node in statements:
++        if isinstance(node, ast.Import):
++            if all(alias.name.split('.')[0] in SAFE_IMPORT_ROOTS for alias in node.names):
++                result.append(node)
++        elif isinstance(node, ast.ImportFrom):
++            if node.level == 0 and node.module and node.module.split('.')[0] in SAFE_IMPORT_ROOTS:
++                result.append(node)
++        elif isinstance(node, ast.Try):
++            # navigation_planner is guarded by an ImportError handler in production.
++            # Do not scan classes/functions: their local imports are NOT globals.
++            result.extend(_production_imports(node.body))
++    return result
++
++module = ast.Module(body=_production_imports(tree.body) + [klass], type_ignores=[])
++namespace = {'BASE_DIR': ROOT}
+ exec(compile(ast.fix_missing_locations(module), str(ROOT/'main.py'), 'exec'), namespace)
+ WindowMethods = namespace['WindowMethods']
+ 
+--- /dev/null
++++ b/tests/test_map_click_regression.py
+@@ -0,0 +1,183 @@
++"""Map-click regressions using actual production imports and actual UI methods.
++
++No PySide6 objects here: QWidget sinks are fakes, while the planner thread,
++geometry and simulator are real. See test_map_click_qt.py for real Qt events.
++"""
++from __future__ import annotations
++
++import ast
++from pathlib import Path
++import tempfile
++import time
++import unittest
++from unittest.mock import patch
++
++import core
++from tests.headless_support import ROOT, namespace, make_window, close_window
++
++
++class MapClickRegressionTests(unittest.TestCase):
++    def setUp(self):
++        self.w = make_window()
++        self.temp = tempfile.TemporaryDirectory(prefix='ilhc-click-test-')
++        self.w._planner_error_log = Path(self.temp.name) / 'planner-errors.log'
++
++    def tearDown(self):
++        close_window(self.w)
++        self.temp.cleanup()
++
++    def wait_result(self):
++        deadline = time.monotonic() + 10.0
++        while self.w._plan_future is not None and time.monotonic() < deadline:
++            self.w._poll_plan()
++            time.sleep(0.005)
++        self.assertIsNone(self.w._plan_future, 'planner did not finish')
++
++    def assert_no_motion(self):
++        self.assertTrue(self.w.line_q.empty())
++        self.assertTrue(self.w.urgent_q.empty())
++        self.assertIsNone(self.w.follow)
++        if self.w.sim is not None:
++            self.assertIsNone(self.w.sim.navigation_snapshot()['goto'])
++
++    def assert_failed_visibly(self, text):
++        self.assertIn(text, self.w.map_status.text)
++        self.assertEqual(self.w.plan_info.props.get('state'), 'bad')
++        self.assertEqual(self.w.planned_points, [])
++        self.assertIsNone(self.w.planned_result)
++        self.assertIsNone(self.w._plan_future)
++        self.assertIsNone(self.w._plan_context_pending)
++        self.assert_no_motion()
++
++    def test_threading_binding_comes_from_main_import(self):
++        source = ast.parse((ROOT / 'main.py').read_text(encoding='utf-8-sig'))
++        actual = [a.name for n in source.body if isinstance(n, ast.Import) for a in n.names]
++        self.assertIn('threading', actual)
++        self.assertIn('threading', namespace)
++        self.assertEqual(namespace['threading'].__name__, 'threading')
++
++    def test_actual_click_handler_starts_worker_and_displays_result(self):
++        self.w._on_map_click(330.0, 1200.0)
++        self.assertIn('正在规划', self.w.map_status.text)
++        self.wait_result()
++        self.assertTrue(self.w.planned_result['ok'])
++        self.assertEqual(self.w._planned_context['goal'], (330.0, 1200.0))
++        self.assertTrue(self.w.map_view.points)
++        self.assertIn('已规划', self.w.map_status.text)
++        self.assert_no_motion()
++
++    def test_offline_click_plans_without_simulator_or_serial(self):
++        self.w.sim = None
++        self.w._on_map_click(330.0, 1200.0)
++        self.wait_result()
++        self.assertTrue(self.w.planned_result['ok'])
++        self.assertEqual(self.w.planned_result['mode'], 'OFFLINE_PREVIEW_ONLY')
++        self.assert_no_motion()
++
++    def test_home_button_uses_async_planning_in_planning_mode(self):
++        self.w.zone_combo.v = 2
++        self.w._goto_home()
++        self.wait_result()
++        self.assertTrue(self.w.planned_result['ok'])
++        self.assertEqual(self.w._planned_context['goal'], core.ZONE_CENTER[2])
++        self.assert_no_motion()
++
++    def test_invalid_goal_shows_rejection_instead_of_silent_click(self):
++        self.w._on_map_click(700.0, 700.0)
++        self.wait_result()
++        self.assert_failed_visibly('规划失败')
++
++    def test_nonfinite_goal_is_rejected_before_worker(self):
++        self.w._on_map_click(float('nan'), 1200.0)
++        self.assert_failed_visibly('规划拒绝')
++
++    def test_missing_production_import_is_not_injected_by_test_helper(self):
++        # Mutation: deliberately recreate the shipped bug. The actual handler
++        # must show NameError, not succeed using this test module's globals.
++        with patch.dict(namespace):
++            namespace.pop('threading', None)
++            self.w._on_map_click(330.0, 1200.0)
++        self.assert_failed_visibly('NameError')
++        self.assertIn('threading', self.w.map_status.text)
++        log = self.w._planner_error_log.read_text(encoding='utf-8')
++        self.assertIn('Traceback', log)
++        self.assertIn("name 'threading' is not defined", log)
++
++    def test_submit_error_is_visible_and_next_click_can_recover(self):
++        with patch.object(self.w._planner_pool, 'submit', side_effect=RuntimeError('pool unavailable')):
++            self.w._on_map_click(330.0, 1200.0)
++        self.assert_failed_visibly('pool unavailable')
++        self.w.sim.make_frame(0.0)
++        self.w._on_map_click(330.0, 1200.0)
++        self.wait_result()
++        self.assertTrue(self.w.planned_result['ok'])
++        self.assert_no_motion()
++
++    def test_event_creation_error_is_visible(self):
++        with patch.object(namespace['threading'], 'Event', side_effect=RuntimeError('event failure')):
++            self.w._on_map_click(330.0, 1200.0)
++        self.assert_failed_visibly('event failure')
++
++    def test_unexpected_preparation_error_is_visible(self):
++        with patch.object(self.w, '_prepare_plan', side_effect=RuntimeError('snapshot failure')):
++            self.w._on_map_click(330.0, 1200.0)
++        self.assert_failed_visibly('snapshot failure')
++
++    def test_worker_error_is_visible(self):
++        with patch.object(core, 'plan_path', side_effect=RuntimeError('geometry failure')):
++            self.w._on_map_click(330.0, 1200.0)
++            self.wait_result()
++        self.assert_failed_visibly('geometry failure')
++        self.assertIn('规划计算失败', self.w.map_status.text)
++
++    def test_result_presentation_error_clears_partial_plan(self):
++        with patch.object(self.w, '_finish_plan', side_effect=ValueError('presentation failure')):
++            self.w._on_map_click(330.0, 1200.0)
++            self.wait_result()
++        self.assert_failed_visibly('presentation failure')
++        self.assertIn('规划结果处理失败', self.w.map_status.text)
++
++    def test_log_io_error_does_not_hide_original_error(self):
++        # Opening a directory as a log file must fail without breaking UI handling.
++        self.w._planner_error_log = Path(self.temp.name)
++        with patch.object(self.w._planner_pool, 'submit', side_effect=RuntimeError('original error')):
++            self.w._on_map_click(330.0, 1200.0)
++        self.assert_failed_visibly('original error')
++        self.assertTrue(any('日志写入失败' in text for text in self.w.logs))
++
++    def test_stale_exception_cannot_clear_newer_plan(self):
++        old = self.w._prepare_plan(2250.0, 1600.0)
++        self.w.sim.make_frame(0.0)
++        self.w._on_map_click(330.0, 1200.0)
++        self.wait_result()
++        current = self.w.planned_result
++        before = self.w.map_status.text
++        self.assertIsNone(self.w._report_plan_exception('计算', RuntimeError('old error'), old))
++        self.assertIs(self.w.planned_result, current)
++        self.assertEqual(self.w.map_status.text, before)
++        self.assert_no_motion()
++
++    def test_cancel_clears_pending_request_and_event_reference(self):
++        self.w._on_map_click(330.0, 1200.0)
++        old_event = self.w._plan_cancel
++        self.w._clear_path()
++        self.w._poll_plan()
++        self.assertTrue(old_event.is_set())
++        self.assertIsNone(self.w._plan_cancel)
++        self.assertIsNone(self.w._plan_context_pending)
++        self.assertEqual(self.w.planned_points, [])
++        self.assert_no_motion()
++
++    def test_latest_click_wins(self):
++        self.w._on_map_click(330.0, 1200.0)
++        self.w.sim.make_frame(0.0)
++        self.w._on_map_click(1200.0, 330.0)
++        self.wait_result()
++        self.assertTrue(self.w.planned_result['ok'])
++        self.assertEqual(self.w._planned_context['goal'], (1200.0, 330.0))
++        self.assertEqual(self.w.map_view.points[-1], (1200.0, 330.0))
++        self.assert_no_motion()
++
++
++if __name__ == '__main__':
++    unittest.main(verbosity=2)

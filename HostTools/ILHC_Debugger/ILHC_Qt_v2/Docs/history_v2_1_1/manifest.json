@@ -1,0 +1,81 @@
+{
+  "version": "2.1.1",
+  "source": "ILHC_Qt_v2.zip",
+  "source_sha256": "0638abfb78729943f6712ca690b425acefc140a22c9a29d973dcfa50d4f3d213",
+  "changes": [
+    {
+      "path": "README.md",
+      "status": "modified",
+      "sha256": "c772e95818286f2b7ee76fe10823d957b507439719a4301e1a28c7727ea581de"
+    },
+    {
+      "path": "core.py",
+      "status": "modified",
+      "sha256": "684cdcd5a322e41a3f5955f999dbf873ca1522a43b9806906f078090e9fbd1c0"
+    },
+    {
+      "path": "install_windows.bat",
+      "status": "modified",
+      "sha256": "5fcdb1f922dfc0159faaa384d920ff3cd0fd65e5112e71999fb05f0c5c536484"
+    },
+    {
+      "path": "main.py",
+      "status": "modified",
+      "sha256": "fa7b5200271d1b0f8da9e6e9c1fc6efa190e653212f5af7c51c0a7e2bbeb2dca"
+    },
+    {
+      "path": "navigation_map.json",
+      "status": "added",
+      "sha256": "f2d37a18da087c5682ed85266a24e5ad2f59e0329026d504939d39598ef478ca"
+    },
+    {
+      "path": "navigation_planner.py",
+      "status": "added",
+      "sha256": "0ae1006ebf9d97310665d83e9ecc041d43b3a9f17230f2063e7a308d757229aa"
+    },
+    {
+      "path": "requirements.txt",
+      "status": "modified",
+      "sha256": "31b2585984c70681f8ad2535b846a3e2f2529b16d759df16940b619ee20be5d0"
+    },
+    {
+      "path": "run_tests.bat",
+      "status": "added",
+      "sha256": "e49239fb9943ec6d16ff2bc71159f5c878d8f2d15c27171f19534b78b7e99bee"
+    },
+    {
+      "path": "run_tests.py",
+      "status": "added",
+      "sha256": "1e8181c221b3599820fbfbb49153ca1cf12c28003e64cd644cec6a9457e55301"
+    },
+    {
+      "path": "test_debugger.py",
+      "status": "modified",
+      "sha256": "de0629343ab3a9b8a32b1c07800b398dc4b915c14a8eefd5265b6b55ed88def3"
+    },
+    {
+      "path": "tests/__init__.py",
+      "status": "added",
+      "sha256": "093301f8bb87510971183dc055e9240d3318c5fb754a0f5630288a21bfada988"
+    },
+    {
+      "path": "tests/headless_support.py",
+      "status": "added",
+      "sha256": "e2f3a003e1ce4079da9c32ebe76a3ad61d16e39ed93f634b519d2636d8419912"
+    },
+    {
+      "path": "tests/test_navigation_safety.py",
+      "status": "added",
+      "sha256": "407cd174a7b82a094fa8019b739ef40dbc7909e6be33b2982400a80659742ed1"
+    }
+  ],
+  "not_verified": [
+    "full Qt integration (dependencies unavailable, DNS unavailable)",
+    "Windows launch",
+    "real STM32/robot hardware",
+    "competition grey-lane map geometry"
+  ],
+  "safety_tests": 54,
+  "core_selftest_groups": 6,
+  "python": "3.13.5"
+}

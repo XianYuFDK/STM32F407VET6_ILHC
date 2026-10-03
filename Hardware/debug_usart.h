@@ -15,11 +15,12 @@
  *          - 串口终端发送：KPX=3.0（左右轴P）/ KPY=3.0（前后轴P）/ KPZ=10.0
  *                          XVMAX=1600 / ZVMAX=750
  *                          STOP / ZERO
+ *                          VTRACK=1..6（按颜色居中跟踪）/ VTRACK=0（停止）
  *                          PING（上位机运行心跳）
  *                          DMID=3 / DMEN / DMOFF / DMZERO
  *                          DMMODE=1 (MIT) / DMMODE=2 (位置速度)
  *                          DMPOS=3.14 / DMVEL=2 / DMKP=2 / DMKD=1 / DMTOR=0.5
- *          - 调试动作超过 1s 未收到任何命令/PING 时，底盘停车且 DM 失能
+ *          - 调试动作超过 1s 未收到任何命令/PING 时，底盘停车、视觉跟踪退出且 DM 失能
  ******************************************************************************
  */
 #ifndef __DEBUG_USART_H__

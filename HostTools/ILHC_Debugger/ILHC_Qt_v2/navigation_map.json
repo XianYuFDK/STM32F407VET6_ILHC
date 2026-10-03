@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "map_id": "ilhc-layout-preview",
+  "map_version": 2,
+  "frame_id": "LAYOUT_MM",
+  "geometry_verified": false,
+  "note": "演示地图：沿用官方场地尺寸图的外框与固定障碍。全矩形行驶区域不是已核实的比赛灰色车道；请加载测量后的合法车道多边形。raw_turntable 的半径规则书未标注（图上无 R/⌀），必须实测最大外径后填入 circles；raw_turntable_center_from_right_mm 与 storage_hole_from_left_mm 是规则允许的摆放自由度，比赛当天按实测值改 rects/circles。仅允许PC仿真，不能用于实车放行。",
+  "rulebook": {
+    "source": "官方场地尺寸图（2400×2400，含 450 物料块 / 400 走廊 / 300 启停区等标注）",
+    "field_size_mm": [2400.0, 2400.0],
+    "material_block_mm": [450.0, 450.0],
+    "material_corridor_mm": 400.0,
+    "storage_rect_mm": [150.0, 580.0],
+    "rough_rect_mm": [400.0, 150.0],
+    "start_zone_mm": [300.0, 300.0],
+    "raw_turntable_center_from_right_mm": [1100.0, 1300.0],
+    "raw_turntable_radius_mm": null,
+    "storage_hole_from_left_mm": [75.0, 85.0],
+    "variable_note": "带区间的是规则给的摆放自由度（比赛当天可能不同），当前几何一律取区间中值；标 null 的是图上没有的尺寸，属未实测。"
+  },
+  "bounds": [0, 0, 2400, 2400],
+  "drivable_polygons": [
+    [[0, 0], [2400, 0], [2400, 2400], [0, 2400]]
+  ],
+  "rects": [
+    [550.0, 550.0, 1000.0, 1000.0, "中央物料区"],
+    [1400.0, 550.0, 1850.0, 1000.0, "中央物料区"],
+    [550.0, 1400.0, 1000.0, 1850.0, "中央物料区"],
+    [1400.0, 1400.0, 1850.0, 1850.0, "中央物料区"],
+    [0.0, 910.0, 150.0, 1490.0, "暂存区设备"],
+    [1000.0, 0.0, 1400.0, 150.0, "粗加工区设备"],
+    [2388.0, 1170.0, 2400.0, 1230.0, "二维码板"]
+  ],
+  "circles": [
+    [1200.0, 2400.0, 110.0, "原料区圆盘"]
+  ]
+}

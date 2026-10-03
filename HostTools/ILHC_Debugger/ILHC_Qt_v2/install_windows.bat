@@ -1,7 +1,7 @@
 @echo off
 chcp 65001 >nul
 cd /d "%~dp0"
-echo [ILHC] 安装 PySide6 / PyQtGraph / pyserial / numpy ...
+echo [ILHC] 安装 PySide6 / PyQtGraph / pyserial / numpy / Shapely ...
 python -m pip install -r requirements.txt
 if errorlevel 1 (
   echo.

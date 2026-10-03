@@ -1,0 +1,46 @@
+[
+  {
+    "path": "core.py",
+    "syntax": "PASS"
+  },
+  {
+    "path": "main.py",
+    "syntax": "PASS"
+  },
+  {
+    "path": "navigation_planner.py",
+    "syntax": "PASS"
+  },
+  {
+    "path": "run_tests.py",
+    "syntax": "PASS"
+  },
+  {
+    "path": "test_debugger.py",
+    "syntax": "PASS"
+  },
+  {
+    "path": "test_map_click_qt.py",
+    "syntax": "PASS"
+  },
+  {
+    "path": "test_serial_lifecycle.py",
+    "syntax": "PASS"
+  },
+  {
+    "path": "tests/__init__.py",
+    "syntax": "PASS"
+  },
+  {
+    "path": "tests/headless_support.py",
+    "syntax": "PASS"
+  },
+  {
+    "path": "tests/test_map_click_regression.py",
+    "syntax": "PASS"
+  },
+  {
+    "path": "tests/test_navigation_safety.py",
+    "syntax": "PASS"
+  }
+]

@@ -12,6 +12,7 @@ extern "C" {
 #define MOTOR28_CAN_ID       0x0200U  /* 28伸缩：节点2，CAN扩展帧基础ID */
 #define MOTOR35_DIR          0U       /* 35：从高处零点向下的协议方向 */
 #define MOTOR28_DIR          0U       /* 28：从最小半径向外的协议方向 */
+#define STEPPER_X_MAX_RPM    3000U
 /* 以下是原车机械标定，单位为 0.1mm，换机构必须重新标定。 */
 /* ------------------------- 35电机：Z轴升降标定 ------------------------- */
 #define MOTOR35_HOME_HEIGHT  2030U    /* 原车回零高度203.0mm */
@@ -37,12 +38,14 @@ typedef struct
  *       回复不等于到位，机械限位和回零模式需按驱动器确认。
  */
 HAL_StatusTypeDef Motor_Homing(uint16_t id);
+HAL_StatusTypeDef Stepper2835_ReadStatus(uint16_t id);
+HAL_StatusTypeDef Stepper2835_Enable(uint16_t id);
 /**
  * @brief 发送绝对位置指令，连续提交两个 CAN 扩展数据帧。
  * @param dir 0/1，仅表示原协议正反方向，不推定实体机构方向。
  * @param id MOTOR35_CAN_ID 或 MOTOR28_CAN_ID，第二帧使用 id+1。
- * @param step 0..UINT32_MAX，原协议位置计数，微步/角度关系由驱动器确定。
- * @param speed 0..65535 RPM（协议字段宽度，不是电机额定转速）。
+ * @param step 0..UINT32_MAX，X固件位置角度，单位0.1度；要求S_PosTDP=Disable。
+ * @param speed 0..3000 RPM；发送前转换为X固件的0.1RPM字段。
  * @return HAL_OK 两包已提交；HAL_BUSY 不足两个空邮箱，未提交；HAL_ERROR 参数或 HAL 错误。
  * @note 任务调用；不等待发送完成或到位。总线故障时不能保证两包均送达；
  *       HAL_ERROR 后不要假定设备未收到第一包，需结合反馈处理。
@@ -53,7 +56,7 @@ HAL_StatusTypeDef Motor_AbsPosition(uint8_t dir, uint16_t id, uint32_t step, uin
 /**
  * @brief 35步进电机绝对位置模式，控制Z轴高度，参考原Motor35_AbsPosition注释。
  * @param h 目标高度，单位 0.1mm；行程=限幅(2030-h,0,1600)。
- * @param speed 目标线速度，单位 mm/s；RPM=speed*30，超过 65535 拒绝发送。
+ * @param speed 目标线速度，单位 mm/s；RPM=speed*30，超过3000拒绝发送。
  * @return 继承 Motor_AbsPosition 状态；换算越界返回 HAL_ERROR。
  * @note 位置计数=行程*4494/100，整数向下取整。参数只适用于原机构；
  *       新车必须标定。行程外目标被钳位，不会执行原目标值。
@@ -79,7 +82,7 @@ HAL_StatusTypeDef Motor28_AbsPosition(uint32_t r, uint16_t speed);
  * @param data 至少 length 字节的可读数据，函数内部复制，不保留指针。
  * @param length 有效数据长度 1..8。
  * @return 1 已缓存；0 非本模块 ID 或参数无效。
- * @note 仅由 CAN1 RX 中断分派调用，调用方先筛除标准帧和远程帧。
+ * @note 仅由 CAN2 RX 中断分派调用，调用方先筛除标准帧和远程帧。
  *       不校验执行成功/到位码；新回复会覆盖旧回复，计数饱和于 UINT32_MAX。
  */
 uint8_t Stepper2835_OnRx(uint32_t id, const uint8_t *data, uint8_t length);

@@ -1,0 +1,15 @@
+{
+  "ok": true,
+  "files": [
+    "core.py",
+    "main.py",
+    "navigation_planner.py",
+    "run_tests.py",
+    "test_debugger.py",
+    "test_serial_lifecycle.py",
+    "tests/__init__.py",
+    "tests/headless_support.py",
+    "tests/test_navigation_safety.py"
+  ],
+  "python": "3.13.5"
+}

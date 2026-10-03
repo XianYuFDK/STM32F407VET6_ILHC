@@ -39,10 +39,15 @@ prelude = r'''
 static float mKpx = 2.3f, mKpy = 2.3f, mKpz = 9.0f;
 static float XYVmax = 1600.0f, ZVmax = 750.0f, XYVmin = 5.0f, ZVmin = 5.0f;
 static float zangle = 0.0f;
+/* 视觉跟踪调参：参数表末尾六项指向它们（RAM参数，不随底盘参数存Flash）。 */
+static float vTrackConfMin = 50.0f, vTrackKpMm = 0.5f, vTrackDeadbandMm = 2.0f;
+static float vTrackDeadbandPx = 12.0f, vTrackMinRpm = 8.0f, vTrackMaxRpm = 60.0f;
 /* Debug_ParseLine 触及的全部状态 */
 static volatile uint8_t s_stop_req, s_zero_req, s_offset_req, s_manual_active;
 static volatile float s_offset_x, s_offset_y;
 static volatile uint8_t s_goto_active;
+static volatile uint8_t s_vision_req;
+static uint8_t vision_active;
 static uint32_t s_goto_generation;
 static float s_goto_x, s_goto_y, s_goto_z;
 static volatile int16_t s_manual_velocity[3];
@@ -56,6 +61,10 @@ static volatile uint8_t s_dm_enable_req, s_dm_disable_req, s_dm_zero_req;
 static uint32_t tick, mask;
 #define DEBUG_GOTO_MOVE 1U
 #define DEBUG_GOTO_HOLD 2U
+#define DEBUG_ACK_VTRACK_START 21U
+#define DEBUG_ACK_VTRACK_STOP 22U
+#define DEBUG_ACK_VTRACK_FORMAT 23U
+#define DEBUG_ACK_VTRACK_BUSY 24U
 static uint32_t HAL_GetTick(void) {return tick;}
 static uint32_t __get_PRIMASK(void) {return mask;}
 static void __disable_irq(void) {mask=1;}
@@ -65,6 +74,7 @@ static uint8_t Debug_ParseStepper(const char *line) {(void)line; return 0U;}
 static uint8_t Debug_RejectCanCommand(const char *line) {(void)line; return 0U;}
 static void Debug_SetDmValue(const char *n, float v) {(void)n; (void)v;}
 static void Debug_ZdtAck(uint8_t e) {(void)e;}
+static uint8_t VisionTrack_IsActive(void) {return vision_active;}
 /* 参数回读只做名称转交（查表与文本格式化在 test_param_readback.py 里验） */
 static char reply_name[32];
 static uint32_t reply_calls;
@@ -188,6 +198,15 @@ int main(void) {
   assert(s_goto_active==0); s_stop_req=0;
   mKpx=7; strcpy(line,"KPX=8junk"); Debug_ParseLine(line); assert(mKpx==7);
   strcpy(line,"KPX=8,9"); Debug_ParseLine(line); assert(mKpx==7);
+  /* 视觉跟踪命令只发布请求；活动期间拒绝MANUAL覆盖视觉轮速。 */
+  s_manual_active=0; s_vision_req=0;
+  strcpy(line,"VTRACK=1"); Debug_ParseLine(line); assert(s_vision_req==1U);
+  strcpy(line,"MANUAL=70,60,30"); Debug_ParseLine(line); assert(!s_manual_active);
+  s_vision_req=0U; vision_active=1U;
+  strcpy(line,"MANUAL=70,60,30"); Debug_ParseLine(line); assert(!s_manual_active);
+  strcpy(line,"VTRACK=0"); Debug_ParseLine(line); assert(s_vision_req==0xFFU);
+  vision_active=0U; s_vision_req=0U;
+  strcpy(line,"VTRACK=7"); Debug_ParseLine(line); assert(s_vision_req==0U);
   /* 与坐标无关的既有命令仍可用 */
   strcpy(line, "STOP");
   Debug_ParseLine(line);

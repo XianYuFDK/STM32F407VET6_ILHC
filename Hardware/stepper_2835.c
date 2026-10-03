@@ -41,18 +41,32 @@ HAL_StatusTypeDef Motor_Homing(uint16_t id)
     return CAN_SendEXData(HCAN_CAN_NUM, id, data, sizeof(data));
 }
 
+/* 状态查询不触发运动；使能仅由显式S28EN/S35EN命令调用。 */
+HAL_StatusTypeDef Stepper2835_ReadStatus(uint16_t id)
+{
+    const uint8_t data[2] = {0x3A, 0x6B};
+    if (Stepper2835_Index(id) < 0) return HAL_ERROR;
+    return CAN_SendEXData(HCAN_CAN_NUM, id, data, sizeof(data));
+}
+
+HAL_StatusTypeDef Stepper2835_Enable(uint16_t id)
+{
+    const uint8_t data[5] = {0xF3, 0xAB, 0x01, 0x00, 0x6B};
+    if (Stepper2835_Index(id) < 0) return HAL_ERROR;
+    return CAN_SendEXData(HCAN_CAN_NUM, id, data, sizeof(data));
+}
+
 /**
  * @brief   步进电机绝对位置模式，对应原工程 Motor_AbsPosition()。
  * @param   dir 目标位置方向，0 / 1；实际机械正反方向由接线和驱动配置决定。
  * @param   id 35 电机为 0x100，28 电机为 0x200（以头文件配置为准）。
- * @param   step 目标位置计数，范围 0..UINT32_MAX，不是高度或长度。
- * @param   speed 电机转速，单位 RPM，16 位字段；不是线速度 mm/s。
+ * @param   step X固件位置角度，单位0.1度，范围0..UINT32_MAX。
+ * @param   speed 电机转速，单位RPM，0..3000；协议字段单位0.1RPM。
  * @return  HAL_OK 两包已提交；HAL_BUSY 无足够邮箱；HAL_ERROR 参数或提交错误。
- * @note    原注释称 step 为“步数、一步 1.8度”；本驱动只原样发送计数，
- *          实际角度还取决于驱动器微步配置，不能据此直接认定 1计数=1.8度。
+ * @note    使用X固件FD命令，要求S_PosTDP=Disable；位置不受MStep细分影响。
  *          两个扩展帧分别使用 id、id+1，高字节在前；提交成功不代表到位。
  * @example Motor_AbsPosition(0, MOTOR35_CAN_ID, 1000, 1000);
- *          // 35 电机以 1000 RPM 向方向 0 的绝对位置计数 1000 运动。
+ *          // 35 电机以1000RPM向方向0的绝对角度100.0度运动。
  */
 HAL_StatusTypeDef Motor_AbsPosition(uint8_t dir, uint16_t id, uint32_t step, uint16_t speed)
 {
@@ -60,11 +74,13 @@ HAL_StatusTypeDef Motor_AbsPosition(uint8_t dir, uint16_t id, uint32_t step, uin
     uint8_t data[16] = {0xFD, 0, 0xAF, 0xFF, 0xAF, 0xFF, 0, 0,
                         0xFD, 0, 0, 0, 0, 0x01, 0x00, 0x6B};
     uint32_t primask;
+    uint16_t speed_raw;
     HAL_StatusTypeDef status;
-    if (dir > 1U || Stepper2835_Index(id) < 0) return HAL_ERROR;
+    if (dir > 1U || Stepper2835_Index(id) < 0 || speed > STEPPER_X_MAX_RPM) return HAL_ERROR;
+    speed_raw = (uint16_t)(speed * 10U);
     data[1] = dir;
-    data[6] = (uint8_t)(speed >> 8);
-    data[7] = (uint8_t)speed;
+    data[6] = (uint8_t)(speed_raw >> 8);
+    data[7] = (uint8_t)speed_raw;
     data[9] = (uint8_t)(step >> 24);
     data[10] = (uint8_t)(step >> 16);
     data[11] = (uint8_t)(step >> 8);
@@ -90,7 +106,7 @@ HAL_StatusTypeDef Motor_AbsPosition(uint8_t dir, uint16_t id, uint32_t step, uin
  * @brief   35 步进电机绝对位置模式，控制 Z 轴目标高度。
  * @param   h 目标高度，单位 0.1mm，例如 1000 表示 100.0mm。
  * @param   speed Z 轴线速度，单位 mm/s，例如 50 表示 50mm/s。
- * @return  继承公共位置接口的状态；换算后 RPM 超过 65535 返回 HAL_ERROR。
+ * @return  继承公共位置接口的状态；换算后RPM超过3000返回HAL_ERROR。
  * @note    按原车标定：回零高度 203.0mm，向下位移最多 160.0mm。
  *          输入高度 h → 向下行程 max(2030-h,0) → 限幅 1600
  *          → 位置计数=行程×44.94；电机 RPM=线速度×30。
@@ -106,7 +122,7 @@ HAL_StatusTypeDef Motor35_AbsPosition(uint32_t h, uint16_t speed)
     uint32_t rpm = (uint32_t)speed * 30U;
     if (travel > MOTOR35_MAX_TRAVEL) travel = MOTOR35_MAX_TRAVEL;
     /* 原车每 0.1mm 对应 44.94 个协议计数；限幅后乘法不会溢出。 */
-    if (rpm > 65535U) return HAL_ERROR;
+    if (rpm > STEPPER_X_MAX_RPM) return HAL_ERROR;
     return Motor_AbsPosition(MOTOR35_DIR, MOTOR35_CAN_ID, travel * 4494U / 100U, (uint16_t)rpm);
 }
 
@@ -130,6 +146,7 @@ HAL_StatusTypeDef Motor28_AbsPosition(uint32_t r, uint16_t speed)
     /* 28：从最小半径向外伸出，先处理小于零点的输入，避免无符号减法下溢。 */
     uint32_t travel = r <= MOTOR28_HOME_RADIUS ? 0U : r - MOTOR28_HOME_RADIUS;
     uint32_t rpm = (uint32_t)speed * 53U / 100U;
+    if (rpm > STEPPER_X_MAX_RPM) return HAL_ERROR;
     if (travel > MOTOR28_MAX_TRAVEL) travel = MOTOR28_MAX_TRAVEL;
     /* 原车每 0.1mm 对应 3.189 个协议计数，按正数截断，与原接口一致。 */
     return Motor_AbsPosition(MOTOR28_DIR, MOTOR28_CAN_ID, travel * 3189U / 1000U, (uint16_t)rpm);

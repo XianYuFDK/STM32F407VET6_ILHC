@@ -1,0 +1,64 @@
+{
+  "version": "2.1.2",
+  "base_archive": "ILHC_Qt_v2_Astar_fixed_v2_1_1.zip",
+  "base_sha256": "75478e7098547cc6d84ccaf683ac14796b02487601bcccee770eae1a45df3fa3",
+  "purpose": "Fix missing threading import in map click and expose planner errors",
+  "changed_source_files": [
+    {
+      "path": "README.md",
+      "status": "modified",
+      "sha256": "1c8c292c57f09d9afb31f430bf3e4872738f0251f19e4c932085dd4d70fc82f5"
+    },
+    {
+      "path": "core.py",
+      "status": "modified",
+      "sha256": "f69c784d81066f5ef74d396e731c51ab99d87ce7d4944c47528be635936d608a"
+    },
+    {
+      "path": "main.py",
+      "status": "modified",
+      "sha256": "22679bdc0bdbd361b0bbcf9d83132902794b652884dc60309abe0d0fa8fe2f01"
+    },
+    {
+      "path": "run_tests.py",
+      "status": "modified",
+      "sha256": "aa38648d137bf3a031b387166e62fb0a505784a4ad57c759bb6a0d71227b154b"
+    },
+    {
+      "path": "test_map_click_qt.py",
+      "status": "added",
+      "sha256": "075a57471d34869147a01d47c7386d919931f4c088b5a7a30ee5a358324a71d2"
+    },
+    {
+      "path": "tests/headless_support.py",
+      "status": "modified",
+      "sha256": "ac9f66c100a7ea0447d71ea1c069c678ad7363e083d078cc909531fe8fcb7967"
+    },
+    {
+      "path": "tests/test_map_click_regression.py",
+      "status": "added",
+      "sha256": "6988d2d6f809c6062af977e58b734f5c4e134aec21507c83f74905572b2e687e"
+    }
+  ],
+  "tests": {
+    "headless": {
+      "passed": 70,
+      "failed": 0
+    },
+    "core_selftest_groups": 6,
+    "python_syntax_files": 11
+  },
+  "not_verified": [
+    "Full Qt integration (dependencies unavailable)",
+    "Windows BAT launch",
+    "Real serial/STM32/vehicle",
+    "Real competition lane geometry"
+  ],
+  "python": "3.13.5",
+  "unchanged_runtime_files": [
+    "navigation_planner.py",
+    "navigation_map.json",
+    "requirements.txt"
+  ],
+  "hardware_autonomous_navigation_enabled": false
+}

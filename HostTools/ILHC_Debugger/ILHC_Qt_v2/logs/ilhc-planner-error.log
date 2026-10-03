@@ -1,0 +1,625 @@
+
+[2026-09-29 21:01:53] 规划计算失败：AttributeError: 'WindowMethods' object has no attribute 'sim_obstacles'
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3267, in plan_to
+    context = self._prepare_plan(fx, fy)
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3141, in _prepare_plan
+    data["circles"] = list(data["circles"]) + self._obstacle_circles()
+                                              ~~~~~~~~~~~~~~~~~~~~~~^^
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 2980, in _obstacle_circles
+    return core.sim_obstacle_circles(self.sim_obstacles)
+                                     ^^^^^^^^^^^^^^^^^^
+AttributeError: 'WindowMethods' object has no attribute 'sim_obstacles'
+
+[2026-09-29 21:01:53] 规划启动失败：AttributeError: 'WindowMethods' object has no attribute 'sim_obstacles'
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3227, in _request_plan
+    context = self._prepare_plan(fx, fy)
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3141, in _prepare_plan
+    data["circles"] = list(data["circles"]) + self._obstacle_circles()
+                                              ~~~~~~~~~~~~~~~~~~~~~~^^
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 2980, in _obstacle_circles
+    return core.sim_obstacle_circles(self.sim_obstacles)
+                                     ^^^^^^^^^^^^^^^^^^
+AttributeError: 'WindowMethods' object has no attribute 'sim_obstacles'
+
+[2026-09-29 21:01:53] 规划启动失败：AttributeError: 'WindowMethods' object has no attribute 'sim_obstacles'
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3227, in _request_plan
+    context = self._prepare_plan(fx, fy)
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3141, in _prepare_plan
+    data["circles"] = list(data["circles"]) + self._obstacle_circles()
+                                              ~~~~~~~~~~~~~~~~~~~~~~^^
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 2980, in _obstacle_circles
+    return core.sim_obstacle_circles(self.sim_obstacles)
+                                     ^^^^^^^^^^^^^^^^^^
+AttributeError: 'WindowMethods' object has no attribute 'sim_obstacles'
+
+[2026-09-29 21:01:53] 规划计算失败：AttributeError: 'WindowMethods' object has no attribute 'sim_obstacles'
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3267, in plan_to
+    context = self._prepare_plan(fx, fy)
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3141, in _prepare_plan
+    data["circles"] = list(data["circles"]) + self._obstacle_circles()
+                                              ~~~~~~~~~~~~~~~~~~~~~~^^
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 2980, in _obstacle_circles
+    return core.sim_obstacle_circles(self.sim_obstacles)
+                                     ^^^^^^^^^^^^^^^^^^
+AttributeError: 'WindowMethods' object has no attribute 'sim_obstacles'
+
+[2026-09-29 21:01:53] 规划计算失败：AttributeError: 'WindowMethods' object has no attribute 'sim_obstacles'
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3267, in plan_to
+    context = self._prepare_plan(fx, fy)
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3141, in _prepare_plan
+    data["circles"] = list(data["circles"]) + self._obstacle_circles()
+                                              ~~~~~~~~~~~~~~~~~~~~~~^^
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 2980, in _obstacle_circles
+    return core.sim_obstacle_circles(self.sim_obstacles)
+                                     ^^^^^^^^^^^^^^^^^^
+AttributeError: 'WindowMethods' object has no attribute 'sim_obstacles'
+
+[2026-09-29 21:01:53] 规划计算失败：AttributeError: 'WindowMethods' object has no attribute 'sim_obstacles'
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3267, in plan_to
+    context = self._prepare_plan(fx, fy)
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3141, in _prepare_plan
+    data["circles"] = list(data["circles"]) + self._obstacle_circles()
+                                              ~~~~~~~~~~~~~~~~~~~~~~^^
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 2980, in _obstacle_circles
+    return core.sim_obstacle_circles(self.sim_obstacles)
+                                     ^^^^^^^^^^^^^^^^^^
+AttributeError: 'WindowMethods' object has no attribute 'sim_obstacles'
+
+[2026-09-29 21:01:53] 规划计算失败：AttributeError: 'WindowMethods' object has no attribute 'sim_obstacles'
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3267, in plan_to
+    context = self._prepare_plan(fx, fy)
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3141, in _prepare_plan
+    data["circles"] = list(data["circles"]) + self._obstacle_circles()
+                                              ~~~~~~~~~~~~~~~~~~~~~~^^
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 2980, in _obstacle_circles
+    return core.sim_obstacle_circles(self.sim_obstacles)
+                                     ^^^^^^^^^^^^^^^^^^
+AttributeError: 'WindowMethods' object has no attribute 'sim_obstacles'
+
+[2026-09-29 21:01:53] 规划计算失败：AttributeError: 'WindowMethods' object has no attribute 'sim_obstacles'
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3267, in plan_to
+    context = self._prepare_plan(fx, fy)
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3141, in _prepare_plan
+    data["circles"] = list(data["circles"]) + self._obstacle_circles()
+                                              ~~~~~~~~~~~~~~~~~~~~~~^^
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 2980, in _obstacle_circles
+    return core.sim_obstacle_circles(self.sim_obstacles)
+                                     ^^^^^^^^^^^^^^^^^^
+AttributeError: 'WindowMethods' object has no attribute 'sim_obstacles'
+
+[2026-09-29 21:01:53] 规划计算失败：AttributeError: 'WindowMethods' object has no attribute 'sim_obstacles'
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3267, in plan_to
+    context = self._prepare_plan(fx, fy)
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3141, in _prepare_plan
+    data["circles"] = list(data["circles"]) + self._obstacle_circles()
+                                              ~~~~~~~~~~~~~~~~~~~~~~^^
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 2980, in _obstacle_circles
+    return core.sim_obstacle_circles(self.sim_obstacles)
+                                     ^^^^^^^^^^^^^^^^^^
+AttributeError: 'WindowMethods' object has no attribute 'sim_obstacles'
+
+[2026-09-29 21:01:53] 规划计算失败：AttributeError: 'WindowMethods' object has no attribute 'sim_obstacles'
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3267, in plan_to
+    context = self._prepare_plan(fx, fy)
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3141, in _prepare_plan
+    data["circles"] = list(data["circles"]) + self._obstacle_circles()
+                                              ~~~~~~~~~~~~~~~~~~~~~~^^
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 2980, in _obstacle_circles
+    return core.sim_obstacle_circles(self.sim_obstacles)
+                                     ^^^^^^^^^^^^^^^^^^
+AttributeError: 'WindowMethods' object has no attribute 'sim_obstacles'
+
+[2026-09-29 21:01:53] 规划计算失败：AttributeError: 'WindowMethods' object has no attribute 'sim_obstacles'
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3267, in plan_to
+    context = self._prepare_plan(fx, fy)
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3141, in _prepare_plan
+    data["circles"] = list(data["circles"]) + self._obstacle_circles()
+                                              ~~~~~~~~~~~~~~~~~~~~~~^^
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 2980, in _obstacle_circles
+    return core.sim_obstacle_circles(self.sim_obstacles)
+                                     ^^^^^^^^^^^^^^^^^^
+AttributeError: 'WindowMethods' object has no attribute 'sim_obstacles'
+
+[2026-09-29 21:01:53] 规划计算失败：AttributeError: 'WindowMethods' object has no attribute 'sim_obstacles'
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3267, in plan_to
+    context = self._prepare_plan(fx, fy)
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3141, in _prepare_plan
+    data["circles"] = list(data["circles"]) + self._obstacle_circles()
+                                              ~~~~~~~~~~~~~~~~~~~~~~^^
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 2980, in _obstacle_circles
+    return core.sim_obstacle_circles(self.sim_obstacles)
+                                     ^^^^^^^^^^^^^^^^^^
+AttributeError: 'WindowMethods' object has no attribute 'sim_obstacles'
+
+[2026-09-29 21:01:53] 规划计算失败：AttributeError: 'WindowMethods' object has no attribute 'sim_obstacles'
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3267, in plan_to
+    context = self._prepare_plan(fx, fy)
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3141, in _prepare_plan
+    data["circles"] = list(data["circles"]) + self._obstacle_circles()
+                                              ~~~~~~~~~~~~~~~~~~~~~~^^
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 2980, in _obstacle_circles
+    return core.sim_obstacle_circles(self.sim_obstacles)
+                                     ^^^^^^^^^^^^^^^^^^
+AttributeError: 'WindowMethods' object has no attribute 'sim_obstacles'
+
+[2026-09-29 21:01:53] 规划计算失败：AttributeError: 'WindowMethods' object has no attribute 'sim_obstacles'
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3267, in plan_to
+    context = self._prepare_plan(fx, fy)
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3141, in _prepare_plan
+    data["circles"] = list(data["circles"]) + self._obstacle_circles()
+                                              ~~~~~~~~~~~~~~~~~~~~~~^^
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 2980, in _obstacle_circles
+    return core.sim_obstacle_circles(self.sim_obstacles)
+                                     ^^^^^^^^^^^^^^^^^^
+AttributeError: 'WindowMethods' object has no attribute 'sim_obstacles'
+
+[2026-09-29 21:01:53] 规划计算失败：AttributeError: 'WindowMethods' object has no attribute 'sim_obstacles'
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3267, in plan_to
+    context = self._prepare_plan(fx, fy)
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3141, in _prepare_plan
+    data["circles"] = list(data["circles"]) + self._obstacle_circles()
+                                              ~~~~~~~~~~~~~~~~~~~~~~^^
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 2980, in _obstacle_circles
+    return core.sim_obstacle_circles(self.sim_obstacles)
+                                     ^^^^^^^^^^^^^^^^^^
+AttributeError: 'WindowMethods' object has no attribute 'sim_obstacles'
+
+[2026-09-29 21:01:53] 规划计算失败：AttributeError: 'WindowMethods' object has no attribute 'sim_obstacles'
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3267, in plan_to
+    context = self._prepare_plan(fx, fy)
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3141, in _prepare_plan
+    data["circles"] = list(data["circles"]) + self._obstacle_circles()
+                                              ~~~~~~~~~~~~~~~~~~~~~~^^
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 2980, in _obstacle_circles
+    return core.sim_obstacle_circles(self.sim_obstacles)
+                                     ^^^^^^^^^^^^^^^^^^
+AttributeError: 'WindowMethods' object has no attribute 'sim_obstacles'
+
+[2026-09-29 21:01:53] 规划计算失败：AttributeError: 'WindowMethods' object has no attribute 'sim_obstacles'
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3267, in plan_to
+    context = self._prepare_plan(fx, fy)
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3141, in _prepare_plan
+    data["circles"] = list(data["circles"]) + self._obstacle_circles()
+                                              ~~~~~~~~~~~~~~~~~~~~~~^^
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 2980, in _obstacle_circles
+    return core.sim_obstacle_circles(self.sim_obstacles)
+                                     ^^^^^^^^^^^^^^^^^^
+AttributeError: 'WindowMethods' object has no attribute 'sim_obstacles'
+
+[2026-09-29 21:01:53] 规划计算失败：AttributeError: 'WindowMethods' object has no attribute 'sim_obstacles'
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3267, in plan_to
+    context = self._prepare_plan(fx, fy)
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3141, in _prepare_plan
+    data["circles"] = list(data["circles"]) + self._obstacle_circles()
+                                              ~~~~~~~~~~~~~~~~~~~~~~^^
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 2980, in _obstacle_circles
+    return core.sim_obstacle_circles(self.sim_obstacles)
+                                     ^^^^^^^^^^^^^^^^^^
+AttributeError: 'WindowMethods' object has no attribute 'sim_obstacles'
+
+[2026-09-29 21:01:53] 规划计算失败：AttributeError: 'WindowMethods' object has no attribute 'sim_obstacles'
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3267, in plan_to
+    context = self._prepare_plan(fx, fy)
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3141, in _prepare_plan
+    data["circles"] = list(data["circles"]) + self._obstacle_circles()
+                                              ~~~~~~~~~~~~~~~~~~~~~~^^
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 2980, in _obstacle_circles
+    return core.sim_obstacle_circles(self.sim_obstacles)
+                                     ^^^^^^^^^^^^^^^^^^
+AttributeError: 'WindowMethods' object has no attribute 'sim_obstacles'
+
+[2026-09-29 21:01:53] 规划计算失败：AttributeError: 'WindowMethods' object has no attribute 'sim_obstacles'
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3267, in plan_to
+    context = self._prepare_plan(fx, fy)
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3141, in _prepare_plan
+    data["circles"] = list(data["circles"]) + self._obstacle_circles()
+                                              ~~~~~~~~~~~~~~~~~~~~~~^^
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 2980, in _obstacle_circles
+    return core.sim_obstacle_circles(self.sim_obstacles)
+                                     ^^^^^^^^^^^^^^^^^^
+AttributeError: 'WindowMethods' object has no attribute 'sim_obstacles'
+
+[2026-09-29 21:01:53] 规划计算失败：AttributeError: 'WindowMethods' object has no attribute 'sim_obstacles'
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3267, in plan_to
+    context = self._prepare_plan(fx, fy)
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3141, in _prepare_plan
+    data["circles"] = list(data["circles"]) + self._obstacle_circles()
+                                              ~~~~~~~~~~~~~~~~~~~~~~^^
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 2980, in _obstacle_circles
+    return core.sim_obstacle_circles(self.sim_obstacles)
+                                     ^^^^^^^^^^^^^^^^^^
+AttributeError: 'WindowMethods' object has no attribute 'sim_obstacles'
+
+[2026-09-29 21:01:53] 规划计算失败：AttributeError: 'WindowMethods' object has no attribute 'sim_obstacles'
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3267, in plan_to
+    context = self._prepare_plan(fx, fy)
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3141, in _prepare_plan
+    data["circles"] = list(data["circles"]) + self._obstacle_circles()
+                                              ~~~~~~~~~~~~~~~~~~~~~~^^
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 2980, in _obstacle_circles
+    return core.sim_obstacle_circles(self.sim_obstacles)
+                                     ^^^^^^^^^^^^^^^^^^
+AttributeError: 'WindowMethods' object has no attribute 'sim_obstacles'
+
+[2026-09-29 21:01:53] 规划计算失败：AttributeError: 'WindowMethods' object has no attribute 'sim_obstacles'
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3267, in plan_to
+    context = self._prepare_plan(fx, fy)
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3141, in _prepare_plan
+    data["circles"] = list(data["circles"]) + self._obstacle_circles()
+                                              ~~~~~~~~~~~~~~~~~~~~~~^^
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 2980, in _obstacle_circles
+    return core.sim_obstacle_circles(self.sim_obstacles)
+                                     ^^^^^^^^^^^^^^^^^^
+AttributeError: 'WindowMethods' object has no attribute 'sim_obstacles'
+
+[2026-09-29 21:01:53] 规划计算失败：AttributeError: 'WindowMethods' object has no attribute 'sim_obstacles'
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3267, in plan_to
+    context = self._prepare_plan(fx, fy)
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3141, in _prepare_plan
+    data["circles"] = list(data["circles"]) + self._obstacle_circles()
+                                              ~~~~~~~~~~~~~~~~~~~~~~^^
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 2980, in _obstacle_circles
+    return core.sim_obstacle_circles(self.sim_obstacles)
+                                     ^^^^^^^^^^^^^^^^^^
+AttributeError: 'WindowMethods' object has no attribute 'sim_obstacles'
+
+[2026-09-29 21:01:53] 规划计算失败：AttributeError: 'WindowMethods' object has no attribute 'sim_obstacles'
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3267, in plan_to
+    context = self._prepare_plan(fx, fy)
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3141, in _prepare_plan
+    data["circles"] = list(data["circles"]) + self._obstacle_circles()
+                                              ~~~~~~~~~~~~~~~~~~~~~~^^
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 2980, in _obstacle_circles
+    return core.sim_obstacle_circles(self.sim_obstacles)
+                                     ^^^^^^^^^^^^^^^^^^
+AttributeError: 'WindowMethods' object has no attribute 'sim_obstacles'
+
+[2026-09-29 22:13:23] 规划计算失败：AttributeError: 'WindowMethods' object has no attribute 'strafe_forbid_check'
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3280, in plan_to
+    context = self._prepare_plan(fx, fy)
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3156, in _prepare_plan
+    allow_strafe=not self.strafe_forbid_check.isChecked(),
+                     ^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'WindowMethods' object has no attribute 'strafe_forbid_check'
+
+[2026-09-29 22:13:23] 规划启动失败：AttributeError: 'WindowMethods' object has no attribute 'strafe_forbid_check'
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3240, in _request_plan
+    context = self._prepare_plan(fx, fy)
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3156, in _prepare_plan
+    allow_strafe=not self.strafe_forbid_check.isChecked(),
+                     ^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'WindowMethods' object has no attribute 'strafe_forbid_check'
+
+[2026-09-29 22:13:23] 规划启动失败：AttributeError: 'WindowMethods' object has no attribute 'strafe_forbid_check'
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3240, in _request_plan
+    context = self._prepare_plan(fx, fy)
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3156, in _prepare_plan
+    allow_strafe=not self.strafe_forbid_check.isChecked(),
+                     ^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'WindowMethods' object has no attribute 'strafe_forbid_check'
+
+[2026-09-29 22:13:23] 规划计算失败：AttributeError: 'WindowMethods' object has no attribute 'strafe_forbid_check'
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3280, in plan_to
+    context = self._prepare_plan(fx, fy)
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3156, in _prepare_plan
+    allow_strafe=not self.strafe_forbid_check.isChecked(),
+                     ^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'WindowMethods' object has no attribute 'strafe_forbid_check'
+
+[2026-09-29 22:13:23] 规划计算失败：AttributeError: 'WindowMethods' object has no attribute 'strafe_forbid_check'
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3280, in plan_to
+    context = self._prepare_plan(fx, fy)
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3156, in _prepare_plan
+    allow_strafe=not self.strafe_forbid_check.isChecked(),
+                     ^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'WindowMethods' object has no attribute 'strafe_forbid_check'
+
+[2026-09-29 22:13:23] 规划计算失败：AttributeError: 'WindowMethods' object has no attribute 'strafe_forbid_check'
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3280, in plan_to
+    context = self._prepare_plan(fx, fy)
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3156, in _prepare_plan
+    allow_strafe=not self.strafe_forbid_check.isChecked(),
+                     ^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'WindowMethods' object has no attribute 'strafe_forbid_check'
+
+[2026-09-29 22:13:23] 规划计算失败：AttributeError: 'WindowMethods' object has no attribute 'strafe_forbid_check'
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3280, in plan_to
+    context = self._prepare_plan(fx, fy)
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3156, in _prepare_plan
+    allow_strafe=not self.strafe_forbid_check.isChecked(),
+                     ^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'WindowMethods' object has no attribute 'strafe_forbid_check'
+
+[2026-09-29 22:13:23] 规划计算失败：AttributeError: 'WindowMethods' object has no attribute 'strafe_forbid_check'
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3280, in plan_to
+    context = self._prepare_plan(fx, fy)
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3156, in _prepare_plan
+    allow_strafe=not self.strafe_forbid_check.isChecked(),
+                     ^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'WindowMethods' object has no attribute 'strafe_forbid_check'
+
+[2026-09-29 22:13:23] 规划计算失败：AttributeError: 'WindowMethods' object has no attribute 'strafe_forbid_check'
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3280, in plan_to
+    context = self._prepare_plan(fx, fy)
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3156, in _prepare_plan
+    allow_strafe=not self.strafe_forbid_check.isChecked(),
+                     ^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'WindowMethods' object has no attribute 'strafe_forbid_check'
+
+[2026-09-29 22:13:23] 规划计算失败：AttributeError: 'WindowMethods' object has no attribute 'strafe_forbid_check'
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3280, in plan_to
+    context = self._prepare_plan(fx, fy)
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3156, in _prepare_plan
+    allow_strafe=not self.strafe_forbid_check.isChecked(),
+                     ^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'WindowMethods' object has no attribute 'strafe_forbid_check'
+
+[2026-09-29 22:13:23] 规划计算失败：AttributeError: 'WindowMethods' object has no attribute 'strafe_forbid_check'
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3280, in plan_to
+    context = self._prepare_plan(fx, fy)
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3156, in _prepare_plan
+    allow_strafe=not self.strafe_forbid_check.isChecked(),
+                     ^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'WindowMethods' object has no attribute 'strafe_forbid_check'
+
+[2026-09-29 22:13:23] 规划计算失败：AttributeError: 'WindowMethods' object has no attribute 'strafe_forbid_check'
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3280, in plan_to
+    context = self._prepare_plan(fx, fy)
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3156, in _prepare_plan
+    allow_strafe=not self.strafe_forbid_check.isChecked(),
+                     ^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'WindowMethods' object has no attribute 'strafe_forbid_check'
+
+[2026-09-29 22:13:23] 规划计算失败：AttributeError: 'WindowMethods' object has no attribute 'strafe_forbid_check'
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3280, in plan_to
+    context = self._prepare_plan(fx, fy)
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3156, in _prepare_plan
+    allow_strafe=not self.strafe_forbid_check.isChecked(),
+                     ^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'WindowMethods' object has no attribute 'strafe_forbid_check'
+
+[2026-09-29 22:13:23] 规划计算失败：AttributeError: 'WindowMethods' object has no attribute 'strafe_forbid_check'
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3280, in plan_to
+    context = self._prepare_plan(fx, fy)
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3156, in _prepare_plan
+    allow_strafe=not self.strafe_forbid_check.isChecked(),
+                     ^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'WindowMethods' object has no attribute 'strafe_forbid_check'
+
+[2026-09-29 22:13:23] 规划计算失败：AttributeError: 'WindowMethods' object has no attribute 'strafe_forbid_check'
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3280, in plan_to
+    context = self._prepare_plan(fx, fy)
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3156, in _prepare_plan
+    allow_strafe=not self.strafe_forbid_check.isChecked(),
+                     ^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'WindowMethods' object has no attribute 'strafe_forbid_check'
+
+[2026-09-29 22:13:23] 规划计算失败：AttributeError: 'WindowMethods' object has no attribute 'strafe_forbid_check'
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3280, in plan_to
+    context = self._prepare_plan(fx, fy)
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3156, in _prepare_plan
+    allow_strafe=not self.strafe_forbid_check.isChecked(),
+                     ^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'WindowMethods' object has no attribute 'strafe_forbid_check'
+
+[2026-09-29 22:13:23] 规划计算失败：AttributeError: 'WindowMethods' object has no attribute 'strafe_forbid_check'
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3280, in plan_to
+    context = self._prepare_plan(fx, fy)
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3156, in _prepare_plan
+    allow_strafe=not self.strafe_forbid_check.isChecked(),
+                     ^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'WindowMethods' object has no attribute 'strafe_forbid_check'
+
+[2026-09-29 22:13:23] 规划计算失败：AttributeError: 'WindowMethods' object has no attribute 'strafe_forbid_check'
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3280, in plan_to
+    context = self._prepare_plan(fx, fy)
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3156, in _prepare_plan
+    allow_strafe=not self.strafe_forbid_check.isChecked(),
+                     ^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'WindowMethods' object has no attribute 'strafe_forbid_check'
+
+[2026-09-29 22:13:23] 规划计算失败：AttributeError: 'WindowMethods' object has no attribute 'strafe_forbid_check'
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3280, in plan_to
+    context = self._prepare_plan(fx, fy)
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3156, in _prepare_plan
+    allow_strafe=not self.strafe_forbid_check.isChecked(),
+                     ^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'WindowMethods' object has no attribute 'strafe_forbid_check'
+
+[2026-09-29 22:13:23] 规划计算失败：AttributeError: 'WindowMethods' object has no attribute 'strafe_forbid_check'
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3280, in plan_to
+    context = self._prepare_plan(fx, fy)
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3156, in _prepare_plan
+    allow_strafe=not self.strafe_forbid_check.isChecked(),
+                     ^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'WindowMethods' object has no attribute 'strafe_forbid_check'
+
+[2026-09-29 22:13:23] 规划计算失败：AttributeError: 'WindowMethods' object has no attribute 'strafe_forbid_check'
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3280, in plan_to
+    context = self._prepare_plan(fx, fy)
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3156, in _prepare_plan
+    allow_strafe=not self.strafe_forbid_check.isChecked(),
+                     ^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'WindowMethods' object has no attribute 'strafe_forbid_check'
+
+[2026-09-29 22:13:23] 规划计算失败：AttributeError: 'WindowMethods' object has no attribute 'strafe_forbid_check'
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3280, in plan_to
+    context = self._prepare_plan(fx, fy)
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3156, in _prepare_plan
+    allow_strafe=not self.strafe_forbid_check.isChecked(),
+                     ^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'WindowMethods' object has no attribute 'strafe_forbid_check'
+
+[2026-09-29 22:13:23] 规划计算失败：AttributeError: 'WindowMethods' object has no attribute 'strafe_forbid_check'
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3280, in plan_to
+    context = self._prepare_plan(fx, fy)
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3156, in _prepare_plan
+    allow_strafe=not self.strafe_forbid_check.isChecked(),
+                     ^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'WindowMethods' object has no attribute 'strafe_forbid_check'
+
+[2026-09-29 22:13:23] 规划计算失败：AttributeError: 'WindowMethods' object has no attribute 'strafe_forbid_check'
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3280, in plan_to
+    context = self._prepare_plan(fx, fy)
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3156, in _prepare_plan
+    allow_strafe=not self.strafe_forbid_check.isChecked(),
+                     ^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'WindowMethods' object has no attribute 'strafe_forbid_check'
+
+[2026-09-29 22:13:23] 规划计算失败：AttributeError: 'WindowMethods' object has no attribute 'strafe_forbid_check'
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3280, in plan_to
+    context = self._prepare_plan(fx, fy)
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3156, in _prepare_plan
+    allow_strafe=not self.strafe_forbid_check.isChecked(),
+                     ^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'WindowMethods' object has no attribute 'strafe_forbid_check'
+
+[2026-09-29 22:16:16] 规划计算失败：AttributeError: module 'core' has no attribute 'DEFAULT_TURN_PENALTY_MM'
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3313, in plan_to
+    return self._finish_plan(result, context)
+           ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3348, in _finish_plan
+    % (res["turn_count"], core.DEFAULT_TURN_PENALTY_MM), "warn")
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: module 'core' has no attribute 'DEFAULT_TURN_PENALTY_MM'
+
+[2026-09-29 22:16:17] 规划结果处理失败：AttributeError: module 'core' has no attribute 'DEFAULT_TURN_PENALTY_MM'
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3299, in _poll_plan
+    self._finish_plan(result, context)
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3348, in _finish_plan
+    % (res["turn_count"], core.DEFAULT_TURN_PENALTY_MM), "warn")
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: module 'core' has no attribute 'DEFAULT_TURN_PENALTY_MM'
+
+[2026-09-29 22:16:17] 规划计算失败：AttributeError: module 'core' has no attribute 'DEFAULT_TURN_PENALTY_MM'
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3313, in plan_to
+    return self._finish_plan(result, context)
+           ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3348, in _finish_plan
+    % (res["turn_count"], core.DEFAULT_TURN_PENALTY_MM), "warn")
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: module 'core' has no attribute 'DEFAULT_TURN_PENALTY_MM'
+
+[2026-09-29 22:16:18] 规划计算失败：AttributeError: module 'core' has no attribute 'DEFAULT_TURN_PENALTY_MM'
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3313, in plan_to
+    return self._finish_plan(result, context)
+           ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3348, in _finish_plan
+    % (res["turn_count"], core.DEFAULT_TURN_PENALTY_MM), "warn")
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: module 'core' has no attribute 'DEFAULT_TURN_PENALTY_MM'
+
+[2026-09-29 22:16:19] 规划计算失败：AttributeError: module 'core' has no attribute 'DEFAULT_TURN_PENALTY_MM'
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3313, in plan_to
+    return self._finish_plan(result, context)
+           ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3348, in _finish_plan
+    % (res["turn_count"], core.DEFAULT_TURN_PENALTY_MM), "warn")
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: module 'core' has no attribute 'DEFAULT_TURN_PENALTY_MM'
+
+[2026-09-29 22:16:20] 规划计算失败：AttributeError: module 'core' has no attribute 'DEFAULT_TURN_PENALTY_MM'
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3313, in plan_to
+    return self._finish_plan(result, context)
+           ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3348, in _finish_plan
+    % (res["turn_count"], core.DEFAULT_TURN_PENALTY_MM), "warn")
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: module 'core' has no attribute 'DEFAULT_TURN_PENALTY_MM'
+
+[2026-09-29 22:16:21] 规划计算失败：AttributeError: module 'core' has no attribute 'DEFAULT_TURN_PENALTY_MM'
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3313, in plan_to
+    return self._finish_plan(result, context)
+           ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3348, in _finish_plan
+    % (res["turn_count"], core.DEFAULT_TURN_PENALTY_MM), "warn")
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: module 'core' has no attribute 'DEFAULT_TURN_PENALTY_MM'
+
+[2026-09-29 22:16:21] 规划计算失败：AttributeError: module 'core' has no attribute 'DEFAULT_TURN_PENALTY_MM'
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3313, in plan_to
+    return self._finish_plan(result, context)
+           ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3348, in _finish_plan
+    % (res["turn_count"], core.DEFAULT_TURN_PENALTY_MM), "warn")
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: module 'core' has no attribute 'DEFAULT_TURN_PENALTY_MM'
+
+[2026-09-29 22:16:22] 规划计算失败：AttributeError: module 'core' has no attribute 'DEFAULT_TURN_PENALTY_MM'
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3313, in plan_to
+    return self._finish_plan(result, context)
+           ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3348, in _finish_plan
+    % (res["turn_count"], core.DEFAULT_TURN_PENALTY_MM), "warn")
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: module 'core' has no attribute 'DEFAULT_TURN_PENALTY_MM'
+
+[2026-09-29 22:16:23] 规划计算失败：AttributeError: module 'core' has no attribute 'DEFAULT_TURN_PENALTY_MM'
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3313, in plan_to
+    return self._finish_plan(result, context)
+           ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3348, in _finish_plan
+    % (res["turn_count"], core.DEFAULT_TURN_PENALTY_MM), "warn")
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: module 'core' has no attribute 'DEFAULT_TURN_PENALTY_MM'

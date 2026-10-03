@@ -1,0 +1,101 @@
+"""PC连续跟踪几何：实际位置单调投影、100mm弧长lookahead，无航点到位门。"""
+from bisect import bisect_right
+import math
+
+from core import layout_to_field, field_to_layout
+from navigation_planner import EPS, finite_number, point2
+from trajectory import _normalize, _ends, _pose_at
+
+LOOKAHEAD_MM = 100.0
+
+
+class TrajectoryTracker:
+    def __init__(self, samples, primitives):
+        if len(samples) < 2:
+            raise ValueError('连续跟踪需要至少两个Trajectory样本')
+        self.pieces = _normalize(primitives)
+        if not self.pieces:
+            raise ValueError('缺少连续几何')
+        self.ends = _ends(self.pieces)
+        self.length = self.ends[-1]
+        self.progress = 0.0
+        self.last_position = None
+        self.cross_track = 0.0
+        self.yaws = [finite_number(samples[0]['field_yaw_deg'], '起始切线航向')]
+        for before, after in zip(self.pieces, self.pieces[1:]):
+            change = before['yaw_out']-before['yaw_in']
+            self.yaws.append(self.yaws[-1]-change)
+        if abs(finite_number(samples[-1]['s_mm'], '最终弧长')-self.length) > 1e-5:
+            raise ValueError('Trajectory与连续几何总长不一致')
+
+    def reference_at(self, station):
+        station = max(0.0, min(self.length, finite_number(station, '参考弧长')))
+        index = min(bisect_right(self.ends, station), len(self.pieces)-1)
+        begin = self.ends[index-1] if index else 0.0
+        piece = self.pieces[index]
+        lx, ly, yaw = _pose_at(piece, station-begin)
+        fx, fy = layout_to_field(lx, ly)
+        return dict(x_mm=fx, y_mm=fy, field_yaw_deg=self.yaws[index]-(yaw-piece['yaw_in']),
+                    s_mm=station, segment_type='STOP' if station >= self.length-EPS else piece['kind'])
+
+    def update_progress(self, position):
+        position = point2(position, '实际位置')
+        travel = 0.0 if self.last_position is None else math.dist(self.last_position, position)
+        # 只在上一进度前方、实际位移+一段采样长度内投影，防止U形/自交路线跳到后支。
+        high = min(self.length, self.progress+travel+20.0)
+        low = self.progress
+        lx, ly = field_to_layout(*position)
+        best = (math.inf, low)
+        first = max(0, bisect_right(self.ends, low)-1)
+        for index in range(first, len(self.pieces)):
+            piece = self.pieces[index]
+            begin = self.ends[index-1] if index else 0.0
+            if begin > high+EPS:
+                break
+            a, b = max(0.0, low-begin), min(piece['length_mm'], high-begin)
+            if b < a-EPS:
+                continue
+            candidates = [a, b]
+            if piece['kind'] == 'LINE':
+                start, end = piece['start'], piece['end']
+                ux, uy = ((end[k]-start[k])/piece['length_mm'] for k in range(2))
+                candidates.append(max(a, min(b, (lx-start[0])*ux+(ly-start[1])*uy)))
+            else:
+                center = piece['center']
+                angle = math.degrees(math.atan2(ly-center[1], lx-center[0]))
+                sign = 1 if piece['sweep_deg'] > 0 else -1
+                offset = ((angle-piece['start_angle_deg'])*sign) % 360
+                for turn in (offset, offset-360):
+                    local = math.radians(turn)*piece['radius_mm']
+                    candidates.append(max(a, min(b, local)))
+            for local in candidates:
+                px, py, _yaw = _pose_at(piece, local)
+                distance, station = math.hypot(lx-px, ly-py), begin+local
+                # 等距时保留较早分支；进度永不回退。
+                if distance < best[0]-EPS or abs(distance-best[0]) <= EPS and station < best[1]:
+                    best = distance, station
+        self.progress = max(self.progress, best[1])
+        self.cross_track = best[0]
+        self.last_position = position
+        return self.progress
+
+    def command(self, pose, speed_limit, yaw_rate_limit):
+        x, y, yaw = (finite_number(value, '实际姿态') for value in pose)
+        self.update_progress((x, y))
+        ref = self.reference_at(self.progress+LOOKAHEAD_MM)
+        dx, dy = ref['x_mm']-x, ref['y_mm']-y
+        distance = math.hypot(dx, dy)
+        yaw_error = (ref['field_yaw_deg']-yaw+180) % 360-180
+        speed_limit = max(0.0, finite_number(speed_limit, '模拟限速'))
+        yaw_rate_limit = max(0.0, finite_number(yaw_rate_limit, '模拟角速度'))
+        # 小半径限速，使转弯角速度有足够余量；不存在中间点停稳条件。
+        index = min(bisect_right(self.ends, self.progress), len(self.pieces)-1)
+        piece = self.pieces[index]
+        if piece['kind'] == 'ARC':
+            speed_limit = min(speed_limit, piece['radius_mm']*math.radians(yaw_rate_limit)*.8)
+        speed = min(speed_limit, distance*4.0) if ref['segment_type'] == 'STOP' else speed_limit
+        omega = max(-yaw_rate_limit, min(yaw_rate_limit, yaw_error*6.0))
+        if ref['segment_type'] == 'STOP' and distance <= .5 and abs(yaw_error) <= .3:
+            speed, omega = 0.0, 0.0
+        velocity = (0.0, 0.0) if distance <= EPS else (speed*dx/distance, speed*dy/distance)
+        return ref, velocity, omega

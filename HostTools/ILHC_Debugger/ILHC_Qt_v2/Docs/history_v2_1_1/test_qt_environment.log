@@ -1,0 +1,2 @@
+无法运行Qt回归，缺少：PySide6, pyqtgraph, serial
+请执行 python -m pip install -r requirements.txt
