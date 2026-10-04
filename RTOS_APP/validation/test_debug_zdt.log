@@ -1,0 +1,17 @@
+C:\Users\Yuzi\AppData\Local\Temp\tmpyce5bjqo\test.c: In function 'Debug_WheelReady':
+C:\Users\Yuzi\AppData\Local\Temp\tmpyce5bjqo\test.c:30:12: error: 's_fast_pending' undeclared (first use in this function)
+   30 |           (s_fast_pending & 7U) == 0U) ? 1U : 0U;
+      |            ^~~~~~~~~~~~~~
+C:\Users\Yuzi\AppData\Local\Temp\tmpyce5bjqo\test.c:30:12: note: each undeclared identifier is reported only once for each function it appears in
+C:\Users\Yuzi\AppData\Local\Temp\tmpyce5bjqo\test.c:31:1: error: control reaches end of non-void function [-Werror=return-type]
+   31 | }static void Debug_ChassisStop(void)
+      | ^
+cc1.exe: all warnings being treated as errors
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\Tests\hardware\test_debug_zdt.py", line 65, in <module>
+    subprocess.run(["gcc","-std=c99","-Wall","-Wextra","-Werror",str(src),"-o",str(exe)],check=True)
+    ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yuzi\AppData\Local\Programs\Python\Python313\Lib\subprocess.py", line 579, in run
+    raise CalledProcessError(retcode, process.args,
+                             output=stdout, stderr=stderr)
+subprocess.CalledProcessError: Command '['gcc', '-std=c99', '-Wall', '-Wextra', '-Werror', 'C:\\Users\\Yuzi\\AppData\\Local\\Temp\\tmpyce5bjqo\\test.c', '-o', 'C:\\Users\\Yuzi\\AppData\\Local\\Temp\\tmpyce5bjqo\\test.exe']' returned non-zero exit status 1.

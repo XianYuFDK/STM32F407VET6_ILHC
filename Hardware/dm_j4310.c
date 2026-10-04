@@ -10,7 +10,7 @@
  *              - MIT 控制帧
  *              - 位置速度控制帧
  *              - 使能/失能/清零
- *              - 反馈帧解析
+ *              - 反馈帧解析、ACC/DEC 异步读写回读
  *
  *          底层复用 Hardware/hcan.c：
  *              CAN_SendData() 发送标准 CAN 帧
@@ -20,6 +20,139 @@
 #include "hcan.h"
 
 #include <string.h>
+#include <math.h>
+
+/* 单事务，超时后留500ms隔离窗口，避免紧接着接受迟到的旧读应答。
+ * 只接受0x33读响应；0x55写回显绝不当成回读确认。 */
+static struct {
+  volatile uint8_t phase, ready, received;
+  uint8_t write, cooling;
+  uint32_t tick, finished_tick;
+  float requested[2], actual[2];
+  volatile float rx;
+  DmJ4310ParamResult_t result;
+} s_dm_param;
+
+static void DmJ4310_ParamFinish(uint8_t status)
+{
+  s_dm_param.result.status = status;
+  s_dm_param.result.acc = s_dm_param.actual[0];
+  s_dm_param.result.dec = s_dm_param.actual[1];
+  s_dm_param.phase = 0U;
+  s_dm_param.ready = 1U;
+  s_dm_param.finished_tick = HAL_GetTick();
+  s_dm_param.cooling = 1U;
+}
+
+uint8_t DmJ4310_ParamBusy(void)
+{
+  return (s_dm_param.phase != 0U || s_dm_param.ready != 0U);
+}
+
+uint8_t DmJ4310_ParamStart(uint16_t id, uint16_t seq, uint8_t write,
+                          float acc, float dec)
+{
+  uint32_t mask = __get_PRIMASK();
+  uint8_t ok = DM_J4310_ERR;
+  __disable_irq();
+  if (id >= 1U && id <= 0x06FFU && seq != 0U && !DmJ4310_ParamBusy() &&
+      (!s_dm_param.cooling || (uint32_t)(HAL_GetTick() - s_dm_param.finished_tick) >= 500U) &&
+      (!write || (acc >= 0.000001f && acc <= 1000.0f &&
+                  dec <= -0.000001f && dec >= -1000.0f)))
+  {
+    memset(&s_dm_param.result, 0, sizeof(s_dm_param.result));
+    s_dm_param.result.id = id; s_dm_param.result.seq = seq;
+    s_dm_param.write = write;
+    s_dm_param.requested[0] = acc; s_dm_param.requested[1] = dec;
+    s_dm_param.actual[0] = s_dm_param.actual[1] = 0.0f;
+    s_dm_param.received = 0U;
+    s_dm_param.phase = write ? 1U : 3U;
+    s_dm_param.tick = HAL_GetTick();
+    ok = DM_J4310_OK;
+  }
+  if (mask == 0U) __enable_irq();
+  return ok;
+}
+
+void DmJ4310_ParamCancel(void)
+{
+  uint32_t mask = __get_PRIMASK();
+  __disable_irq();
+  if (s_dm_param.phase) DmJ4310_ParamFinish(5U);
+  if (mask == 0U) __enable_irq();
+}
+
+void DmJ4310_ParamOnRx(const uint8_t *data)
+{
+  float value;
+  uint8_t rid = s_dm_param.phase == 4U ? 4U : 5U;
+  if (data == NULL) return;
+  if ((s_dm_param.phase == 4U || s_dm_param.phase == 6U) &&
+      data[2] == 0x33U && data[3] == rid &&
+      ((uint16_t)data[0] | ((uint16_t)data[1] << 8)) == s_dm_param.result.id)
+  {
+    memcpy(&value, data + 4, sizeof(float));
+    s_dm_param.rx = value;
+    s_dm_param.received = 1U;
+  }
+}
+
+void DmJ4310_ParamService(void)
+{
+  uint8_t data[8] = {0}, index;
+  uint32_t mask = __get_PRIMASK(), now = HAL_GetTick();
+  HAL_StatusTypeDef sent;
+  __disable_irq();
+  if (!s_dm_param.phase) goto end;
+  if ((uint32_t)(now - s_dm_param.tick) >= 400U)
+  {
+    DmJ4310_ParamFinish(3U); goto end;
+  }
+  if (s_dm_param.phase == 4U || s_dm_param.phase == 6U)
+  {
+    float value, tolerance;
+    if (!s_dm_param.received) goto end;
+    index = s_dm_param.phase == 4U ? 0U : 1U;
+    value = s_dm_param.rx;
+    s_dm_param.received = 0U;
+    if (!isfinite(value) || (index == 0U ? value <= 0.0f : value >= 0.0f))
+    { DmJ4310_ParamFinish(6U); goto end; }
+    s_dm_param.actual[index] = value;
+    tolerance = fabsf(s_dm_param.requested[index]) * 0.00001f + 0.000001f;
+    if (s_dm_param.write && fabsf(value - s_dm_param.requested[index]) > tolerance)
+    { DmJ4310_ParamFinish(4U); goto end; }
+    if (index == 1U) { DmJ4310_ParamFinish(0U); goto end; }
+    s_dm_param.phase = 5U; s_dm_param.tick = now;
+    goto end;
+  }
+  index = (s_dm_param.phase == 2U || s_dm_param.phase == 5U) ? 1U : 0U;
+  data[0] = (uint8_t)s_dm_param.result.id;
+  data[1] = (uint8_t)(s_dm_param.result.id >> 8);
+  data[2] = s_dm_param.phase <= 2U ? 0x55U : 0x33U;
+  data[3] = (uint8_t)(4U + index);
+  if (data[2] == 0x55U) memcpy(data + 4, &s_dm_param.requested[index], sizeof(float));
+  sent = CAN_SendData(HCAN_CAN_NUM, 0x7FFU, data, 8U);
+  if (sent == HAL_OK)
+  {
+    ++s_dm_param.phase;
+    s_dm_param.tick = now;
+    s_dm_param.received = 0U;
+  }
+  else if (sent != HAL_BUSY) DmJ4310_ParamFinish(2U);
+end:
+  if (mask == 0U) __enable_irq();
+}
+
+uint8_t DmJ4310_ParamTakeResult(DmJ4310ParamResult_t *result)
+{
+  uint32_t mask = __get_PRIMASK();
+  uint8_t ready;
+  __disable_irq();
+  ready = s_dm_param.ready;
+  if (ready) { *result = s_dm_param.result; s_dm_param.ready = 0U; }
+  if (mask == 0U) __enable_irq();
+  return ready;
+}
 
 /* --------------------------- 私有转换函数 ------------------------- */
 

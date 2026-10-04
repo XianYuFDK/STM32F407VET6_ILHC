@@ -1,0 +1,11 @@
+test_map_change_during_preflight_cancels (tests.test_hardware_trajectory_qt.HardwareQtTests.test_map_change_during_preflight_cancels) ... ok
+test_real_preflight_caps_and_stop_discard_pending_points (tests.test_hardware_trajectory_qt.HardwareQtTests.test_real_preflight_caps_and_stop_discard_pending_points) ... ok
+test_uncalibrated_map_refuses_real_upload (tests.test_hardware_trajectory_qt.HardwareQtTests.test_uncalibrated_map_refuses_real_upload) ... ok
+test_wrong_actual_start_refuses_without_zero (tests.test_hardware_trajectory_qt.HardwareQtTests.test_wrong_actual_start_refuses_without_zero) ... ok
+test_trajectory_arrows_follow_unwrapped_cw_and_ccw_tangents_and_clear (test_map_click_qt.MapClickQtTests.test_trajectory_arrows_follow_unwrapped_cw_and_ccw_tangents_and_clear) ... ok
+test_reverse_and_diagonal_arrows_follow_motion_while_reference_shows_body (test_map_click_qt.MapClickQtTests.test_reverse_and_diagonal_arrows_follow_motion_while_reference_shows_body) ... ok
+
+----------------------------------------------------------------------
+Ran 6 tests in 5.789s
+
+OK

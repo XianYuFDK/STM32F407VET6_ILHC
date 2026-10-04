@@ -11,6 +11,7 @@ import core
 import navigation_planner as nav
 from arc_smoothing import smooth_90_corners
 from trajectory import generate_trajectory
+from mecanum_planner import edge_cost, shallow_diagonal, motion_metrics
 
 COLORS = {1: '红', 2: '黄', 3: '蓝', 4: '绿', 5: '黑', 6: '浅蓝'}
 DEFAULT_CODE = '156+123+516+231'
@@ -98,65 +99,170 @@ def _tracking_reason(result, scene, cancelled):
             raise ValueError('比赛流程规划已取消')
         sim.make_frame(i/core.SEND_HZ)
         if not sim._nav_active:
+            if not sim._nav_fault:
+                result['predicted_tracking_s'] = (i+1)/core.SEND_HZ
             return sim._nav_fault or None
     return '控制器预演超时'
 
 
-def plan_leg(start, goal, scene, nodes, cancelled=lambda: False):
-    """在静态车道图上搜索可整车平滑路线；失败明确拒绝，不强行连弧。"""
+def _lane_graph(start, goal, scene, nodes, cancelled, refined, cache):
+    """补齐车道交点；必要时按障碍尺寸添加绕行平行线，不把车道图当通路白名单。"""
+    anchors = set(tuple(p) for p in nodes) | {tuple(start), tuple(goal)}
+    xs, ys = {p[0] for p in anchors}, {p[1] for p in anchors}
+    base_xs, base_ys = tuple(xs), tuple(ys)
+    if refined:
+        for x, y, radius, _name in scene.circles:
+            for half in (scene.footprint.length_mm/2, scene.footprint.width_mm/2):
+                clearance = radius+half+scene.pad+10
+                xs.update((x-clearance, x+clearance))
+                ys.update((y-clearance, y+clearance))
+            # 障碍附近的原车道中心线允许偏移，所有新增姿态仍走真实矩形检查。
+            for coords, base, center in ((xs, base_xs, x), (ys, base_ys, y)):
+                nearby = [v for v in base if abs(v-center) < radius+220]
+                coords.update(v+offset for v in nearby for offset in (-25, 25))
+    fixed_heading = hasattr(scene, 'yaw')
+    key = (tuple(sorted(xs)), tuple(sorted(ys)), tuple(sorted((tuple(start), tuple(goal)))) if fixed_heading else None)
+    if key in cache:
+        return cache[key]
+    vertices = []
+    for i, p in enumerate(itertools.product(sorted(xs), sorted(ys))):
+        if i % 32 == 0 and cancelled():
+            raise ValueError('比赛流程规划已取消')
+        if any(scene.pose_safe(*p, yaw) for yaw in (0, 90)):
+            vertices.append(p)
+    links, columns, rows = {p: [] for p in vertices}, {}, {}
+    for p in vertices:
+        columns.setdefault(p[0], []).append(p)
+        rows.setdefault(p[1], []).append(p)
+    count = 0
+    for group in list(columns.values())+list(rows.values()):
+        for a, b in itertools.combinations(group, 2):
+            count += 1
+            if count % 32 == 0 and cancelled():
+                raise ValueError('比赛流程规划已取消')
+            yaw = math.degrees(math.atan2(b[1]-a[1], b[0]-a[0]))
+            if scene.translation_reason(a, b, yaw) is None:
+                links[a].append(b); links[b].append(a)
+    if fixed_heading:
+        # 站点的短轴向接头容易容不下60mm倒角；允许安全的斜向接近/离开，不能先判成无路。
+        for endpoint in (tuple(start), tuple(goal)):
+            for i, p in enumerate(vertices):
+                if i % 32 == 0 and cancelled():
+                    raise ValueError('比赛流程规划已取消')
+                if p == endpoint or p in links.get(endpoint, ()):
+                    continue
+                if scene.translation_reason(endpoint, p, scene.yaw) is None:
+                    links.setdefault(endpoint, []).append(p)
+                    links[p].append(endpoint)
+    cache[key] = links
+    return links
+
+
+def plan_leg(start, goal, scene, nodes, cancelled=lambda: False, *, graph_cache=None, body_yaw=None):
+    """A*搜索唯一骨架并提前检查转弯；先补车道交点，再尝试障碍旁的偏移车道。"""
+    actual_scene = scene
+    if body_yaw is not None:
+        from mecanum_planner import FixedHeadingScene, fixed_route
+        scene = FixedHeadingScene(scene, body_yaw)
     if tuple(start) == tuple(goal):
         raise ValueError('比赛停靠点不能与出发点重合')
     for point in (start, goal):
         if not any(scene.pose_safe(*point, yaw) for yaw in (0, 90, 180, 270)):
             raise ValueError('比赛停靠点没有合法整车姿态：'+str(point))
-    vertices = sorted(set(tuple(p) for p in nodes) | {tuple(start), tuple(goal)})
-    links = {p: [] for p in vertices}
-    for a, b in itertools.combinations(vertices, 2):
-        if a[0] != b[0] and a[1] != b[1]:
+    cache = {} if graph_cache is None else graph_cache
+    reasons, limit_hit, corner_cache = [], False, {}
+    heuristic = (lambda p: math.dist(p, goal)) if body_yaw is not None else \
+                (lambda p: abs(p[0]-goal[0])+abs(p[1]-goal[1]))
+    for refined in (False, True):
+        links = _lane_graph(start, goal, scene, nodes, cancelled, refined, cache)
+        # 真正断开的图先做线性连通性判定，不能枚举起点一侧的所有循环绕路。
+        connected, pending = {tuple(start)}, [tuple(start)]
+        while pending:
+            if cancelled():
+                raise ValueError('比赛流程规划已取消')
+            for neighbor in links.get(pending.pop(), ()):
+                if neighbor not in connected:
+                    connected.add(neighbor); pending.append(neighbor)
+        if tuple(goal) not in connected:
             continue
-        yaw = math.degrees(math.atan2(b[1]-a[1], b[0]-a[0]))
-        if scene.translation_reason(a, b, yaw) is None:
-            links[a].append(b); links[b].append(a)
-    counter = itertools.count()
-    queue = [(0.0, next(counter), [tuple(start)])]
-    expanded, reasons = 0, []
-    while queue and expanded < 5000:
-        if cancelled():
-            raise ValueError('比赛流程规划已取消')
-        cost, _order, route = heapq.heappop(queue)
-        expanded += 1
-        if route[-1] == tuple(goal):
-            points = [route[0]]
-            for p in route[1:]:
-                if len(points) >= 2 and ((points[-2][0] == points[-1][0] == p[0]) or
-                                         (points[-2][1] == points[-1][1] == p[1])):
-                    points[-1] = p
-                else:
-                    points.append(p)
-            smoothed = smooth_90_corners(*_ledger(points), scene, interrupted=cancelled)
-            result = generate_trajectory(smoothed['smoothed_primitives'], scene)
-            if result['trajectory_safe']:
-                combined = dict(points=points, **smoothed, **result)
-                why = _tracking_reason(combined, scene, cancelled)
-                if why is None:
-                    return combined
-                reasons.append('实际连续跟踪预演：'+why)
-                continue
-            reasons.append(result.get('trajectory_reason', smoothed['smoothing_status']))
-            continue
-        for target in links[route[-1]]:
-            if target in route:
-                continue
-            turn = len(route) > 1 and ((route[-2][0] == route[-1][0]) != (route[-1][0] == target[0]))
-            # 排除共线掉头；任务点的朝向切换在停车区显式旋转。
-            if len(route) > 1 and not turn:
-                a, b = route[-2], route[-1]
-                if (b[0]-a[0])*(target[0]-b[0])+(b[1]-a[1])*(target[1]-b[1]) < 0:
+        counter = itertools.count()
+        frontier = [(heuristic(start), next(counter), 0.0, [tuple(start)])]
+        seen, expanded, candidates, visits = {(tuple(start),)}, 0, 0, {}
+        while frontier and expanded < 5000:
+            if cancelled():
+                raise ValueError('比赛流程规划已取消')
+            _score, _order, cost, route = heapq.heappop(frontier)
+            expanded += 1
+            if len(route) >= 3:
+                # 只检查A*实际展开的转弯，不为尚未选择的几万条邻边逐一采样圆弧。
+                corner_key = tuple(route[-3:])
+                if body_yaw is None:
+                    if corner_key not in corner_cache:
+                        local = smooth_90_corners(*_ledger(corner_key), scene, interrupted=cancelled)
+                        corner_cache[corner_key] = not local['arc_fallbacks']
+                    if not corner_cache[corner_key]:
+                        continue
+                # 固定车头会先拉直为安全斜线；短轴向接头可能被消除，不能提前按90°判死。
+                # 保留不同前缀的少量候选，兼顾相邻圆弧裁剪和整段实际控制预演。
+                state = tuple(route[-4:])
+                visits[state] = visits.get(state, 0)+1
+                if visits[state] > 3:
+                    limit_hit = True
                     continue
-            heapq.heappush(queue, (cost+math.dist(route[-1], target)+(120 if turn else 0),
-                                  next(counter), route+[target]))
-    raise ValueError('比赛路段无安全连续路径：%s→%s；fallback：%s' %
-                     (start, goal, '; '.join(reasons[-3:]) or '静态车道图不连通/搜索超限'))
+            if route[-1] == tuple(goal):
+                candidates += 1
+                if body_yaw is not None:
+                    try:
+                        return fixed_route(route, body_yaw, actual_scene, cancelled, _tracking_reason,
+                                           dict(refined=refined, expanded=expanded, candidates=candidates, vertices=len(links)))
+                    except ValueError as exc:
+                        if cancelled():
+                            raise
+                        reasons.append(str(exc))
+                    continue
+                smoothed = smooth_90_corners(*_ledger(route), scene, interrupted=cancelled)
+                result = generate_trajectory(smoothed['smoothed_primitives'], scene)
+                if result['trajectory_safe']:
+                    combined = dict(points=route, **smoothed, **result)
+                    why = _tracking_reason(combined, scene, cancelled)
+                    if why is None:
+                        combined['search'] = dict(refined=refined, expanded=expanded,
+                                                  candidates=candidates, vertices=len(links))
+                        return combined
+                    reasons.append('实际连续跟踪预演：'+why)
+                else:
+                    reasons.append(result.get('trajectory_reason', smoothed['smoothing_status']))
+                continue
+            for target in links.get(route[-1], ()):
+                if target in route:
+                    continue
+                turn = False
+                if len(route) > 1:
+                    a, b = route[-2], route[-1]
+                    ux, uy, vx, vy = b[0]-a[0], b[1]-a[1], target[0]-b[0], target[1]-b[1]
+                    turn = abs(ux*vy-uy*vx) > nav.EPS
+                trial = route+[target]
+                if len(route) > 1 and not turn:
+                    a, b = route[-2], route[-1]
+                    if (b[0]-a[0])*(target[0]-b[0])+(b[1]-a[1])*(target[1]-b[1]) < 0:
+                        continue
+                    # 入队前合并同向直线，防止几千种等价节点组合耗尽搜索预算。
+                    trial = route[:-1]+[target]
+                key = tuple(trial)
+                if key in seen:
+                    continue
+                seen.add(key)
+                distance_cost = math.dist(route[-1], target) if body_yaw is None else edge_cost(route[-1], target, body_yaw)
+                # 浅斜边可作障碍绕行fallback；正常直车道优先，避免站点偏移被拉成整段斜线。
+                shape_cost = (220+min(abs(target[k]-route[-1][k]) for k in range(2))) \
+                    if body_yaw is not None and shallow_diagonal(route[-1], target) else 0
+                new_cost = cost+distance_cost+(120 if turn else 0)+shape_cost
+                heapq.heappush(frontier, (new_cost+heuristic(target), next(counter), new_cost, trial))
+        limit_hit |= bool(frontier)
+    reason = '; '.join(dict.fromkeys(reasons))[-600:] or (
+        '候选搜索预算已用尽，不能判定物理通路不存在' if limit_hit else
+        '车道不连通或没有满足60..120mm圆弧与整车扫掠的候选')
+    raise ValueError('比赛路段无安全连续路径：%s→%s；fallback：%s' % (start, goal, reason))
 
 
 def compile_match(data, task_code=DEFAULT_CODE, zone=1, margin=10, cancelled=lambda: False,
@@ -171,29 +277,108 @@ def compile_match(data, task_code=DEFAULT_CODE, zone=1, margin=10, cancelled=lam
     config = data['competition']
     home = tuple(config['start_zones'][str(zone)])
     staging = tuple(config['staging'][str(zone)])
-    launch_yaw = -90 if zone == 1 else 90
+    # 用户默认车头朝场地+Y（界面0°）；LAYOUT +x朝场地-Y，所以实际布局角为180°。
+    launch_yaw = 180
     lateral = (staging[0], home[1])
-    for a, b in ((home, lateral), (lateral, staging)):
+    diagonal_docking = scene.translation_reason(home, staging, launch_yaw) is None
+    docking_edges = ((home, staging),) if diagonal_docking else ((home, lateral), (lateral, staging))
+    for a, b in docking_edges:
         why = scene.translation_reason(a, b, launch_yaw)
         if why:
             raise ValueError('启停区出入扫掠不安全：'+why)
     stages = []
     def maneuver(label, target, yaw):
         stages.append(dict(kind='MANEUVER', label=label, target=tuple(target), yaw=yaw))
-    maneuver('出库横移：保持车头，移开启停区墙角', lateral, launch_yaw)
-    maneuver('出库：进入可旋转停车区', staging, launch_yaw)
+    if diagonal_docking:
+        maneuver('麦轮斜向出库：保持车头进入停车区', staging, launch_yaw)
+    else:
+        maneuver('出库横移：保持车头，移开启停区墙角', lateral, launch_yaw)
+        maneuver('出库：进入可旋转停车区', staging, launch_yaw)
     current, current_yaw = staging, launch_yaw
     legs = []
     route_cache = {}
-    def route_between(a, b):
-        key = tuple(a), tuple(b)
+    graph_cache = {}
+    def route_between(a, b, heading):
+        key = tuple(a), tuple(b), heading % 360
         if key not in route_cache:
-            route_cache[key] = plan_leg(a, b, scene, config['lane_nodes'], cancelled)
+            failures, candidates = [], []
+            # 优先当前车头；矩形车体固定方向绕行，不因换向强制旋转。
+            try:
+                candidates.append(plan_leg(a, b, scene, config['lane_nodes'], cancelled,
+                                  graph_cache=graph_cache.setdefault(heading % 180, {}), body_yaw=heading))
+            except ValueError as exc:
+                if cancelled():
+                    raise
+                failures.append(str(exc))
+            # 长横移也必须比较正交车头，不能仅凭几何路线短就保持原航向。
+            lower_bound = math.dist(a, b)
+            if not candidates or candidates[0]['trajectory_length_mm'] > lower_bound*1.3 or \
+                    motion_metrics(candidates[0])['lateral_mm'] >= 500:
+                for yaw in (heading+90, heading-90):
+                    if scene.turn_reason(a, heading, yaw):
+                        continue
+                    try:
+                        candidates.append(plan_leg(a, b, scene, config['lane_nodes'], cancelled,
+                                          graph_cache=graph_cache.setdefault(yaw % 180, {}), body_yaw=yaw))
+                    except ValueError as exc:
+                        if cancelled():
+                            raise
+                        failures.append(str(exc))
+            # 固定车头候选仍有长横移时，也比较圆弧中连续转动车头的前进/倒退方案。
+            if not candidates or all(motion_metrics(r)['longest_strafe_mm'] > 500 for r in candidates):
+                try:
+                    forward = plan_leg(a, b, scene, config['lane_nodes'], cancelled,
+                                       graph_cache=graph_cache.setdefault('tangent', {}))
+                    for mode in ('TANGENT', 'REVERSE_TANGENT'):
+                        pieces = [dict(p, heading_mode=mode) for p in forward['smoothed_primitives']]
+                        if mode == 'REVERSE_TANGENT':
+                            for p in pieces:
+                                p['action'] = 'BACKWARD'
+                                for k in ('heading_deg', 'heading_in_deg', 'heading_out_deg'):
+                                    if k in p:
+                                        p[k] = (p[k]+180) % 360
+                                if 'sample_poses' in p:
+                                    p['sample_poses'] = [(x, y, (yaw+180)%360) for x, y, yaw in p['sample_poses']]
+                        result = dict(forward, smoothed_primitives=pieces,
+                                      arcs=[p for p in pieces if p['kind'] == 'ARC'],
+                                      planner='MECANUM_'+mode, **generate_trajectory(pieces, scene, interrupted=cancelled))
+                        yaw = -90-result['trajectory'][0]['field_yaw_deg'] if result['trajectory_safe'] else heading
+                        if result['trajectory_safe'] and not scene.turn_reason(a, heading, yaw):
+                            why = _tracking_reason(result, scene, cancelled)
+                            if why is None:
+                                candidates.append(result)
+                except ValueError as exc:
+                    if cancelled():
+                        raise
+                    failures.append(str(exc))
+            if not candidates:
+                raise ValueError('比赛路段无安全麦轮路径；fallback：'+'; '.join(failures))
+            def cost(r):
+                yaw = -90-r['trajectory'][0]['field_yaw_deg']
+                angle = abs((yaw-heading+180) % 360-180)
+                # 转向按真实120°/s上限+比例收敛和停稳开销估计；行驶为50Hz控制预演计时。
+                turn_s = 0 if angle < nav.EPS else angle/120+1.0
+                # 方向权重来自普通导航1/1.15/1.8，不改模拟器250mm/s积分速度。
+                # 只计算实际发生的出发旋转；下一站沿用已选车头，不虚构每站恢复。
+                metrics = motion_metrics(r)
+                direction_s = (metrics['equivalent_cost_mm']-r['trajectory_length_mm'])/250
+                return r['predicted_tracking_s']+turn_s+direction_s
+            chosen = min(candidates, key=cost)
+            chosen['motion_metrics'] = motion_metrics(chosen)
+            chosen['selection'] = dict(policy='DIRECTION_COST_AND_VERIFIED_TIME',
+                direction_weights=dict(forward=nav.DEFAULT_COST_FORWARD, reverse=nav.DEFAULT_COST_BACKWARD,
+                                       lateral=nav.DEFAULT_COST_LATERAL),
+                candidates=[dict(planner=r['planner'], travel_s=r['predicted_tracking_s'],
+                                 body_yaw_deg=-90-r['trajectory'][0]['field_yaw_deg'],
+                                 cost_s=cost(r), length_mm=r['trajectory_length_mm'],
+                                 motion_metrics=motion_metrics(r)) for r in candidates],
+                fallbacks=failures)
+            route_cache[key] = chosen
         return copy.deepcopy(route_cache[key])
     def travel(key, label):
         nonlocal current, current_yaw
         target = tuple(config['stations'][key])
-        result = route_between(current, target)
+        result = route_between(current, target, current_yaw)
         first = result['trajectory'][0]
         yaw = -90-first['field_yaw_deg']
         if abs((yaw-current_yaw+180) % 360-180) > nav.EPS:
@@ -225,23 +410,29 @@ def compile_match(data, task_code=DEFAULT_CODE, zone=1, margin=10, cancelled=lam
             action('STORAGE_PLACE', '第%d批暂存%s：%s→%d号环' %
                    (batch_i, '平放' if batch_i == 1 else '同色码垛', COLORS[color], slot),
                    batch=batch_i, color=color, slot=slot)
-    # 返回安全停车区，再以固定车头横移入库；这些是显式麦轮动作，不伪造切线Trajectory。
-    result = route_between(current, staging)
+    # 返回安全停车区；真实车头对齐后斜向入库，斜线不安全则保留已检查的L形横移。
+    result = route_between(current, staging, current_yaw)
     yaw = -90-result['trajectory'][0]['field_yaw_deg']
     why = scene.turn_reason(current, current_yaw, yaw)
     if why:
         raise ValueError('返程对齐不安全：'+why)
-    maneuver('返程停车区对齐', current, yaw)
+    if abs((yaw-current_yaw+180) % 360-180) > nav.EPS:
+        maneuver('返程停车区对齐', current, yaw)
     stages.append(dict(kind='TRAVEL', label='返回出发启停区前的停车区', route=result))
     legs.append(dict(label=stages[-1]['label'], route=result))
     yaw = -90-result['trajectory'][-1]['field_yaw_deg']
     why = scene.turn_reason(staging, yaw, launch_yaw)
     if why:
         raise ValueError('入库航向调整不安全：'+why)
-    maneuver('入库前对齐车头', staging, launch_yaw)
-    maneuver('入库：保持航向驶向启停区边', lateral, launch_yaw)
-    maneuver('入库横移：返回抽签启停区', home, launch_yaw)
-    return dict(schema_version=1, kind='PRELIMINARY_PC_SIMULATION', task_code=task_code,
+    if abs((yaw-launch_yaw+180) % 360-180) > nav.EPS:
+        maneuver('入库前对齐车头', staging, launch_yaw)
+    if diagonal_docking:
+        maneuver('麦轮斜向入库：保持车头返回启停区', home, launch_yaw)
+    else:
+        maneuver('入库：保持航向驶向启停区边', lateral, launch_yaw)
+        maneuver('入库横移：返回抽签启停区', home, launch_yaw)
+    return dict(schema_version=2, kind='PRELIMINARY_PC_SIMULATION', task_code=task_code,
+                planner='MECANUM_BODY_AND_TANGENT', diagonal_docking=diagonal_docking,
                 zone=zone, home=home, start_yaw=launch_yaw, stages=stages, legs=legs,
                 batches=batches, map_snapshot=copy.deepcopy(data), margin_mm=margin,
                 sim_obstacles=obstacles, obstacle_frame_id='LAYOUT_MM',
@@ -265,7 +456,8 @@ class PoseManeuver:
         distance = math.hypot(dx, dy)
         delta = (self.target['field_yaw_deg']-yaw+180) % 360-180
         speed = min(speed_limit, distance*4) if distance >= .2 else distance*core.SEND_HZ
-        omega = max(-yaw_rate_limit, min(yaw_rate_limit, delta*6 if abs(delta) >= .05 else delta*core.SEND_HZ))
+        # 进入1°/s停稳门之前消除小角度残差，避免转向完成后下一平移被判隐式旋转。
+        omega = max(-yaw_rate_limit, min(yaw_rate_limit, delta*6 if abs(delta) >= .2 else delta*core.SEND_HZ))
         self.progress = max(self.progress, self.length-distance)
         velocity = (0, 0) if distance < 1e-9 else (speed*dx/distance, speed*dy/distance)
         return self.reference_at(0), velocity, 0 if abs(delta) < 1e-9 else omega

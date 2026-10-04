@@ -332,7 +332,7 @@
               <MiscControls />
               <Define>USE_HAL_DRIVER,STM32F407xx</Define>
               <Undefine />
-              <IncludePath>../Core/Inc;../Drivers/STM32F4xx_HAL_Driver/Inc;../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy;../Middlewares/Third_Party/FreeRTOS/Source/include;../Middlewares/Third_Party/FreeRTOS/Source/CMSIS_RTOS_V2;../Middlewares/Third_Party/FreeRTOS/Source/portable/RVDS/ARM_CM4F;../Drivers/CMSIS/Device/ST/STM32F4xx/Include;../Drivers/CMSIS/Include;../Hardware</IncludePath>
+              <IncludePath>../Core/Inc;../Drivers/STM32F4xx_HAL_Driver/Inc;../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy;../Middlewares/Third_Party/FreeRTOS/Source/include;../Middlewares/Third_Party/FreeRTOS/Source/CMSIS_RTOS_V2;../Middlewares/Third_Party/FreeRTOS/Source/portable/RVDS/ARM_CM4F;../Drivers/CMSIS/Device/ST/STM32F4xx/Include;../Drivers/CMSIS/Include;../Hardware;../RTOS_APP</IncludePath>
             </VariousControls>
           </Cads>
           <Aads>
@@ -350,7 +350,7 @@
               <MiscControls />
               <Define />
               <Undefine />
-              <IncludePath>../Core/Inc;../Drivers/STM32F4xx_HAL_Driver/Inc;../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy;../Middlewares/Third_Party/FreeRTOS/Source/include;../Middlewares/Third_Party/FreeRTOS/Source/CMSIS_RTOS_V2;../Middlewares/Third_Party/FreeRTOS/Source/portable/RVDS/ARM_CM4F;../Drivers/CMSIS/Device/ST/STM32F4xx/Include;../Drivers/CMSIS/Include;../Hardware</IncludePath>
+              <IncludePath>../Core/Inc;../Drivers/STM32F4xx_HAL_Driver/Inc;../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy;../Middlewares/Third_Party/FreeRTOS/Source/include;../Middlewares/Third_Party/FreeRTOS/Source/CMSIS_RTOS_V2;../Middlewares/Third_Party/FreeRTOS/Source/portable/RVDS/ARM_CM4F;../Drivers/CMSIS/Device/ST/STM32F4xx/Include;../Drivers/CMSIS/Include;../Hardware;../RTOS_APP</IncludePath>
             </VariousControls>
           </Aads>
           <LDads>
@@ -373,6 +373,41 @@
         </TargetArmAds>
       </TargetOption>
       <Groups>
+        <Group>
+          <GroupName>RTOS_APP</GroupName>
+          <Files>
+            <File>
+              <FileName>rtos_app.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>../RTOS_APP/rtos_app.c</FilePath>
+            </File>
+            <File>
+              <FileName>app_rx.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>../RTOS_APP/app_rx.c</FilePath>
+            </File>
+            <File>
+              <FileName>app_control.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>../RTOS_APP/app_control.c</FilePath>
+            </File>
+            <File>
+              <FileName>app_comm.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>../RTOS_APP/app_comm.c</FilePath>
+            </File>
+            <File>
+              <FileName>app_mechanism.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>../RTOS_APP/app_mechanism.c</FilePath>
+            </File>
+            <File>
+              <FileName>app_maintenance.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>../RTOS_APP/app_maintenance.c</FilePath>
+            </File>
+          </Files>
+        </Group>
         <Group>
           <GroupName>Application/MDK-ARM</GroupName>
           <Files>
@@ -650,6 +685,11 @@
             <FileName>debug_usart.c</FileName>
             <FileType>1</FileType>
             <FilePath>../Hardware/debug_usart.c</FilePath>
+          </File>
+          <File>
+            <FileName>trajectory_buffer.c</FileName>
+            <FileType>1</FileType>
+            <FilePath>../Hardware/trajectory_buffer.c</FilePath>
           </File>
           <File>
             <FileName>zdt_x42s.c</FileName>

@@ -23,6 +23,7 @@ def function(name):
 # Debug_ServiceWheel 不调用HAL_GetTick，因此不提供该桩，避免-Wunused-function。
 wheel_prelude = r'''
 #include <stdint.h>
+static uint8_t s_fast_pending __attribute__((unused));
 #include <assert.h>
 #include <stdio.h>
 static volatile uint8_t s_wheel_req;
@@ -97,6 +98,7 @@ int main(void) {
 # Debug_ChassisStop 不调用HAL_GetTick/PRIMASK，桩保持最小，避免-Wunused-function。
 stop_prelude = r'''
 #include <stdint.h>
+static uint8_t s_fast_pending __attribute__((unused));
 #include <assert.h>
 #include <stdio.h>
 static uint8_t s_wheel_enable_pending, s_wheel_fault, s_stop_in_progress;
@@ -159,7 +161,7 @@ init = source[source.index("void DebugUsart_Init(void)"):source.index("void Debu
 assert "s_wheel_req = 0U; s_wheel_enabled = 1U;" in " ".join(init.split())
 
 # 任务体：失能切换必须最后执行，且所有停车路径都走带闸门的Debug_ChassisStop。
-fsend = " ".join(source[source.index("void DebugUsart_Send(void)"):].split())
+fsend = " ".join((source[source.index("static void Debug_ControlSafety(void)"):source.index("void DebugUsart_ControlEmergency(void)")] + source[source.index("void DebugUsart_ControlService(void)"):source.index("void DebugUsart_MechanismEmergency(void)")]).split())
 assert 0 < fsend.index("Debug_ServiceZdt();") < fsend.index("Debug_ServiceWheel();")
 assert fsend.index("i = s_stop_req;") < fsend.index("Debug_ServiceManual();")
 assert fsend.index("Debug_ServiceManual();") < fsend.index("Debug_ServiceWheel();")
@@ -190,7 +192,10 @@ arr = source[source.index("static const char * const s_ack_text[] = {"):]
 arr = arr[:arr.index("};")]
 elements = re.findall(r'NULL|"(?:[^"\\]|\\.)*"', arr)
 # 事件20为动态参数回读占位，21..25为视觉跟踪应答。
-assert len(elements) == 27, elements
+assert len(elements) == 30, elements
+assert elements[27] == "NULL", elements
+assert "ERR TRAJ PARAM BUSY" in elements[28], elements[28]
+assert "ERR TRAJ PARAM RANGE" in elements[29], elements[29]
 assert elements[7] == "NULL", elements
 assert elements[20] == "NULL", elements
 assert "ERR WHEEL DISABLED" in elements[10], elements[10]

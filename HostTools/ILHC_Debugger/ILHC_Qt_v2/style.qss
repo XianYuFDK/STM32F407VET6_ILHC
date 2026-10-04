@@ -331,3 +331,163 @@ QLabel#PlanBadge {
     font-size: 8.5pt;
     font-weight: 700;
 }
+
+/* DM 调试页：地址设置、分组卡片与明确的操作层级。 */
+QFrame#DmToolbar, QFrame#DmCard {
+    background: #1B2129;
+    border: 1px solid #2B3541;
+    border-radius: 12px;
+}
+QFrame#DmAddressSetting, QWidget#DmAdvancedBody {
+    background: transparent;
+    border: none;
+}
+QFrame#DmToolbar QLabel, QWidget#DmPositionPanel QLabel {
+    background: transparent;
+}
+QFrame#DmToolbar QLabel#DmAddressReadback {
+    color: #7DDAA3;
+    background: #182B23;
+    border: 1px solid #2D4B3C;
+    border-radius: 5px;
+    padding: 4px 8px;
+    font-size: 9pt;
+}
+QWidget#DmPositionPanel QLabel#DmCardTitle {
+    font-size: 12pt;
+    font-weight: 700;
+    color: #EDF3FA;
+}
+QWidget#DmPositionPanel QLabel#DmFieldLabel {
+    color: #9AAABC;
+    font-size: 9pt;
+}
+QFrame#DmPresetRow {
+    background: #202832;
+    border: 1px solid #2C3948;
+    border-radius: 8px;
+}
+QWidget#DmPositionPanel QLabel#DmPresetState {
+    color: #8EADBD;
+    font-size: 8.5pt;
+}
+QWidget#DmPositionPanel QLabel#HintLabel {
+    color: #8799AA;
+    font-size: 8.5pt;
+}
+QWidget#DmPositionPanel QLabel#DmFeedback {
+    color: #7DD1F2;
+    background: #172D3A;
+    border: 1px solid #274759;
+    border-radius: 7px;
+    padding: 9px 10px;
+}
+QWidget#DmPositionPanel QLabel#DmWorkflowStatus {
+    color: #ADBFCF;
+    background: #161D25;
+    border-radius: 7px;
+    padding: 8px 10px;
+    font-size: 9pt;
+}
+QWidget#DmPositionPanel QPushButton#DmDisclosure {
+    background: transparent;
+    border: none;
+    text-align: left;
+    color: #B8CDDF;
+    font-weight: 700;
+    padding: 2px 0;
+}
+QWidget#DmPositionPanel QPushButton#DmDisclosure:hover {
+    color: #66CFF7;
+}
+QWidget#DmPositionPanel QCheckBox {
+    background: transparent;
+    spacing: 7px;
+    padding: 2px 0;
+}
+QWidget#DmPositionPanel QPushButton {
+    padding: 6px 10px;
+}
+QWidget#DmPositionPanel QPushButton:disabled {
+    background: #1A222B;
+    border-color: #293441;
+    color: #5C6D7F;
+}
+QWidget#DmPositionPanel QDoubleSpinBox:disabled,
+QWidget#DmPositionPanel QComboBox:disabled {
+    color: #68798A;
+    border-color: #293441;
+}
+
+/* 28/35 页面：机械目标优先，通信反馈与原始参数分组。 */
+QFrame#StepperCard {
+    background: #1B2129;
+    border: 1px solid #2B3541;
+    border-radius: 12px;
+}
+QWidget#StepperBody, QWidget#StepperRawBody, QScrollArea#StepperScroll {
+    background: transparent;
+    border: none;
+}
+QWidget#StepperPage QLabel {
+    background: transparent;
+}
+QFrame#StepperNotice {
+    background: #29251F;
+    border: 1px solid #514332;
+    border-radius: 8px;
+}
+QFrame#StepperNotice QLabel {
+    color: #D8BC93;
+    font-size: 9pt;
+}
+QWidget#StepperPage QLabel#StepperNumber {
+    background: #173344;
+    border: 1px solid #29526A;
+    border-radius: 10px;
+    color: #6ED1F6;
+    font-size: 19pt;
+    font-weight: 700;
+}
+QWidget#StepperPage QLabel#StepperTitle {
+    font-size: 14pt;
+    font-weight: 700;
+    color: #EDF3FA;
+}
+QWidget#StepperPage QLabel#StepperSection {
+    font-size: 10pt;
+    font-weight: 700;
+    color: #BDD1E1;
+    padding-top: 4px;
+}
+QWidget#StepperPage QLabel#StepperHint {
+    color: #899CAC;
+    font-size: 8.5pt;
+}
+QWidget#StepperPage QLabel#StepperFeedback {
+    color: #9FCFE2;
+    background: #172A36;
+    border: 1px solid #29414F;
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 9pt;
+}
+QWidget#StepperPage QDoubleSpinBox#StepperTarget {
+    font-size: 16pt;
+    font-weight: 600;
+    color: #F2F7FC;
+}
+QWidget#StepperPage QPushButton {
+    padding: 7px 10px;
+}
+QWidget#StepperPage QPushButton#StepperDisclosure {
+    background: transparent;
+    border: none;
+    text-align: left;
+    color: #B4CCDE;
+    padding: 4px 0;
+    font-weight: 600;
+}
+QWidget#StepperPage QPushButton#StepperDisclosure:hover {
+    color: #69D0F5;
+}

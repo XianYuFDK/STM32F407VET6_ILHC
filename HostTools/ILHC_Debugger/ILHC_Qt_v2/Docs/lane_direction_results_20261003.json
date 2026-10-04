@@ -1,0 +1,258 @@
+[
+  {
+    "case": "无障碍",
+    "zone": 1,
+    "planning_s": 3.526,
+    "elapsed_s": 89.96,
+    "previous_elapsed_s": 78.2,
+    "grabs": 12,
+    "placements": 12,
+    "body_sweeps_safe": true,
+    "max_body_heading_change_deg": 180.0,
+    "diagonal_docking": true,
+    "motion_modes": [
+      "DIAGONAL",
+      "FORWARD",
+      "REVERSE"
+    ],
+    "travel_length_mm": 13172.11,
+    "longest_strafe_mm": 0.0,
+    "raw_to_rough": [
+      {
+        "length_mm": 1630.0,
+        "longest_strafe_mm": 0.0,
+        "planner": "MECANUM_FIXED_HEADING"
+      },
+      {
+        "length_mm": 1630.0,
+        "longest_strafe_mm": 0.0,
+        "planner": "MECANUM_FIXED_HEADING"
+      }
+    ],
+    "hardware_ready": false
+  },
+  {
+    "case": "无障碍",
+    "zone": 2,
+    "planning_s": 4.617,
+    "elapsed_s": 89.94,
+    "previous_elapsed_s": 78.22,
+    "grabs": 12,
+    "placements": 12,
+    "body_sweeps_safe": true,
+    "max_body_heading_change_deg": 180.0,
+    "diagonal_docking": true,
+    "motion_modes": [
+      "DIAGONAL",
+      "FORWARD",
+      "REVERSE"
+    ],
+    "travel_length_mm": 13167.32,
+    "longest_strafe_mm": 0.0,
+    "raw_to_rough": [
+      {
+        "length_mm": 1630.0,
+        "longest_strafe_mm": 0.0,
+        "planner": "MECANUM_FIXED_HEADING"
+      },
+      {
+        "length_mm": 1630.0,
+        "longest_strafe_mm": 0.0,
+        "planner": "MECANUM_FIXED_HEADING"
+      }
+    ],
+    "hardware_ready": false
+  },
+  {
+    "case": "截图单障碍",
+    "zone": 1,
+    "planning_s": 4.894,
+    "elapsed_s": 89.96,
+    "previous_elapsed_s": null,
+    "grabs": 12,
+    "placements": 12,
+    "body_sweeps_safe": true,
+    "max_body_heading_change_deg": 180.0,
+    "diagonal_docking": true,
+    "motion_modes": [
+      "DIAGONAL",
+      "FORWARD",
+      "REVERSE"
+    ],
+    "travel_length_mm": 13172.11,
+    "longest_strafe_mm": 0.0,
+    "raw_to_rough": [
+      {
+        "length_mm": 1630.0,
+        "longest_strafe_mm": 0.0,
+        "planner": "MECANUM_FIXED_HEADING"
+      },
+      {
+        "length_mm": 1630.0,
+        "longest_strafe_mm": 0.0,
+        "planner": "MECANUM_FIXED_HEADING"
+      }
+    ],
+    "hardware_ready": false
+  },
+  {
+    "case": "截图单障碍",
+    "zone": 2,
+    "planning_s": 5.254,
+    "elapsed_s": 87.66,
+    "previous_elapsed_s": null,
+    "grabs": 12,
+    "placements": 12,
+    "body_sweeps_safe": true,
+    "max_body_heading_change_deg": 180.0,
+    "diagonal_docking": true,
+    "motion_modes": [
+      "DIAGONAL",
+      "FORWARD",
+      "REVERSE"
+    ],
+    "travel_length_mm": 13167.32,
+    "longest_strafe_mm": 0.0,
+    "raw_to_rough": [
+      {
+        "length_mm": 1630.0,
+        "longest_strafe_mm": 0.0,
+        "planner": "MECANUM_FIXED_HEADING"
+      },
+      {
+        "length_mm": 1630.0,
+        "longest_strafe_mm": 0.0,
+        "planner": "MECANUM_FIXED_HEADING"
+      }
+    ],
+    "hardware_ready": false
+  },
+  {
+    "case": "四障碍预设",
+    "zone": 1,
+    "planning_s": 7.384,
+    "elapsed_s": 103.04,
+    "previous_elapsed_s": 93.94,
+    "grabs": 12,
+    "placements": 12,
+    "body_sweeps_safe": true,
+    "max_body_heading_change_deg": 180.0,
+    "diagonal_docking": true,
+    "motion_modes": [
+      "DIAGONAL",
+      "FORWARD",
+      "REVERSE"
+    ],
+    "travel_length_mm": 16166.09,
+    "longest_strafe_mm": 0.0,
+    "raw_to_rough": [
+      {
+        "length_mm": 3126.99,
+        "longest_strafe_mm": 0.0,
+        "planner": "MECANUM_REVERSE_TANGENT"
+      },
+      {
+        "length_mm": 3126.99,
+        "longest_strafe_mm": 0.0,
+        "planner": "MECANUM_REVERSE_TANGENT"
+      }
+    ],
+    "hardware_ready": false
+  },
+  {
+    "case": "四障碍预设",
+    "zone": 2,
+    "planning_s": 8.293,
+    "elapsed_s": 100.74,
+    "previous_elapsed_s": 94.12,
+    "grabs": 12,
+    "placements": 12,
+    "body_sweeps_safe": true,
+    "max_body_heading_change_deg": 180.0,
+    "diagonal_docking": true,
+    "motion_modes": [
+      "DIAGONAL",
+      "FORWARD",
+      "REVERSE"
+    ],
+    "travel_length_mm": 16161.3,
+    "longest_strafe_mm": 0.0,
+    "raw_to_rough": [
+      {
+        "length_mm": 3126.99,
+        "longest_strafe_mm": 0.0,
+        "planner": "MECANUM_TANGENT"
+      },
+      {
+        "length_mm": 3126.99,
+        "longest_strafe_mm": 0.0,
+        "planner": "MECANUM_REVERSE_TANGENT"
+      }
+    ],
+    "hardware_ready": false
+  },
+  {
+    "case": "截图两障碍",
+    "zone": 1,
+    "planning_s": 11.762,
+    "elapsed_s": 126.44,
+    "previous_elapsed_s": 119.76,
+    "grabs": 12,
+    "placements": 12,
+    "body_sweeps_safe": true,
+    "max_body_heading_change_deg": 180.0,
+    "diagonal_docking": true,
+    "motion_modes": [
+      "DIAGONAL",
+      "FORWARD",
+      "REVERSE"
+    ],
+    "travel_length_mm": 23280.08,
+    "longest_strafe_mm": 0.0,
+    "raw_to_rough": [
+      {
+        "length_mm": 3326.99,
+        "longest_strafe_mm": 0.0,
+        "planner": "MECANUM_TANGENT"
+      },
+      {
+        "length_mm": 3326.99,
+        "longest_strafe_mm": 0.0,
+        "planner": "MECANUM_REVERSE_TANGENT"
+      }
+    ],
+    "hardware_ready": false
+  },
+  {
+    "case": "截图两障碍",
+    "zone": 2,
+    "planning_s": 7.142,
+    "elapsed_s": 132.38,
+    "previous_elapsed_s": 126.46,
+    "grabs": 12,
+    "placements": 12,
+    "body_sweeps_safe": true,
+    "max_body_heading_change_deg": 180.0,
+    "diagonal_docking": true,
+    "motion_modes": [
+      "DIAGONAL",
+      "FORWARD",
+      "REVERSE"
+    ],
+    "travel_length_mm": 24883.78,
+    "longest_strafe_mm": 0.0,
+    "raw_to_rough": [
+      {
+        "length_mm": 3326.99,
+        "longest_strafe_mm": 0.0,
+        "planner": "MECANUM_REVERSE_TANGENT"
+      },
+      {
+        "length_mm": 3326.99,
+        "longest_strafe_mm": 0.0,
+        "planner": "MECANUM_REVERSE_TANGENT"
+      }
+    ],
+    "hardware_ready": false
+  }
+]

@@ -42,13 +42,41 @@ class CommandQueue(queue.Queue):
         else:
             super()._put(item)
 
+
+def discard_dm_targets(command_queue):
+    """只清 DM 旧目标；保留使能/失能、模式、其他机构命令的顺序。"""
+    with command_queue.mutex:
+        kept = deque(cmd for cmd in command_queue.queue
+                     if str(cmd).strip().upper().split("=", 1)[0] not in
+                     {"DMPOS", "DMVEL", "DMKP", "DMKD", "DMTOR"})
+        removed = len(command_queue.queue)-len(kept)
+        command_queue.queue.clear()
+        command_queue.queue.extend(kept)
+        command_queue.unfinished_tasks = max(0, command_queue.unfinished_tasks-removed)
+        command_queue.not_full.notify_all()
+        if not command_queue.unfinished_tasks:
+            command_queue.all_tasks_done.notify_all()
+
+
+def put_dm_reference(command_queue, text):
+    """参考点只保留最新待发 DMPOS，串口变慢时不会累积过时曲线。"""
+    with command_queue.mutex:
+        kept = deque(cmd for cmd in command_queue.queue
+                     if not str(cmd).strip().upper().startswith("DMPOS="))
+        command_queue.unfinished_tasks -= len(command_queue.queue)-len(kept)
+        command_queue.queue.clear()
+        command_queue.queue.extend(kept)
+        command_queue.queue.append(text)
+        command_queue.unfinished_tasks += 1
+        command_queue.not_empty.notify()
+
 # 会给机构下命令的命令名：用于"规划/预览模式不得下发"这类断言与诊断。
 # 注意它与 discard_motion_commands 的集合**刻意不同**：后者只清"可以丢弃的旧目标"
 # （GOTO/GOTOHOLD/MANUAL/ZDT/VTRACK），绝不能把 STOP/ZERO/WHEEL* 这类安全命令一起丢掉。
 COMMANDING_COMMANDS = {
     "GOTO", "GOTOHOLD", "MANUAL", "ZDT", "VTRACK", "STOP", "ZERO", "OPSOFFSET",
     "WHEELEN", "WHEELOFF", "DMEN", "DMOFF", "DMSTOP", "DMZERO", "DMMODE",
-    "DMID", "DMPOS", "DMVEL", "DMKP", "DMKD", "DMTOR",
+    "DMID", "DMPOS", "DMVEL", "DMKP", "DMKD", "DMTOR", "DMACCDEC",
     "S28MOVE", "S28RAW", "S28HOME", "S28CANCEL",
     "S35MOVE", "S35RAW", "S35HOME", "S35CANCEL", "S35EN", "S28EN",
 }
@@ -182,6 +210,42 @@ CHASSIS_PARAMS = [
     ("XVMIN", "X/Y 最小补偿",  0.0, 100.0,  5.0,  None),
     ("ZVMIN", "航向最小补偿",  0.0, 100.0,  5.0,  None),
 ]
+
+# 连续轨迹RAM参数；与固件表同名、同范围、同默认值，独立于GOTO参数。
+TRAJECTORY_PARAMS = [
+    ("TVMAX", "轨迹平移速度上限 mm/s", 20.0,1000.0,500.0,None),
+    ("TKPX", "世界X位置纠偏 1/s",       0.1,30.0,6.0,None),
+    ("TKPY", "世界Y位置纠偏 1/s",       0.1,30.0,6.0,None),
+    ("TKPZ", "航向纠偏 1/s",            0.1,30.0,6.0,None),
+    ("TWMAX", "移动时角速度上限 °/s",   5.0,180.0,120.0,None),
+    ("TRWMAX", "原地转头速度上限 °/s",  5.0,120.0,60.0,None),
+    ("TRACC", "原地转头加速度 °/s²",   10.0,720.0,180.0,None),
+    ("THOLD", "转头车心保持限速 mm/s",   5.0,150.0,60.0,None),
+    ("TLOOK", "前视距离 mm",           20.0,300.0,100.0,None),
+    ("TACC", "路径前馈加速度 mm/s²",     50.0,3000.0,600.0,None),
+    ("TDEC", "规划制动减速度 mm/s²",    100.0,4000.0,1000.0,None),
+    ("TVARC", "圆弧平移速度上限 mm/s",   20.0,500.0,150.0,None),
+]
+TRAJECTORY_NAMES = frozenset(p[0] for p in TRAJECTORY_PARAMS)
+
+
+def validate_trajectory_settings(document):
+    """先完整校验再写界面，导入配置不会向车辆发送命令。"""
+    if not isinstance(document, dict) or document.get('schema_version') != 1 or document.get('kind') != 'ILHC_TRAJECTORY_SETTINGS':
+        raise ValueError('不是轨迹调参配置')
+    values = document.get('parameters')
+    # 兼容原9项JSON，新增速度参数补默认；未知字段和原有字段缺失仍拒绝。
+    additions = {'TACC', 'TDEC', 'TVARC'}
+    if not isinstance(values, dict) or not (TRAJECTORY_NAMES-additions <= set(values) <= TRAJECTORY_NAMES):
+        raise ValueError('轨迹参数缺失或包含未知参数')
+    result = {}
+    for name, _, lo, hi, default, _ in TRAJECTORY_PARAMS:
+        value = values.get(name, default)
+        if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or not lo <= value <= hi:
+            raise ValueError('%s超出范围或不是有限数值' % name)
+        result[name] = float(value)
+    return result
+
 
 # DM 可调参数：(命令, 显示名, 最小, 最大, 默认, 回读通道, 是否整数)
 DM_PARAMS = [
@@ -342,6 +406,17 @@ FIELD_FORBIDDEN_CIRCLES = [
     (1200.0, 2400.0, 110.0, "原料区圆盘"),
 ]
 
+def dm_register_feedback(text):
+    """精确关联序号/ID；浮点位模式避免固件printf精度损失。"""
+    match = re.fullmatch(r"(SIM )?DMREG (\d+) (\d+) ([0-6]) ([0-9A-Fa-f]{8}) ([0-9A-Fa-f]{8})", text.strip())
+    if not match:
+        return None
+    simulated, seq, motor_id, status, acc, dec = match.groups()
+    values = [struct.unpack('<f', struct.pack('<I', int(v, 16)))[0] for v in (acc, dec)]
+    return dict(seq=int(seq), id=int(motor_id), status=int(status),
+                acc=values[0], dec=values[1], simulated=bool(simulated))
+
+
 class FrameParser:
     """标准 VOFA+ JustFloat 解析器。
 
@@ -392,7 +467,8 @@ class FrameParser:
                     pass
                 del self._param_lines[:-64]
                 continue
-            repeat_stepper = re.search(r"\bS(?:28|35)\s+", line) is not None
+            repeat_stepper = (re.search(r"\bS(?:28|35)\s+", line) is not None or "DMREG " in line or
+                              line.startswith(('TSTAT ', 'TCAPS ')))
             if len(line) >= 6 and any(c.isalpha() for c in line) and (repeat_stepper or line not in self._seen_text):
                 self._seen_text.append(line)
                 del self._seen_text[:-32]
@@ -537,6 +613,7 @@ class SerialWorker(threading.Thread):
         self._safe_stop = False
         self._write_timeouts = 0
         self._tx_resync = False
+        self.last_stop_write_monotonic = 0.0
         self._vofa_last = 0.0
         self._vofa_tries = 0
 
@@ -561,6 +638,8 @@ class SerialWorker(threading.Thread):
             return False
         self._write_timeouts = 0
         self._tx_resync = False
+        if str(line).strip().upper() == 'STOP':
+            self.last_stop_write_monotonic = time.monotonic()
         return True
 
     @staticmethod
@@ -787,7 +866,7 @@ class NavigationMap(dict):
 
 
 class Simulator(threading.Thread):
-    def __init__(self, frame_q, line_q, urgent_q=None, param_q=None):
+    def __init__(self, frame_q, line_q, urgent_q=None, param_q=None, text_q=None):
         super().__init__(daemon=True)
         self._state_lock = threading.RLock()
         self.frame_seq = 0
@@ -817,6 +896,8 @@ class Simulator(threading.Thread):
         self.urgent_q = urgent_q if urgent_q is not None else queue.Queue()
         # 演示模式的参数回读直接给出数值，不经过串口字节流。
         self.param_q = param_q
+        self.text_q = text_q
+        self.dm_acc, self.dm_dec = 2.0, -2.0
         self.stop_flag = False
         # 底盘参数（与固件默认值一致）
         self.kpx, self.kpy, self.kpz = 2.3, 2.3, 9.0
@@ -881,6 +962,27 @@ class Simulator(threading.Thread):
         self._nav_fault = ""
         self._nav_status = 'ACCEPTING'
         return epoch
+
+    @_sim_atomic
+    def return_home_direct(self, x_mm, y_mm, yaw_ops):
+        """仅模拟便捷回库：不检查障碍，不复位位姿；旧STOP先处理，新STOP仍能取消。"""
+        target=tuple(float(v) for v in (x_mm,y_mm,yaw_ops))
+        if not all(math.isfinite(v) for v in target) or max(abs(target[0]),abs(target[1]))>3000:
+            raise ValueError('模拟回库坐标标定超出GOTO范围')
+        self.cancel_navigation()
+        # 若STOP尚在队列中，先处理它，避免它清掉随后建立的新回库目标。
+        # 同时执行更早的失能请求，绝不丢弃STOP/ZERO/WHEEL*安全命令。
+        self._service_commands()
+        if not self.urgent_q.empty() or not self.line_q.empty():
+            raise ValueError('模拟命令尚未处理完，请稍后再回启停区')
+        if not self.wheel_enabled:
+            raise ValueError('模拟轮已失能，请先使能再回启停区')
+        if self.hold is None or not all(math.isfinite(v) for v in (*self.hold,self._relative_heading())):
+            raise ValueError('模拟实际位姿非法')
+        self.goto=target
+        self.goto_hold=False
+        self._nav_fault=''
+        self._nav_status='DIRECT_RETURN'
 
     def submit_navigation_trajectory(self, epoch, samples, primitives, mapping, scene, validity=None):
         """一次接受整条连续Trajectory；昂贵复检不持运动锁，STOP可立即抢占。"""
@@ -1220,6 +1322,27 @@ class Simulator(threading.Thread):
                              self._clamp(parts[1], -300.0, 300.0) * OPS_CM_TO_MM,
                              parts[2] if len(parts) >= 3 else self._relative_heading())
             return
+        if line.startswith(("DMREAD=", "DMACCDEC=")):
+            parts = line.partition('=')[2].split(',')
+            write = line.startswith('DMACCDEC=')
+            try:
+                seq = int(parts[0])
+                if not 1 <= seq <= 65535 or len(parts) != (3 if write else 1):
+                    return
+                status = 1 if self.dm_active else 0
+                if write and not status:
+                    acc, dec = map(float, parts[1:])
+                    if not (0.000001 <= acc <= 1000 and -1000 <= dec <= -0.000001):
+                        status = 6
+                    else:
+                        self.dm_acc, self.dm_dec = acc, dec
+                bits = [struct.unpack('<I', struct.pack('<f', v))[0] for v in (self.dm_acc, self.dm_dec)]
+                if self.text_q is not None:
+                    self.text_q.put_nowait('SIM DMREG %d %d %d %08X %08X' %
+                                          (seq, self.dm_id, status, *bits))
+            except (ValueError, OverflowError, queue.Full):
+                pass
+            return
         if line == "DMEN":
             self.dm_active = 1
             self.fb_status = 0x01
@@ -1364,11 +1487,12 @@ class Simulator(threading.Thread):
         if self.dm_active:
             # 位置以限速逼近目标，模拟闭环
             err = self.dm_pos - self.fb_pos
-            vmax = max(0.5, abs(self.dm_vel))
+            vmax = abs(self.dm_vel) if self.dm_mode == 2 else max(0.5, abs(self.dm_vel))
             step = self._clamp(err, -vmax / SEND_HZ, vmax / SEND_HZ)
             self.fb_pos += step
             self.fb_vel = step * SEND_HZ
-            self.fb_tor = self._clamp(self.dm_kp * err * 0.01, -10, 10)
+            # 位置速度模式使用电机内部环路，不消费 MIT Kp/Kd/前馈参数。
+            self.fb_tor = self._clamp((2.0 if self.dm_mode == 2 else self.dm_kp) * err * 0.01, -10, 10)
             self.fb_status = 0x01
             self.fb_tmos = min(70.0, self.fb_tmos + 0.006) + 0.05 * n()
             self.fb_trotor = min(80.0, self.fb_trotor + 0.008) + 0.05 * n()
@@ -1719,6 +1843,50 @@ def plan_path(start, goal, grid=GRID_MM, pad=CAR_INFLATE_MM,
                 cost_lateral=cost_lateral, turn_penalty_mm=turn_penalty_mm,
                 smooth_arcs=smooth_arcs, sim_rects=sim_rects, sim_circles=sim_circles,
                 dynamic_rects=dynamic_rects, dynamic_circles=dynamic_circles)
+
+
+def plan_home_path(start, goal, **kwargs):
+    """正常回库：保留真实起始姿态，安全对齐后以标准航向进入启停区。"""
+    from navigation_planner import CollisionScene, DEFAULT_TURN_PENALTY_MM
+    actual = float(kwargs['start_heading_deg'])
+    target = float(kwargs['goal_heading_deg'])
+    fp = kwargs['footprint']
+    scene = CollisionScene(kwargs['rects'], kwargs['circles'], kwargs['bounds'], kwargs['pad'],
+                           fp, kwargs['drivable_polygons'],
+                           sim_rects=kwargs.get('sim_rects'), sim_circles=kwargs.get('sim_circles'),
+                           dynamic_rects=kwargs.get('dynamic_rects'), dynamic_circles=kwargs.get('dynamic_circles'))
+    candidates = [(target+90*k) % 360 for k in range(4)]
+    aligned = min(candidates, key=lambda h: abs((h-actual+180) % 360-180))
+    delta = abs((aligned-actual+180) % 360-180)
+    why = scene.pose_reason(*start, actual) or scene.turn_reason(start, actual, aligned)
+    if why:
+        return dict(ok=False, execution_safe=False, code='INVALID_START',
+                    reason='回库起点航向对齐不安全：'+why, points=[], steps=[])
+    cancel = kwargs.get('cancel')
+    if cancel is not None and cancel.is_set():
+        return dict(ok=False, execution_safe=False, code='CANCELLED',
+                    reason='回库规划已取消', points=[], steps=[])
+    aligned_kwargs = dict(kwargs, start_heading_deg=aligned, footprint=(fp[0], fp[1], aligned))
+    result = plan_path(start, goal, **aligned_kwargs)
+    if not result.get('ok'):
+        return result
+    # 标准网格从对齐后的姿态开始；实际转头独立记入台账，不能静默取整真实航向。
+    result['start_heading_deg'] = actual
+    result['footprint']['yaw_deg'] = actual
+    result['home_heading_alignment'] = dict(from_deg=actual, to_deg=aligned, angle_deg=delta)
+    if delta > 1e-8:
+        initial = dict(result['steps'][0], heading_deg=actual)
+        penalty = kwargs.get('turn_penalty_mm')
+        cost = delta/90*(DEFAULT_TURN_PENALTY_MM if penalty is None else penalty)
+        turn = dict(result['steps'][0], kind='TURN', action='HOME_HEADING_ALIGN',
+                    heading_deg=aligned, cost_mm=cost)
+        result['steps'] = [initial, turn]+result['steps'][1:]
+        result['turn_count'] += 1
+        result['turn_cost_mm'] += cost
+        result['trace_cost'] += cost
+        result['search_cost'] += cost
+        result['body_clearance'] = None  # 原统计不包含新增的实际航向对齐；逐姿态/扫掠检查已执行。
+    return result
 
 
 def geometry_axes(points, steps=None):

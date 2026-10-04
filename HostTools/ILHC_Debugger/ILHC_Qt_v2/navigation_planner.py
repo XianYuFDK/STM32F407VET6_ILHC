@@ -308,8 +308,17 @@ class CollisionScene:
         """相邻圆弧姿态凸包+所有车体顶点的弦高界，覆盖完整采样间隙。"""
         polygon, other = self.pose_polygon(*a), self.pose_polygon(*b)
         delta = abs((b[2]-a[2]+180) % 360-180)
-        radius = max(math.dist(center, v) for v in polygon.exterior.coords[:-1])
-        error = radius*(1-math.cos(math.radians(delta)/2))+EPS
+        # 车心绕圆心运动、车体绕车心旋转是两个独立运动；固定车头弧线仍有车心弦高。
+        angle_a = math.degrees(math.atan2(a[1]-center[1], a[0]-center[0]))
+        angle_b = math.degrees(math.atan2(b[1]-center[1], b[0]-center[0]))
+        path_delta = abs((angle_b-angle_a+180) % 360-180)
+        if abs(path_delta-delta) < 1e-5 and delta > EPS:
+            radius = max(math.dist(center, v) for v in polygon.exterior.coords[:-1])
+            error = radius*(1-math.cos(math.radians(delta)/2))+EPS
+        else:
+            orbit = max(math.dist(center, a[:2]), math.dist(center, b[:2]))
+            body = math.hypot(self.footprint.length_mm/2+self.pad, self.footprint.width_mm/2+self.pad)
+            error = orbit*(1-math.cos(math.radians(path_delta)/2))+body*(1-math.cos(math.radians(delta)/2))+EPS
         envelope = unary_union((polygon, other)).convex_hull.buffer(error/math.cos(math.pi/64), quad_segs=16)
         return self.geometry_reason(envelope)
 

@@ -20,8 +20,18 @@ virtualFolder:
         - path: ../Hardware/hcan.c
         - path: ../Hardware/dm_j4310.c
         - path: ../Hardware/debug_usart.c
+        - path: ../Hardware/trajectory_buffer.c
         - path: ../Hardware/zdt_x42s.c
         - path: ../Hardware/mecanum_control.c
+      folders: []
+    - name: RTOS_APP
+      files:
+        - path: ../RTOS_APP/rtos_app.c
+        - path: ../RTOS_APP/app_rx.c
+        - path: ../RTOS_APP/app_control.c
+        - path: ../RTOS_APP/app_comm.c
+        - path: ../RTOS_APP/app_mechanism.c
+        - path: ../RTOS_APP/app_maintenance.c
       folders: []
     - name: Application
       files: []
@@ -103,6 +113,7 @@ targets:
       incList:
         - .
         - ../Hardware
+        - ../RTOS_APP
         - ../Core/Inc
         - ../Drivers/STM32F4xx_HAL_Driver/Inc
         - ../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy

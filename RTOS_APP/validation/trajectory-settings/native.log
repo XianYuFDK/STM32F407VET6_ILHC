@@ -1,0 +1,60 @@
+RUN test_trajectory_settings.py
+test_init_restores_defaults (__main__.TrajectorySettingsTests.test_init_restores_defaults) ... ok
+test_lower_speed_does_not_relax_pose_safety (__main__.TrajectorySettingsTests.test_lower_speed_does_not_relax_pose_safety) ... ok
+test_moving_heading_rate_cap_applies (__main__.TrajectorySettingsTests.test_moving_heading_rate_cap_applies) ... ok
+test_nonfinite_range_and_busy_writes_do_not_change_values (__main__.TrajectorySettingsTests.test_nonfinite_range_and_busy_writes_do_not_change_values) ... ok
+test_ready_and_waiting_batches_also_reject_mutation (__main__.TrajectorySettingsTests.test_ready_and_waiting_batches_also_reject_mutation) ... ok
+test_rotation_acceleration_speed_and_hold_limits (__main__.TrajectorySettingsTests.test_rotation_acceleration_speed_and_hold_limits) ... ok
+test_translation_speed_changes_real_control_output (__main__.TrajectorySettingsTests.test_translation_speed_changes_real_control_output) ... ok
+test_x_y_and_heading_gains_are_independent (__main__.TrajectorySettingsTests.test_x_y_and_heading_gains_are_independent) ... ok
+
+----------------------------------------------------------------------
+Ran 8 tests in 0.409s
+
+OK
+RUN test_trajectory_param_protocol.py
+Trajectory parameter SET/GET, range and busy gates passed
+RUN test_trajectory_buffer.py
+test_clicked_path_upload_once_initial_rotation_and_local_execution (__main__.TrajectoryFirmwareTests.test_clicked_path_upload_once_initial_rotation_and_local_execution) ... ok
+test_crc_count_sequence_and_shape_fail_closed (__main__.TrajectoryFirmwareTests.test_crc_count_sequence_and_shape_fail_closed) ... ok
+test_duplicates_cannot_change_content_or_replay_start (__main__.TrajectoryFirmwareTests.test_duplicates_cannot_change_content_or_replay_start) ... ok
+test_entire_competition_upload_then_local_execution_all_obstacle_cases (__main__.TrajectoryFirmwareTests.test_entire_competition_upload_then_local_execution_all_obstacle_cases) ... ok
+test_entire_run_deadline_includes_station_wait (__main__.TrajectoryFirmwareTests.test_entire_run_deadline_includes_station_wait) ... ok
+test_future_crane_completion_requires_current_wait_and_cannot_revive_cancelled_batch (__main__.TrajectoryFirmwareTests.test_future_crane_completion_requires_current_wait_and_cannot_revive_cancelled_batch) ... ok
+test_initial_stop_requires_fresh_settled_pose_before_rotation (__main__.TrajectoryFirmwareTests.test_initial_stop_requires_fresh_settled_pose_before_rotation) ... ok
+test_normal_home_negative_zero_batches_validate_and_execute_in_real_c (__main__.TrajectoryFirmwareTests.test_normal_home_negative_zero_batches_validate_and_execute_in_real_c) ... ok
+test_ready_does_not_move_until_run_and_no_stop_at_samples (__main__.TrajectoryFirmwareTests.test_ready_does_not_move_until_run_and_no_stop_at_samples) ... ok
+test_rotation_holds_center_with_wheel_lag_and_turn_induced_drift (__main__.TrajectoryFirmwareTests.test_rotation_holds_center_with_wheel_lag_and_turn_induced_drift) ... ok
+test_rotation_position_fault_still_stops_outside_margin (__main__.TrajectoryFirmwareTests.test_rotation_position_fault_still_stops_outside_margin) ... ok
+test_screenshot_click_fallback_completes_with_turn_drift_and_wheel_lag (__main__.TrajectoryFirmwareTests.test_screenshot_click_fallback_completes_with_turn_drift_and_wheel_lag) ... ok
+test_stop_disabled_stale_jump_and_wrong_start (__main__.TrajectoryFirmwareTests.test_stop_disabled_stale_jump_and_wrong_start) ... ok
+test_terminal_rotation_and_wrapped_heading (__main__.TrajectoryFirmwareTests.test_terminal_rotation_and_wrapped_heading) ... ok
+test_wait_resume_keeps_batch_and_wrong_gate_does_not_release (__main__.TrajectoryFirmwareTests.test_wait_resume_keeps_batch_and_wrong_gate_does_not_release) ... ok
+test_watchdogs_and_deviation (__main__.TrajectoryFirmwareTests.test_watchdogs_and_deviation) ... ok
+
+----------------------------------------------------------------------
+Ran 16 tests in 53.282s
+
+OK
+C整批回放(含离线上传时间/停稳，不是实车计时)： [('none', 1, 860, 86.66), ('none', 2, 857, 86.6), ('one', 1, 860, 86.64), ('one', 2, 856, 82.86), ('four', 1, 1132, 102.08), ('four', 2, 1128, 98.58), ('screenshot', 1, 1607, 126.46), ('screenshot', 2, 1717, 132.5)]
+RUN test_param_readback.py
+Param readback reply format, queue and gate tests passed
+Firmware param readback (GET) format, queue, gate and wiring passed
+RUN test_param_integration.py
+PASS: 16-field mapping, restore, IRQ boundaries, save ACK, fault isolation; no motion dependencies
+RUN test_debug_wheel.py
+Wheel enable/disable service / ordering / gate tests passed
+Chassis stop gate test passed (no speed frame while disabled)
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\Tests\hardware\test_debug_wheel.py", line 195, in <module>
+    assert len(elements) == 27, elements
+           ^^^^^^^^^^^^^^^^^^^
+AssertionError: ['"ACK ZDT ACCEPTED\\r\\n"', '"ERR ZDT BUSY\\r\\n"', '"ERR ZDT FORMAT: ZDT=1..4,-300..300,1..5\\r\\n"', '"ACK ZDT RUN_REQUESTED (NO MOTOR ACK)\\r\\n"', '"ACK ZDT STOP_REQUESTED (NO MOTOR ACK)\\r\\n"', '"ACK ZDT CANCELLED (NO MOTOR ACK)\\r\\n"', '"WARN ZDT NO_VALID_REPLY IN 500MS\\r\\n"', 'NULL', '"ERR CAN START FAILED; CAN DISABLED; USART1 AVAILABLE\\r\\n"', '"ERR CAN DISABLED; DM/S28/S35 REJECTED\\r\\n"', '"ERR WHEEL DISABLED; WHEELEN FIRST\\r\\n"', '"ERR ZDT REPLY STATUS != 0x02 (SEE RAW FRAME)\\r\\n"', '"ERR GOTO INVALID HEADING\\r\\n"', '"ERR DM DISABLE TX FAILED; DMOFF TO RETRY\\r\\n"', '"ERR WHEEL TX FAILED; WHEELEN TO RECOVER\\r\\n"', '"ACK PARAM LOADED FROM FLASH\\r\\n"', '"INFO PARAM DEFAULTS; NO VALID FLASH RECORD\\r\\n"', '"ACK PARAM SAVED TO FLASH\\r\\n"', '"ERR PARAM FLASH; UNSAVED CHANGES LOST ON POWER OFF\\r\\n"', '"ERR PARAM UNKNOWN; GET KPX|KPY|KPZ|XVMAX|ZVMAX|XVMIN|ZVMIN|VCONF|VKPMM|VDBMM|VDBPX|VMIN|VMAX\\r\\n"', 'NULL', '"ACK VTRACK START REQUESTED\\r\\n"', '"ACK VTRACK STOP REQUESTED\\r\\n"', '"ERR VTRACK FORMAT; USE VTRACK=0..6\\r\\n"', '"ERR VTRACK BUSY\\r\\n"', '"ERR VTRACK VISION ERROR\\r\\n"', 'NULL', 'NULL', '"ERR TRAJ PARAM BUSY; STOP BEFORE SET\\r\\n"', '"ERR TRAJ PARAM RANGE\\r\\n"']
+FINAL RUN test_debug_wheel.py
+Wheel enable/disable service / ordering / gate tests passed
+Chassis stop gate test passed (no speed frame while disabled)
+Firmware wheel lock command, gate and driver wiring passed
+FINAL RUN test_trajectory_bridge.py
+整批桥接STOP/心跳/快照与四向世界速度换算通过
+FINAL RUN test_rtos_app.py
+PASS: task ownership, creation failure, ISR startup, queue faults, STOP deadline, overrun/wrap, RX budget, Flash unlock, 1Hz stats

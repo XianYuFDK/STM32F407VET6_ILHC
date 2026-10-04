@@ -1,0 +1,21 @@
+test_500_brakes_before_arc_and_arc_output_stays_capped (__main__.TrajectorySpeedTests.test_500_brakes_before_arc_and_arc_output_stays_capped) ... ok
+test_accel_setting_controls_startup_ramp (__main__.TrajectorySpeedTests.test_accel_setting_controls_startup_ramp) ... ok
+test_arc_cap_is_independent_of_body_yaw (__main__.TrajectorySpeedTests.test_arc_cap_is_independent_of_body_yaw) ... ok
+test_decel_setting_moves_braking_before_arc (__main__.TrajectorySpeedTests.test_decel_setting_moves_braking_before_arc) ... ok
+test_init_restores_defaults (__main__.TrajectorySpeedTests.test_init_restores_defaults) ... ok
+test_lower_speed_does_not_relax_pose_safety (__main__.TrajectorySpeedTests.test_lower_speed_does_not_relax_pose_safety) ... ok
+test_moving_heading_rate_cap_applies (__main__.TrajectorySpeedTests.test_moving_heading_rate_cap_applies) ... ok
+test_near_limit_deviation_slows_then_outside_margin_stops (__main__.TrajectorySpeedTests.test_near_limit_deviation_slows_then_outside_margin_stops) ... ok
+test_nonfinite_range_and_busy_writes_do_not_change_values (__main__.TrajectorySpeedTests.test_nonfinite_range_and_busy_writes_do_not_change_values) ... ok
+test_ready_and_waiting_batches_also_reject_mutation (__main__.TrajectorySpeedTests.test_ready_and_waiting_batches_also_reject_mutation) ... ok
+test_rotation_acceleration_speed_and_hold_limits (__main__.TrajectorySpeedTests.test_rotation_acceleration_speed_and_hold_limits) ... ok
+test_stop_cancels_at_500_and_new_batch_starts_from_zero (__main__.TrajectorySpeedTests.test_stop_cancels_at_500_and_new_batch_starts_from_zero) ... ok
+test_straight_500_reaches_cruise_and_finishes_faster_than_250 (__main__.TrajectorySpeedTests.test_straight_500_reaches_cruise_and_finishes_faster_than_250) ... ok
+test_translation_speed_changes_real_control_output (__main__.TrajectorySpeedTests.test_translation_speed_changes_real_control_output) ... ok
+test_x_y_and_heading_gains_are_independent (__main__.TrajectorySpeedTests.test_x_y_and_heading_gains_are_independent) ... ok
+
+----------------------------------------------------------------------
+Ran 15 tests in 0.385s
+
+OK
+2m straight real C (cruise,time,peak): [(250, 9.12, 250.0), (500, 5.48, 500.0)]

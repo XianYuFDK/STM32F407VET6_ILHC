@@ -15,6 +15,7 @@ def function(name):
 
 prelude = r'''
 #include <stdint.h>
+static uint8_t s_fast_pending __attribute__((unused));
 #include <assert.h>
 #include <stdio.h>
 static volatile uint8_t s_manual_active;

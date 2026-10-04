@@ -161,7 +161,7 @@ class MapClickQtTests(unittest.TestCase):
         self.w.sim.hold = (1750, 1750)
         self.w.sim.zval = 180
         self.w.sim.make_frame(0)
-        self.w.map_yaw_combo.setCurrentIndex(3)  # FIELD180° -> LAYOUT90°，使用真实UI目标航向。
+        self.w.map_yaw_combo.setCurrentIndex(4)  # 用户270°右 -> 几何FIELD180° -> LAYOUT90°。
         result = self.w.plan_to(1500, 1500)
         self.assertTrue(result['trajectory_safe'], result)
         self.w.sim.make_frame(0)
@@ -214,7 +214,8 @@ class MapClickQtTests(unittest.TestCase):
         self.w.zone_combo.setCurrentIndex(zone-1)
         button, = [b for b in self.w.findChildren(main.QPushButton) if b.text() == '一键比赛模拟']
         button.click()
-        deadline = time.monotonic()+12
+        # 多车头及倒退候选均做整车控制预演；等待后台完成，车辆在完成前必须不启动。
+        deadline = time.monotonic()+30
         while self.w._competition_future is not None and time.monotonic() < deadline:
             self.app.processEvents()
             time.sleep(.01)
@@ -255,6 +256,11 @@ class MapClickQtTests(unittest.TestCase):
             self.assertFalse(saved['hardware_ready'])
             self.assertEqual(saved['correct_grabs'], 12)
             self.assertEqual(len(saved['match']['legs']), 8)
+            self.assertEqual(saved['match']['schema_version'], 2)
+            self.assertTrue(saved['match']['diagonal_docking'])
+            point = saved['match']['legs'][0]['route']['trajectory'][0]
+            self.assertIn('tangent_yaw_deg', point)
+            self.assertIn('motion_mode', point)
             self.assertGreater(len(saved['actual_trace']), 1000)
             self.assert_no_command_sent()
 
@@ -281,10 +287,78 @@ class MapClickQtTests(unittest.TestCase):
             self.assertEqual((self.w.sim.hold, self.w.sim.zval), before)
             self.assertEqual((runner.grabs, runner.placements), count)
 
-    def test_obstacle_scene_button_preserves_four_cylinders_for_complete_match_and_json(self):
+    def load_obstacle_fixture(self):
+        """测试显式布障，生产界面不再提供固定场景入口。"""
         import competition_simulation as competition
-        button, = [b for b in self.w.findChildren(main.QPushButton) if b.text() == '障碍比赛场景']
+        self.w._clear_path()
+        self.w.nav_map=competition.load_profile()
+        self.w.map_view.set_navigation_map(self.w.nav_map)
+        self.w.sim_obstacles=list(competition.DEMO_OBSTACLES)
+        self.w._obstacles_changed()
+
+    def test_mid_match_stop_then_direct_sim_home_bypasses_obstacles_without_restart(self):
+        self.load_obstacle_fixture()
+        runner=self.start_competition()
+        home=core.ZONE_CENTER[1]
+        for i in range(5000):
+            self.w.sim.make_frame(i*.02);self.w._poll_competition()
+            x,y=self.w._ops_to_field(*self.w.sim.hold)
+            if runner.active and core.seg_blocked(x,y,*home,self.w.nav_map['rects'],self.w.nav_map['circles']):
+                break
+        else: self.fail('没有找到直线回库穿越禁区的比赛中间位姿')
+        button,=[b for b in self.w.findChildren(main.QPushButton) if b.text()=='停止比赛']
         button.click()
+        before=self.w.sim.hold;counts=runner.grabs,runner.placements
+        self.w._goto_home()
+        self.assertEqual(self.w.sim.hold,before,'回库不能瞬移或重置OPS')
+        self.assertIsNone(self.w._plan_future)
+        self.assertEqual(runner.status,'CANCELLED')
+        self.assertEqual(len(self.w.sim_obstacles),4)
+        self.w.sim._service_commands()
+        self.assertEqual(self.w.sim.goto,(0,0,0))
+        for i in range(500):
+            self.w.sim.make_frame(i*.02);self.w._poll_competition()
+            if self.w.sim.goto is None: break
+        self.assertIsNone(self.w.sim.goto)
+        self.assertLess(main.math.dist(self.w.sim.hold,(0,0)),.001)
+        self.assertEqual(self.w.sim.navigation_snapshot()['yaw'],0)
+        self.assertEqual((runner.grabs,runner.placements),counts)
+        self.assertFalse(runner.active)
+
+    def test_direct_sim_home_respects_selected_zone_mapping_stop_and_disabled(self):
+        self.w.zone_combo.setCurrentIndex(1)
+        self.w.map_ox=2100;self.w.map_oy=0;self.w.map_theta=20
+        self.w.sim.hold=(-900,300);self.w.sim.zval=70
+        self.w.send_line('STOP')  # 旧STOP尚未被模拟线程消费，仍应能立即新建回库。
+        self.w._goto_home()
+        self.w.sim._service_commands()
+        self.assertEqual(self.w.sim.goto,(0,0,340))
+        self.w.sim.make_frame(.02);before=self.w.sim.hold
+        self.w.send_line('STOP')
+        self.assertIsNone(self.w.sim.goto,'STOP须立即撤销直接回库，不等待模拟线程消费命令')
+        self.w.sim._service_commands()
+        for i in range(20):self.w.sim.make_frame(i*.02)
+        self.assertEqual(self.w.sim.hold,before)
+        self.assertIsNone(self.w.sim.goto)
+        self.w.sim.handle_line('WHEELOFF');self.w._goto_home()
+        self.assertIsNone(self.w.sim.goto)
+        self.assertIn('失能',self.w.map_status.text())
+
+    def test_pending_sim_wheel_disable_cannot_be_bypassed_by_direct_return(self):
+        self.w.send_line('STOP')
+        self.w.urgent_q.put('WHEELOFF')
+        before=self.w.sim.hold
+        self.w._goto_home()
+        self.assertIsNone(self.w.sim.goto)
+        self.assertFalse(self.w.sim.wheel_enabled)
+        self.assertEqual(self.w.sim.hold,before)
+        self.assertIn('失能',self.w.map_status.text())
+
+    def test_no_preset_button_and_explicit_obstacles_preserved_for_match_and_json(self):
+        import competition_simulation as competition
+        self.assertFalse(any(b.text() == '障碍比赛场景' for b in self.w.findChildren(main.QPushButton)))
+        self.assertFalse(hasattr(self.w,'_load_competition_obstacles'))
+        self.load_obstacle_fixture()
         self.assertEqual(self.w.sim_obstacles, list(competition.DEMO_OBSTACLES))
         self.assertEqual(len(self.w.map_view._obstacle_items), 4)
         self.assertFalse(self.w.sim.navigation_snapshot()['tracking'])
@@ -306,7 +380,7 @@ class MapClickQtTests(unittest.TestCase):
         self.assert_no_command_sent()
 
     def test_manual_and_random_obstacles_are_preserved_by_match_start(self):
-        self.w._load_competition_obstacles()
+        self.load_obstacle_fixture()
         self.w._clear_obstacles()
         self.w.obstacle_mode_check.setChecked(True)
         self.click_layout(1200, 1700)
@@ -322,7 +396,7 @@ class MapClickQtTests(unittest.TestCase):
         self.assert_no_command_sent()
 
     def test_obstacle_edits_cancel_preflight_motion_and_work_without_late_restart(self):
-        self.w._load_competition_obstacles()
+        self.load_obstacle_fixture()
         self.w._start_competition()
         future = self.w._competition_future
         self.w._clear_obstacles()
@@ -332,7 +406,7 @@ class MapClickQtTests(unittest.TestCase):
         self.w._poll_competition()
         self.assertIsNone(self.w.competition)
         for phase in ('motion', 'work'):
-            self.w._load_competition_obstacles()
+            self.load_obstacle_fixture()
             runner = self.start_competition()
             if phase == 'work':
                 for i in range(2000):
@@ -350,7 +424,7 @@ class MapClickQtTests(unittest.TestCase):
         self.assert_no_command_sent()
 
     def test_direct_obstacle_list_change_is_caught_before_next_core_motion(self):
-        self.w._load_competition_obstacles()
+        self.load_obstacle_fixture()
         runner = self.start_competition()
         before = self.w.sim.hold, self.w.sim.zval
         self.w.sim_obstacles[0] = (1200, 1600)  # 绕过GUI编辑入口，仍必须由冻结快照门禁保护。
@@ -361,7 +435,7 @@ class MapClickQtTests(unittest.TestCase):
         self.assert_no_command_sent()
 
     def test_obstacle_occupied_station_refuses_start_and_preserves_actual_vehicle_pose(self):
-        self.w._load_competition_obstacles()
+        self.load_obstacle_fixture()
         self.w.sim_obstacles = [(2180, 1200)]
         self.w._obstacles_changed()
         before = self.w.sim.hold, self.w.sim.zval
@@ -375,6 +449,22 @@ class MapClickQtTests(unittest.TestCase):
         self.assertEqual((self.w.sim.hold, self.w.sim.zval), before)
         self.assertFalse(self.w.sim.navigation_snapshot()['tracking'])
         self.assertEqual(len(self.w.map_view._obstacle_items), 1)
+        self.assert_no_command_sent()
+
+    def test_screenshot_two_obstacles_plan_and_complete_through_real_match_button(self):
+        self.load_obstacle_fixture()
+        self.w.sim_obstacles = [(1200, 1200), (297, 294)]
+        self.w._obstacles_changed()
+        runner = self.start_competition()
+        self.assertEqual(len(self.w.map_view._obstacle_items), 2)
+        self.assertGreater(self.w.map_view.skeleton_item.path().elementCount(), 20)
+        for i in range(9200):
+            self.w.sim.make_frame(i*.02); self.w._poll_competition()
+            if not runner.active: break
+        self.assertEqual(runner.status, 'COMPLETE', runner.reason)
+        self.assertLess(runner.elapsed_s, 180)
+        self.assertEqual((runner.grabs, runner.placements), (12, 12))
+        self.assertIn('障碍2', self.w.competition_status.text())
         self.assert_no_command_sent()
 
     def test_match_preflight_cancellation_bad_code_and_hardware_are_rejected(self):
@@ -464,6 +554,30 @@ class MapClickQtTests(unittest.TestCase):
                          2+len(self.w.nav_map['rects'])+len(self.w.nav_map['circles'])+2)
         self.assert_no_command_sent()
 
+    def test_reverse_and_diagonal_arrows_follow_motion_while_reference_shows_body(self):
+        import navigation_planner as nav
+        s = nav.CollisionScene([], [], (0,0,2400,2400), 10, (280,260,0))
+        for mode, end in (('REVERSE_TANGENT', (1300,800)), ('FIXED', (1300,1300))):
+            line = dict(kind='LINE', start=(800,800), end=end, heading_mode=mode, body_yaw_deg=90)
+            r = core.generate_trajectory([line], s)
+            self.assertTrue(r['trajectory_safe'], r)
+            sample = r['trajectory'][0]
+            view = self.w.map_view; view.set_trajectory(r['trajectory']); view.set_reference(sample)
+            path = view.trajectory_arrows.path()
+            a, b = path.elementAt(0), path.elementAt(1)
+            length = main.math.dist((800,800), end)
+            self.assertAlmostEqual(b.x-a.x, 36*(end[0]-800)/length)
+            self.assertAlmostEqual(b.y-a.y, -36*(end[1]-800)/length)
+            self.assertGreater(view.reference_item.path().elementCount(), 0)
+            self.assertNotEqual(sample['field_yaw_deg'], sample['tangent_yaw_deg'])
+            circle = main.QPainterPath(); circle.addEllipse(main.QPointF(0,0),12,12)
+            ref = view.reference_item.path(); n = circle.elementCount()
+            a, b = ref.elementAt(n), ref.elementAt(n+1)
+            yaw = main.math.radians(sample['field_yaw_deg'])
+            self.assertAlmostEqual(b.x-a.x, -40*main.math.sin(yaw))
+            self.assertAlmostEqual(b.y-a.y, 40*main.math.cos(yaw))
+        self.assert_no_command_sent()
+
     def test_slot_submission_exception_is_shown_not_swallowed(self):
         with patch.object(self.w._planner_pool, 'submit', side_effect=RuntimeError('submit failure')):
             self.click_layout(330, 1200)
@@ -482,6 +596,33 @@ class MapClickQtTests(unittest.TestCase):
         self.assertIsNotNone(self.w.planned_result, self.w.map_status.text())
         self.assertTrue(self.w.planned_result['ok'])
         self.assert_no_command_sent()
+
+
+    def test_normal_sim_home_plans_and_clear_path_does_not_grant_bypass(self):
+        self.w.plan_click_check.setChecked(False)
+        self.w._clear_path('普通清路径')
+        with patch.object(self.w, '_request_plan') as planner:
+            self.w._goto_home()
+        planner.assert_called_once_with(*core.ZONE_CENTER[1], execute_real=False, home_return=True)
+        self.assertFalse(self.w._home_after_stop)
+        self.assertIsNone(self.w.sim.goto)
+
+    def test_sim_match_protective_stop_allows_one_direct_return(self):
+        runner=self.start_competition()
+        # 将实际车体放进禁行区，真实比赛保护逻辑必须取消运行。
+        self.w.sim.hold=core.layout_to_field(1200,1200)
+        self.w.sim.make_frame(.02)
+        self.w._poll_competition()
+        self.assertEqual(runner.status,'FAULT')
+        self.assertTrue(self.w._home_after_stop)
+        with patch.object(self.w, '_request_plan') as planner:
+            self.w._goto_home()
+        planner.assert_not_called()
+        self.assertEqual(self.w.sim.goto,(0,0,0))
+        self.assertFalse(self.w._home_after_stop)
+        with patch.object(self.w, '_request_plan') as planner:
+            self.w._goto_home()
+        planner.assert_called_once()  # 同一保护记录不能重复放行
 
 
 if __name__ == '__main__':

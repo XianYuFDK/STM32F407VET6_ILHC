@@ -1,0 +1,22 @@
+test_clicked_path_upload_once_initial_rotation_and_local_execution (__main__.TrajectoryFirmwareTests.test_clicked_path_upload_once_initial_rotation_and_local_execution) ... ok
+test_crc_count_sequence_and_shape_fail_closed (__main__.TrajectoryFirmwareTests.test_crc_count_sequence_and_shape_fail_closed) ... ok
+test_duplicates_cannot_change_content_or_replay_start (__main__.TrajectoryFirmwareTests.test_duplicates_cannot_change_content_or_replay_start) ... ok
+test_entire_competition_upload_then_local_execution_all_obstacle_cases (__main__.TrajectoryFirmwareTests.test_entire_competition_upload_then_local_execution_all_obstacle_cases) ... ok
+test_entire_run_deadline_includes_station_wait (__main__.TrajectoryFirmwareTests.test_entire_run_deadline_includes_station_wait) ... ok
+test_future_crane_completion_requires_current_wait_and_cannot_revive_cancelled_batch (__main__.TrajectoryFirmwareTests.test_future_crane_completion_requires_current_wait_and_cannot_revive_cancelled_batch) ... ok
+test_initial_stop_requires_fresh_settled_pose_before_rotation (__main__.TrajectoryFirmwareTests.test_initial_stop_requires_fresh_settled_pose_before_rotation) ... ok
+test_normal_home_negative_zero_batches_validate_and_execute_in_real_c (__main__.TrajectoryFirmwareTests.test_normal_home_negative_zero_batches_validate_and_execute_in_real_c) ... ok
+test_ready_does_not_move_until_run_and_no_stop_at_samples (__main__.TrajectoryFirmwareTests.test_ready_does_not_move_until_run_and_no_stop_at_samples) ... ok
+test_rotation_holds_center_with_wheel_lag_and_turn_induced_drift (__main__.TrajectoryFirmwareTests.test_rotation_holds_center_with_wheel_lag_and_turn_induced_drift) ... ok
+test_rotation_position_fault_still_stops_outside_margin (__main__.TrajectoryFirmwareTests.test_rotation_position_fault_still_stops_outside_margin) ... ok
+test_screenshot_click_fallback_completes_with_turn_drift_and_wheel_lag (__main__.TrajectoryFirmwareTests.test_screenshot_click_fallback_completes_with_turn_drift_and_wheel_lag) ... ok
+test_stop_disabled_stale_jump_and_wrong_start (__main__.TrajectoryFirmwareTests.test_stop_disabled_stale_jump_and_wrong_start) ... ok
+test_terminal_rotation_and_wrapped_heading (__main__.TrajectoryFirmwareTests.test_terminal_rotation_and_wrapped_heading) ... ok
+test_wait_resume_keeps_batch_and_wrong_gate_does_not_release (__main__.TrajectoryFirmwareTests.test_wait_resume_keeps_batch_and_wrong_gate_does_not_release) ... ok
+test_watchdogs_and_deviation (__main__.TrajectoryFirmwareTests.test_watchdogs_and_deviation) ... ok
+
+----------------------------------------------------------------------
+Ran 16 tests in 60.030s
+
+OK
+C整批回放(含离线上传时间/停稳，不是实车计时)： [('none', 1, 860, 69.9), ('none', 2, 857, 69.82), ('one', 1, 860, 69.9), ('one', 2, 856, 66.06), ('four', 1, 1132, 82.84), ('four', 2, 1128, 78.98), ('screenshot', 1, 1607, 96.26), ('screenshot', 2, 1717, 99.88)]

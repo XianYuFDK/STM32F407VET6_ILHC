@@ -1,0 +1,18 @@
+test_calibration_inverse_applies_rotation_translation_to_ops (tests.test_hardware_trajectory.MatchPackingTests.test_calibration_inverse_applies_rotation_translation_to_ops) ... ok
+test_demo_map_and_cancel_do_not_produce_payload (tests.test_hardware_trajectory.MatchPackingTests.test_demo_map_and_cancel_do_not_produce_payload) ... ok
+test_full_match_quantized_crc_body_tangent_and_automatic_stations (tests.test_hardware_trajectory.MatchPackingTests.test_full_match_quantized_crc_body_tangent_and_automatic_stations) ... ok
+test_future_real_action_wait_is_explicit_and_unknown_mode_rejected (tests.test_hardware_trajectory.MatchPackingTests.test_future_real_action_wait_is_explicit_and_unknown_mode_rejected) ... ok
+test_incomplete_ready_and_old_firmware_capacity_fail_closed (tests.test_hardware_trajectory.UploaderTests.test_incomplete_ready_and_old_firmware_capacity_fail_closed) ... ok
+test_invalid_session_and_timeout_cancel (tests.test_hardware_trajectory.UploaderTests.test_invalid_session_and_timeout_cancel) ... ok
+test_old_batch_and_stale_upload_reply_cannot_rewind (tests.test_hardware_trajectory.UploaderTests.test_old_batch_and_stale_upload_reply_cannot_rewind) ... ok
+test_status_parser_preserves_identical_progress_replies (tests.test_hardware_trajectory.UploaderTests.test_status_parser_preserves_identical_progress_replies) ... ok
+test_upload_all_before_run_then_resume_does_not_resend (tests.test_hardware_trajectory.UploaderTests.test_upload_all_before_run_then_resume_does_not_resend) ... ok
+test_map_change_during_preflight_cancels (tests.test_hardware_trajectory_qt.HardwareQtTests.test_map_change_during_preflight_cancels) ... ok
+test_real_preflight_caps_and_stop_discard_pending_points (tests.test_hardware_trajectory_qt.HardwareQtTests.test_real_preflight_caps_and_stop_discard_pending_points) ... ok
+test_uncalibrated_map_refuses_real_upload (tests.test_hardware_trajectory_qt.HardwareQtTests.test_uncalibrated_map_refuses_real_upload) ... ok
+test_wrong_actual_start_refuses_without_zero (tests.test_hardware_trajectory_qt.HardwareQtTests.test_wrong_actual_start_refuses_without_zero) ... ok
+
+----------------------------------------------------------------------
+Ran 13 tests in 10.093s
+
+OK

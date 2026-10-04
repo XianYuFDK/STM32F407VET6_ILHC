@@ -98,6 +98,7 @@ typedef struct
 void              OPS_Init(void);                       /* 初始化并启动接收                     */
 void              OPS_Start(void);                      /* 重新启动空闲中断 + DMA 接收          */
 void              OPS_ServiceRx(void);                  /* 任务上下文恢复 USART2 接收           */
+void              OPS_ProcessPending(void);             /* 通信任务解析一包，持有应用状态锁     */
 HAL_StatusTypeDef OPS_SendCommand(uint8_t cmd);         /* 发送 0xC5 + 命令字                   */
 
 const OPS_Data_t *OPS_GetData(void);                    /* 获取完整解析数据指针                 */

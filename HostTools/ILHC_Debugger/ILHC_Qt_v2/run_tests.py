@@ -17,7 +17,8 @@ def main():
               [sys.executable,'-m','unittest','tests.test_navigation_safety',
                'tests.test_map_click_regression','tests.test_navigation_audit_fixes',
                'tests.test_arc_smoothing','tests.test_trajectory','tests.test_continuous_tracking',
-               'tests.test_competition_simulation','-v']]
+               'tests.test_competition_simulation','tests.test_mecanum_planning',
+               'tests.test_hardware_trajectory','tests.test_home_return','tests.test_trajectory_settings','-v']]
     if args.qt:
         missing=[name for name in ('PySide6','pyqtgraph','serial','shapely','numpy')
                  if importlib.util.find_spec(name) is None]
@@ -25,7 +26,8 @@ def main():
             print('无法运行Qt回归，缺少：'+', '.join(missing),file=sys.stderr)
             print('请执行 python -m pip install -r requirements.txt',file=sys.stderr)
             return 2
-        commands.append([sys.executable,'-m','unittest','test_debugger','test_serial_lifecycle','test_map_click_qt','-v'])
+        commands.append([sys.executable,'-m','unittest','test_debugger','test_serial_lifecycle','test_map_click_qt',
+                         'tests.test_dm_position','tests.test_hardware_trajectory_qt','tests.test_trajectory_settings_qt','-v'])
     env=dict(os.environ,QT_QPA_PLATFORM=os.environ.get('QT_QPA_PLATFORM','offscreen'))
     for cmd in commands:
         print('\nRUN: '+' '.join(cmd),flush=True)

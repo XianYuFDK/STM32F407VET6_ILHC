@@ -28,6 +28,8 @@
  ******************************************************************************
  */
 #include "ops.h"
+#include "app_rx.h"
+#include "rtos_app.h"
 #include "usart.h"
 #include <math.h>
 #include <string.h>
@@ -43,6 +45,9 @@
 /* ---------------------------- 私有变量 ---------------------------- */
 static uint8_t             s_rx_buf[OPS_RX_BUFFER_SIZE];   /* DMA 接收缓冲区 */
 static uint8_t             s_parse_buf[OPS_RX_BUFFER_SIZE];/* 流式解析缓冲   */
+static uint8_t s_rx_copy[OPS_RX_BUFFER_SIZE];
+static uint32_t s_processing_tick;
+static uint8_t s_processing_rx;
 static uint16_t            s_parse_len;              /* 解析缓冲有效长度      */
 static volatile uint8_t    s_rx_recover;             /* USART2 错误恢复请求   */
 static uint8_t             s_continuity_lost;
@@ -368,6 +373,7 @@ HAL_StatusTypeDef OPS_SendCommand(uint8_t cmd)
  */
 void OPS_Start(void)
 {
+  APP_RX_Reset(APP_RX_OPS);
   s_parse_len = 0U;
   if (OPS_RestartReceive() != HAL_OK)
   {
@@ -385,6 +391,9 @@ void OPS_ServiceRx(void)
   {
     return;
   }
+
+  /* 恢复成功也不能把旧定位重新标为在线，必须等待新的完整有效帧。 */
+  s_ops.pose_valid = 0U;
 
   if ((huart2.hdmarx != NULL) &&
       (HAL_DMA_GetState(huart2.hdmarx) == HAL_DMA_STATE_ABORT))
@@ -410,6 +419,7 @@ void OPS_ServiceRx(void)
   }
 
   __HAL_UART_CLEAR_PEFLAG(&huart2);
+  APP_RX_Reset(APP_RX_OPS);
   s_parse_len = 0U;
   if (OPS_RestartReceive() != HAL_OK)
   {
@@ -632,6 +642,11 @@ static uint8_t OPS_FrameValuesValid(const OPS_Frame_t *frame)
  * @param  frame      已解析帧
  * @param  pose_valid 1 表示位姿可用
  */
+static uint32_t OPS_ReceiveTick(void)
+{
+  return s_processing_rx ? s_processing_tick : HAL_GetTick();
+}
+
 static void OPS_PublishFrame(const OPS_Frame_t *frame, uint8_t pose_valid)
 {
   uint8_t session_changed = 0U;
@@ -644,7 +659,7 @@ static void OPS_PublishFrame(const OPS_Frame_t *frame, uint8_t pose_valid)
     /* 同 ID 的冷启动也必须识别。无数据超过在线窗口即视为连续性中断；
      * 时间戳用模差处理正常 32 位回绕，重复帧不能刷新在线时刻。 */
     uint8_t restart = (s_ops.frame_count != 0U &&
-      ((uint32_t)(HAL_GetTick() - s_last_frame_tick) > 200U ||
+      ((uint32_t)(OPS_ReceiveTick() - s_last_frame_tick) > 200U ||
        (int32_t)(frame->timestamp_ms - s_ops.timestamp_ms) < 0)) ? 1U : 0U;
     if (s_ops.session_id != frame->session_id || restart != 0U)
     {
@@ -669,7 +684,7 @@ static void OPS_PublishFrame(const OPS_Frame_t *frame, uint8_t pose_valid)
     session_changed = 1U;
   }
 
-  s_last_frame_tick = HAL_GetTick();
+  s_last_frame_tick = OPS_ReceiveTick();
   if (frame->header == OPS_FRAME_HEADER_V2 && s_session_pending == 0U &&
       s_ops.valid_count != 0U && (frame->flags & OPS_FLAG_IMU_REBASED) != 0U)
   {
@@ -696,7 +711,7 @@ static void OPS_PublishFrame(const OPS_Frame_t *frame, uint8_t pose_valid)
     memcpy(&s_ops.frame, frame, sizeof(OPS_Frame_t));
     s_ops.pose_valid = 1U;
     s_ops.valid_count++;
-    s_ops.last_update_tick = HAL_GetTick();
+    s_ops.last_update_tick = OPS_ReceiveTick();
     s_ops.status = OPS_STATUS_OK;
     s_new_flag = 1U;
   }
@@ -871,26 +886,47 @@ static void OPS_ParseByte(uint8_t byte)
  */
 void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
 {
-  uint16_t i;
+  if (huart->Instance != USART2 || s_rx_recover) return;
+  if (Size > sizeof(s_rx_buf)) Size = (uint16_t)sizeof(s_rx_buf);
+  memcpy(s_rx_copy, s_rx_buf, Size);
+  if (OPS_RestartReceive() != HAL_OK) {
+    s_ops.pose_valid = 0U; s_ops.session_changed = 1U;
+    RTOS_APP_NotifyControl(); RTOS_APP_NotifyComm(); return;
+  }
+  if (Size && !APP_RX_Push(APP_RX_OPS, s_rx_copy, Size, HAL_GetTick())) {
+    /* 队满时禁止继续使用旧定位；完整解析和恢复交给任务。 */
+    s_ops.pose_valid = 0U; s_ops.session_changed = 1U;
+    RTOS_APP_NotifyControl();
+  }
+  RTOS_APP_NotifyComm();
+}
 
-  /* 仅处理 USART2 */
-  if (huart->Instance != USART2)
-  {
+void OPS_ProcessPending(void)
+{
+  AppRxPacket packet;
+  uint16_t i;
+  if (s_rx_recover) {
+    APP_RX_Reset(APP_RX_OPS); s_parse_len = 0U; s_ops.pose_valid = 0U;
     return;
   }
-
-  if (Size > (uint16_t)sizeof(s_rx_buf))
-  {
-    Size = (uint16_t)sizeof(s_rx_buf);
+  if (APP_RX_Fault(APP_RX_OPS)) {
+    APP_RX_Reset(APP_RX_OPS); s_parse_len = 0U;
+    s_ops.pose_valid = 0U; s_ops.session_changed = 1U;
+    ++s_ops.error_count;
+    RTOS_APP_NotifyControl(); return;
   }
-
-  for (i = 0U; i < Size; ++i)
-  {
-    OPS_ParseByte(s_rx_buf[i]);
+  if (!APP_RX_Take(APP_RX_OPS, &packet)) return;
+  if ((uint32_t)(HAL_GetTick() - packet.tick) > 200U) {
+    APP_RX_Reset(APP_RX_OPS); s_parse_len = 0U;
+    s_ops.pose_valid = 0U; s_ops.session_changed = 1U;
+    RTOS_APP_NotifyControl(); return;
   }
-
-  /* 解析完成后重新启动接收 */
-  (void)OPS_RestartReceive();
+  s_processing_tick = packet.tick; s_processing_rx = 1U;
+  for (i = 0U; i < packet.size; ++i) OPS_ParseByte(packet.data[i]);
+  s_processing_rx = 0U;
+  /* 错误ISR可能在帧发布途中抢占，任务结束前重查，禁止旧帧覆盖失效锁存。 */
+  if (s_rx_recover || APP_RX_Fault(APP_RX_OPS)) s_ops.pose_valid = 0U;
+  if (s_ops.session_changed) RTOS_APP_NotifyControl();
 }
 
 /**
@@ -902,6 +938,8 @@ void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart)
   {
     s_ops.error_count++;
     s_rx_recover = 1U;
+    s_ops.pose_valid = 0U; s_ops.session_changed = 1U;
+    RTOS_APP_NotifyControl(); RTOS_APP_NotifyComm();
   }
 }
 

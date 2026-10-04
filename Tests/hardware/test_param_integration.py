@@ -6,7 +6,7 @@ import tempfile
 ROOT=Path(__file__).resolve().parents[2]
 source=(ROOT/'Hardware/debug_usart.c').read_text(encoding='utf-8')
 def function(name):
-    match=re.search(r'static void '+name+r'\([^)]*\)\s*\{',source)
+    match=re.search(r'(?:static )?void '+name+r'\([^)]*\)\s*\{',source)
     start=match.start(); end=match.end(); depth=1
     while depth:
         depth+=(source[end]=='{')-(source[end]=='}');end+=1
@@ -56,11 +56,16 @@ int main(void){
 }
 '''
 with tempfile.TemporaryDirectory(prefix='ilhc_param_integration_') as directory:
-    p=Path(directory); code=PRELUDE+'\n'.join(function(n) for n in ['Debug_CaptureParams','Debug_InitParams','Debug_ServiceParams'])+CHECK
+    p=Path(directory); code=PRELUDE+'\n'.join(function(n) for n in ['Debug_CaptureParams','Debug_InitParams','DebugUsart_ParamSnapshot','DebugUsart_ParamResult'])+r'''
+static void Debug_ServiceParams(void){DebugParamValues v;DebugUsart_ParamSnapshot(&v);DebugUsart_ParamResult(DebugParamStore_Service(&v,HAL_GetTick()));}
+'''+CHECK
     (p/'test.c').write_text(code,encoding='utf-8')
     subprocess.run(['gcc','-std=c99','-Wall','-Wextra','-Werror','-I',str(ROOT/'Hardware'),str(p/'test.c'),'-o',str(p/'test.exe')],check=True)
     subprocess.run([str(p/'test.exe')],check=True)
 init=source[source.index('void DebugUsart_Init(void)'):source.index('void DebugUsart_Send(void)')]
 assert init.index('Debug_InitParams();')<init.index('DebugUsart_ServiceRx();')
-send=source[source.index('void DebugUsart_Send(void)'):]
-assert send.index('Debug_ServiceParams();')<send.index('if (huart1.gState != HAL_UART_STATE_READY) return;')
+maintenance=(ROOT/'RTOS_APP/app_maintenance.c').read_text(encoding='utf-8')
+assert maintenance.index('RTOS_APP_Unlock();') < maintenance.index('DebugParamStore_Service(')
+assert maintenance.index('DebugParamStore_Service(') < maintenance.index('DebugUsart_ParamResult(')
+control=source[source.index('void DebugUsart_ControlService(void)'):source.index('void DebugUsart_MechanismEmergency(void)')]
+assert 'DebugParamStore' not in control and 'Debug_ServiceParams' not in control

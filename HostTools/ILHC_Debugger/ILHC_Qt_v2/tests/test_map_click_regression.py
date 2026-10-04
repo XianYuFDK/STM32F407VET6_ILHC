@@ -74,7 +74,8 @@ class MapClickRegressionTests(unittest.TestCase):
         self.assertEqual(self.w.planned_result['mode'], 'OFFLINE_PREVIEW_ONLY')
         self.assert_no_motion()
 
-    def test_home_button_uses_async_planning_in_planning_mode(self):
+    def test_offline_home_button_uses_async_planning_in_planning_mode(self):
+        self.w.sim=None
         self.w.zone_combo.v = 2
         self.w._goto_home()
         self.wait_result()

@@ -1,0 +1,128 @@
+[
+  {
+    "case": "无障碍",
+    "zone": 1,
+    "planning_s": 0.985,
+    "elapsed_s": 78.14,
+    "previous_elapsed_s": 97.96,
+    "grabs": 12,
+    "placements": 12,
+    "body_sweeps_safe": true,
+    "max_body_heading_change_deg": 0,
+    "diagonal_docking": true,
+    "motion_modes": [
+      "DIAGONAL",
+      "FORWARD",
+      "REVERSE",
+      "STRAFE_LEFT",
+      "STRAFE_RIGHT"
+    ],
+    "travel_length_mm": 13065.68,
+    "hardware_ready": false
+  },
+  {
+    "case": "无障碍",
+    "zone": 2,
+    "planning_s": 0.993,
+    "elapsed_s": 78.32,
+    "previous_elapsed_s": null,
+    "grabs": 12,
+    "placements": 12,
+    "body_sweeps_safe": true,
+    "max_body_heading_change_deg": 0,
+    "diagonal_docking": true,
+    "motion_modes": [
+      "DIAGONAL",
+      "FORWARD",
+      "REVERSE",
+      "STRAFE_LEFT",
+      "STRAFE_RIGHT"
+    ],
+    "travel_length_mm": 13106.11,
+    "hardware_ready": false
+  },
+  {
+    "case": "四障碍预设",
+    "zone": 1,
+    "planning_s": 1.705,
+    "elapsed_s": 90.02,
+    "previous_elapsed_s": 108.76,
+    "grabs": 12,
+    "placements": 12,
+    "body_sweeps_safe": true,
+    "max_body_heading_change_deg": 0,
+    "diagonal_docking": true,
+    "motion_modes": [
+      "DIAGONAL",
+      "FORWARD",
+      "REVERSE",
+      "STRAFE_LEFT",
+      "STRAFE_RIGHT"
+    ],
+    "travel_length_mm": 16033.91,
+    "hardware_ready": false
+  },
+  {
+    "case": "四障碍预设",
+    "zone": 2,
+    "planning_s": 1.766,
+    "elapsed_s": 90.2,
+    "previous_elapsed_s": null,
+    "grabs": 12,
+    "placements": 12,
+    "body_sweeps_safe": true,
+    "max_body_heading_change_deg": 0,
+    "diagonal_docking": true,
+    "motion_modes": [
+      "DIAGONAL",
+      "FORWARD",
+      "REVERSE",
+      "STRAFE_LEFT",
+      "STRAFE_RIGHT"
+    ],
+    "travel_length_mm": 16074.34,
+    "hardware_ready": false
+  },
+  {
+    "case": "截图两障碍",
+    "zone": 1,
+    "planning_s": 1.849,
+    "elapsed_s": 120.18,
+    "previous_elapsed_s": 141.28,
+    "grabs": 12,
+    "placements": 12,
+    "body_sweeps_safe": true,
+    "max_body_heading_change_deg": 0,
+    "diagonal_docking": true,
+    "motion_modes": [
+      "DIAGONAL",
+      "FORWARD",
+      "REVERSE",
+      "STRAFE_LEFT",
+      "STRAFE_RIGHT"
+    ],
+    "travel_length_mm": 23587.84,
+    "hardware_ready": false
+  },
+  {
+    "case": "截图两障碍",
+    "zone": 2,
+    "planning_s": 2.137,
+    "elapsed_s": 126.9,
+    "previous_elapsed_s": 148.72,
+    "grabs": 12,
+    "placements": 12,
+    "body_sweeps_safe": true,
+    "max_body_heading_change_deg": 0,
+    "diagonal_docking": true,
+    "motion_modes": [
+      "DIAGONAL",
+      "FORWARD",
+      "REVERSE",
+      "STRAFE_LEFT",
+      "STRAFE_RIGHT"
+    ],
+    "travel_length_mm": 25262.53,
+    "hardware_ready": false
+  }
+]

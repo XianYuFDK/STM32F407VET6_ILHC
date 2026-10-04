@@ -1,0 +1,5 @@
+Unified coordinate guards passed:
+  GUI/protocol/internal/telemetry use X=left, Y=front, Z=CCW directly
+  OPS raw axes use fixed mapping X=-raw_x, Y=raw_y
+  OPS ZERO rebuilds XY axes from the saved yaw
+  mecanum mixer, 24-channel JustFloat frame and existing commands unchanged

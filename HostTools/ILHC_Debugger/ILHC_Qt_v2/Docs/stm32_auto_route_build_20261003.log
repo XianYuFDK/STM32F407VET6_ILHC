@@ -1,0 +1,49 @@
+[ INFO ] start building at 2026-10-03 23:34:07
+
+[ TOOL ] Component: ARM Compiler 5.06 update 7 (build 960)
+
+[ INFO ] file statistics (incremental mode)
+
++---------+-----------+-----------+---------------+--------+
+| C Files | Cpp Files | Asm Files | Lib/Obj Files | Totals |
++---------+-----------+-----------+---------------+--------+
+| 2       | 0         | 0         | 0             | 2      |
++---------+-----------+-----------+---------------+--------+
+
+[ INFO ] start compiling ...
+
+>> [ 50%] CC '../Hardware/debug_usart.c'
+>> [100%] CC '../Hardware/trajectory_buffer.c'
+
+[ INFO ] start linking ...
+
+Program Size: Code=50284 RO-data=11104 RW-data=660 ZI-data=91476  
+
+
+Total RO  Size (Code + RO Data)                61388 (  59.95kB)
+Total RW  Size (RW Data + ZI Data)             92136 (  89.98kB)
+Total ROM Size (Code + RO Data + RW Data)      61440 (  60.00kB)
+
+Total Memory Usage:
+
+  RAM: [##############      ] 70.3%     90.0KB/128.0KB
+  ROM: [##                  ] 11.7%     60.0KB/512.0KB
+
+Section Memory Usage:
+
+  LR_IROM1 (0x08000000): [##                  ] 11.8%     60.6KB/512.0KB
+    - ER_IROM1 (0x08000000): [##                  ] 11.7%     59.9KB/512.0KB
+    - RW_IRAM1 (0x20000000): [##############      ] 70.3%     90.0KB/128.0KB
+
+[ INFO ] start outputting files ...
+
+>> output hex file		[done]
+
+file path: "build/STM32F407VET6_ILHC/STM32F407VET6_ILHC.hex"
+
+>> output s19 file		[done]
+
+file path: "build/STM32F407VET6_ILHC/STM32F407VET6_ILHC.s19"
+
+[ DONE ] build successfully !, elapsed time 0:0:1
+

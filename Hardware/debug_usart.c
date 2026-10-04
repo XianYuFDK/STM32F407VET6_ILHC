@@ -30,6 +30,9 @@
 #include "stepper_2835.h"
 #include "zdt_x42s.h"
 #include "debug_param_store.h"
+#include "trajectory_buffer.h"
+#include "rtos_app.h"
+#include "app_rx.h"
 
 #include <string.h>
 #include <stdio.h>
@@ -37,7 +40,7 @@
 
 /* --------------------------- 调试参数 ------------------------------ */
 #define DEBUG_RX_SIZE     256U
-#define DEBUG_LINE_SIZE   64U
+#define DEBUG_LINE_SIZE   96U
 #define DEBUG_VOFA_TAIL0  0x00U
 #define DEBUG_VOFA_TAIL1  0x00U
 #define DEBUG_VOFA_TAIL2  0x80U
@@ -68,7 +71,7 @@ typedef struct
 
 /* 可调参数表：KPX 直接写 X=左右轴增益 mKpx，KPY 直接写 Y=前后轴增益 mKpy。
  *
- * 末尾三项是视觉跟踪调参，属于"RAM参数"：Debug_CaptureParams 只快照前7项
+ * 视觉及轨迹调参属于"RAM参数"：Debug_CaptureParams 只快照前7项
  * （Flash记录固定为16字段、VERSION=2），因此它们可设置、可 GET 回读，但不随
  * 底盘参数存Flash，掉电回到编译期默认值。要让它们持久化必须升级Flash记录版本
  * 并迁移旧记录，属于独立改动。 */
@@ -87,12 +90,33 @@ static const DebugParam_t s_params[] =
   {"VDBPX", &vTrackDeadbandPx, 0.0f, 200.0f},
   {"VMIN",  &vTrackMinRpm,     0.0f,  60.0f},
   {"VMAX",  &vTrackMaxRpm,     0.0f, 3000.0f},
+  /* 轨迹参数仅驻RAM，不扩展原Flash记录；轨迹忙时拒绝写入。 */
+  {"TVMAX", &traj_control_params.speed_mm_s,       20.0f,1000.0f},
+  {"TKPX",  &traj_control_params.kp_x,              0.1f,  30.0f},
+  {"TKPY",  &traj_control_params.kp_y,              0.1f,  30.0f},
+  {"TKPZ",  &traj_control_params.kp_yaw,            0.1f,  30.0f},
+  {"TWMAX", &traj_control_params.yaw_rate_deg_s,    5.0f, 180.0f},
+  {"TRWMAX",&traj_control_params.rotate_rate_deg_s, 5.0f, 120.0f},
+  {"TRACC", &traj_control_params.rotate_acc_deg_s2,10.0f, 720.0f},
+  {"THOLD", &traj_control_params.hold_speed_mm_s,   5.0f, 150.0f},
+  {"TLOOK", &traj_control_params.lookahead_mm,     20.0f, 300.0f},
+  {"TACC",  &traj_control_params.accel_mm_s2,       50.0f,3000.0f},
+  {"TDEC",  &traj_control_params.decel_mm_s2,       100.0f,4000.0f},
+  {"TVARC", &traj_control_params.arc_speed_mm_s,    20.0f, 500.0f},
 };
 
 /* --------------------------- 私有变量 ------------------------------ */
 static uint8_t s_rx[DEBUG_RX_SIZE];
+static uint8_t s_rx_copy[DEBUG_RX_SIZE];
+/* 快速通道只识别完整急停行，不做浮点、轨迹CRC或运动计算。 */
+static char s_fast_line[16];
+static uint8_t s_fast_len, s_fast_discard;
+static volatile uint8_t s_rx_discard_pending;
+static uint32_t s_parser_epoch;
 static uint8_t s_line[DEBUG_LINE_SIZE];
 static uint16_t s_line_len;
+static uint8_t s_line_discard;
+static uint8_t s_traj_reply_last;
 /* 接收异常只置位，恢复在默认任务执行；禁止中断内等待DMA停止。 */
 static volatile uint8_t s_rx_recover;
 static uint8_t s_rx_callbacks_ready;
@@ -102,6 +126,8 @@ static uint8_t s_tx_busy_seen;
 static uint32_t s_tx_busy_tick;
 volatile uint32_t debug_tx_recoveries, debug_tx_errors;
 
+/* 仅ISR置位、对应任务清除；旧命令解析不能覆盖急停/失能请求。 */
+static volatile uint8_t s_fast_pending;
 static volatile uint8_t s_stop_req;
 static volatile uint8_t s_stop_in_progress;
 static volatile uint8_t s_zero_req;
@@ -178,6 +204,10 @@ static uint32_t s_zdt_watch_tick;
 #define DEBUG_ACK_VTRACK_BUSY   24U
 #define DEBUG_ACK_VTRACK_ERROR  25U
 #define DEBUG_ACK_STEPPER       26U
+#define DEBUG_ACK_DM_PARAM      27U
+#define DEBUG_ACK_TRAJ_BUSY     28U
+#define DEBUG_ACK_TRAJ_RANGE    29U
+static DmJ4310ParamResult_t s_ack_dm_param[16];
 static const char * const s_ack_text[] = {
   "ACK ZDT ACCEPTED\r\n",
   "ERR ZDT BUSY\r\n",
@@ -207,7 +237,10 @@ static const char * const s_ack_text[] = {
   "ERR VTRACK FORMAT; USE VTRACK=0..6\r\n",
   "ERR VTRACK BUSY\r\n",
   "ERR VTRACK VISION ERROR\r\n",
-  NULL /* 事件26为28/35命令诊断或CAN原始回复。 */
+  NULL, /* 事件26为28/35命令诊断或CAN原始回复。 */
+  NULL, /* 事件27为DM参数回复。 */
+  "ERR TRAJ PARAM BUSY; STOP BEFORE SET\r\n",
+  "ERR TRAJ PARAM RANGE\r\n"
 };
 
 static void Debug_ZdtAck(uint8_t event)
@@ -281,6 +314,7 @@ static float    s_dm_kp;
 static float    s_dm_kd;
 static float    s_dm_torque;
 static DmJ4310Feedback_t s_dm_feedback;
+static volatile uint32_t s_dm_feedback_tick;
 
 static volatile uint8_t s_dm_enable_req;
 static volatile uint8_t s_dm_disable_req;
@@ -292,6 +326,39 @@ static uint8_t s_dm_disable_pending, s_dm_disable_fault;
 static uint16_t s_dm_disable_id;
 static uint32_t s_dm_disable_tick;
 static volatile uint32_t s_host_last_tick;
+
+/* 结果按槽入队，任务才格式化。浮点以32位十六进制位模式回传，避免精简库%f。 */
+static void Debug_DmParamReply(const DmJ4310ParamResult_t *result)
+{
+  uint32_t mask = __get_PRIMASK();
+  uint8_t next;
+  __disable_irq();
+  next = (uint8_t)((s_ack_write + 1U) % 16U);
+  if (next != s_ack_read)
+  {
+    s_ack_dm_param[s_ack_write] = *result;
+    s_ack_queue[s_ack_write] = DEBUG_ACK_DM_PARAM;
+    s_ack_write = next;
+  }
+  if (mask == 0U) __enable_irq();
+}
+
+static void Debug_ServiceDmParams(void)
+{
+  DmJ4310ParamResult_t result;
+  uint32_t mask = __get_PRIMASK();
+  uint8_t room;
+  __disable_irq();
+  /* 使能、切模式、STOP或心跳过期中止事务，绝不一边运动一边改驱动参数。 */
+  if (s_dm_active || s_dm_start_pending || s_dm_enable_req || s_dm_mode_req ||
+      s_dm_zero_req || s_dm_disable_req || s_dm_disable_pending || s_dm_disable_fault ||
+      s_stop_req || (uint32_t)(HAL_GetTick() - s_host_last_tick) > DEBUG_HOST_TIMEOUT_MS)
+    DmJ4310_ParamCancel();
+  DmJ4310_ParamService();
+  room = ((s_ack_write + 1U) % 16U) != s_ack_read;
+  if (room && DmJ4310_ParamTakeResult(&result)) Debug_DmParamReply(&result);
+  if (mask == 0U) __enable_irq();
+}
 
 /* 28/35 单次请求邮箱：串口中断只更新参数，任务提交 CAN。
  * 同一电机新请求替换尚未提交的旧请求；BUSY 最多重试1秒。
@@ -434,12 +501,13 @@ static void Debug_InitParams(void)
   else Debug_ZdtAck(result == PARAM_STORE_ERROR ? 18U : 16U);
 }
 
-static void Debug_ServiceParams(void)
+void DebugUsart_ParamSnapshot(DebugParamValues *values)
 {
-  DebugParamValues v;
-  ParamStoreResult result;
-  Debug_CaptureParams(&v);
-  result = DebugParamStore_Service(&v, HAL_GetTick());
+  Debug_CaptureParams(values);
+}
+
+void DebugUsart_ParamResult(ParamStoreResult result)
+{
   if (result == PARAM_STORE_SAVED) Debug_ZdtAck(17U);
   else if (result == PARAM_STORE_ERROR && !s_param_error_reported) {
     s_param_error_reported = 1U;
@@ -613,6 +681,12 @@ static void Debug_SetParam(const char *name, float value)
   {
     if (Debug_StrCaseCmp(name, s_params[i].name) == 0U)
     {
+      if (s_params[i].name[0]=='T')
+      {
+        uint8_t result=Traj_SetControlParam(s_params[i].value,value,s_params[i].min,s_params[i].max);
+        if(result!=1U) Debug_ZdtAck(result==2U?DEBUG_ACK_TRAJ_BUSY:DEBUG_ACK_TRAJ_RANGE);
+        return;
+      }
       if (value < s_params[i].min)
       {
         value = s_params[i].min;
@@ -718,12 +792,15 @@ static void Debug_ReplyParam(const char *name)
  */
 static void Debug_SetDmValue(const char *name, float value)
 {
+  if (DmJ4310_ParamBusy()) return;
   if (Debug_StrCaseCmp(name, "DMID") == 0U)
   {
     if (!s_dm_active && !s_dm_start_pending && !s_dm_disable_pending && !s_dm_disable_fault &&
         (value >= 1.0f) && (value <= 0x06FFU))
     {
       s_dm_id = (uint16_t)value;
+      memset(&s_dm_feedback, 0, sizeof(s_dm_feedback));
+      s_dm_feedback_tick = 0U;
     }
     return;
   }
@@ -960,7 +1037,8 @@ static uint8_t Debug_ParseManual(const char *s, int16_t *v)
 static uint8_t Debug_WheelReady(void)
 {
   return (s_wheel_enabled != 0U && s_wheel_enable_pending == 0U &&
-          s_wheel_fault == 0U && s_wheel_req == 0U && s_stop_in_progress == 0U) ? 1U : 0U;
+          s_wheel_fault == 0U && s_wheel_req == 0U && s_stop_in_progress == 0U &&
+          (s_fast_pending & 7U) == 0U) ? 1U : 0U;
 }
 
 /* 四轮失能后禁止再向 UART4 下发任何速度帧：ZDT_X42S 在速度模式下收到任意
@@ -1326,6 +1404,50 @@ static uint8_t Debug_RejectCanCommand(const char *line)
   return 0U;
 }
 
+/* DMREAD=seq / DMACCDEC=seq,acc,dec；严格十进制，无多余字段。 */
+static uint8_t Debug_ParseDmParams(const char *line)
+{
+  const char *p;
+  uint32_t seq = 0U;
+  uint8_t write, i, valid = 1U, digits;
+  float values[2] = {0.0f, 0.0f};
+  DmJ4310ParamResult_t result;
+  if (Debug_StrCaseCmpN(line, "DMREAD=", 7U) == 0U) { write = 0U; p = line + 7; }
+  else if (Debug_StrCaseCmpN(line, "DMACCDEC=", 9U) == 0U) { write = 1U; p = line + 9; }
+  else return 0U;
+  digits = 0U;
+  while (*p >= '0' && *p <= '9')
+  {
+    digits = 1U; seq = seq * 10U + (uint32_t)(*p++ - '0');
+    if (seq > 65535U) { valid = 0U; break; }
+  }
+  if (!digits || seq == 0U) valid = 0U;
+  if (write && valid)
+  {
+    for (i = 0U; i < 2U; ++i)
+    {
+      const char *start;
+      if (*p != ',') { valid = 0U; break; }
+      ++p;
+      start = p; digits = 0U;
+      if (*p == '+' || *p == '-') ++p;
+      while (*p >= '0' && *p <= '9') { digits = 1U; ++p; }
+      if (*p == '.') { ++p; while (*p >= '0' && *p <= '9') { digits = 1U; ++p; } }
+      if (!digits || !Debug_ParseFloat(start, &values[i])) { valid = 0U; break; }
+    }
+  }
+  if (*p != '\0') valid = 0U;
+  memset(&result, 0, sizeof(result));
+  result.seq = (uint16_t)seq; result.id = s_dm_id; result.status = 1U;
+  if (!valid || s_dm_active || s_dm_start_pending || s_dm_enable_req || s_dm_mode_req ||
+      s_dm_zero_req || s_dm_disable_req || s_dm_disable_pending || s_dm_disable_fault ||
+      s_stop_req || !s_dm_feedback.valid || s_dm_feedback.status != 0U ||
+      (uint32_t)(HAL_GetTick() - s_dm_feedback_tick) > 300U ||
+      DmJ4310_ParamStart(s_dm_id, (uint16_t)seq, write, values[0], values[1]) != DM_J4310_OK)
+    Debug_DmParamReply(&result);
+  return 1U;
+}
+
 static void Debug_ParseLine(char *line)
 {
   char *equal;
@@ -1338,6 +1460,7 @@ static void Debug_ParseLine(char *line)
 
   if (Debug_RejectCanCommand(line)) return;
   if (Debug_ParseStepper(line)) return;
+  if (Debug_ParseDmParams(line)) return;
 
   if (Debug_StrCaseCmp(line, "STOP") == 0U)
   {
@@ -1358,6 +1481,7 @@ static void Debug_ParseLine(char *line)
 
   if (Debug_StrCaseCmp(line, "DMEN") == 0U)
   {
+    if (DmJ4310_ParamBusy()) return;
     s_dm_enable_req = 1U;
     return;
   }
@@ -1371,6 +1495,7 @@ static void Debug_ParseLine(char *line)
 
   if (Debug_StrCaseCmp(line, "DMZERO") == 0U)
   {
+    if (DmJ4310_ParamBusy()) return;
     s_dm_zero_req = 1U;
     return;
   }
@@ -1587,13 +1712,28 @@ static void Debug_ParseLine(char *line)
       Debug_SetParam(line, value);
     }
   }
+  else if(line[0]=='T' || line[0]=='t') Debug_ZdtAck(DEBUG_ACK_TRAJ_RANGE);
 }
 
 /* USART1专用错误回调，不覆盖OPS和电机UART4的错误处理。
  * HAL在DMA接收错误后会终止接收；回调仅申请恢复，不操作TX。 */
+static void Debug_ResetRxStream(uint8_t discard)
+{
+  uint32_t mask = __get_PRIMASK();
+  __disable_irq();
+  APP_RX_Reset(APP_RX_HOST);
+  s_fast_len = 0U; s_fast_discard = discard;
+  s_rx_discard_pending = discard;
+  if (!mask) __enable_irq();
+}
+
 static void DebugUsart_ErrorCallback(UART_HandleTypeDef *huart)
 {
-  if (huart->Instance == USART1) s_rx_recover = 1U;
+  if (huart->Instance == USART1) {
+    s_rx_recover = 1U; s_stop_req = 1U; s_fast_pending |= 1U;
+    Traj_Cancel(19U);
+    RTOS_APP_NotifyControl(); RTOS_APP_NotifyComm();
+  }
 }
 
 /* 普通接收回调和任务共用启动逻辑。先清恢复标志再启动，避免覆盖
@@ -1606,7 +1746,10 @@ static void DebugUsart_StartRx(void)
   if (HAL_UARTEx_ReceiveToIdle_DMA(&huart1, s_rx, sizeof(s_rx)) == HAL_OK)
     __HAL_DMA_DISABLE_IT(huart1.hdmarx, DMA_IT_HT);
   else
+  {
     s_rx_recover = 1U;
+    Traj_Cancel(19U);
+  }
   if (mask == 0U) __enable_irq();
 }
 
@@ -1616,6 +1759,7 @@ static void DebugUsart_StartRx(void)
 static void DebugUsart_ServiceRx(void)
 {
   if (!s_rx_recover) return;
+  Traj_Cancel(19U);
   if (!s_rx_callbacks_ready)
   {
     /* HAL仅允许在发送状态空闲时注册；忙时不打断发送。 */
@@ -1631,7 +1775,11 @@ static void DebugUsart_ServiceRx(void)
   if (HAL_DMA_GetState(huart1.hdmarx) != HAL_DMA_STATE_READY &&
       HAL_DMA_Abort(huart1.hdmarx) != HAL_OK) return;
   __HAL_UART_CLEAR_OREFLAG(&huart1);
-  s_line_len = 0U;
+  {
+    uint8_t discard = (uint8_t)(s_line_len || s_fast_len || s_fast_discard);
+    Debug_ResetRxStream(discard);
+    s_line_len = 0U; s_line_discard = discard;
+  }
   DebugUsart_StartRx();
 }
 
@@ -1664,6 +1812,7 @@ static void Debug_ServiceDm(void)
   /* DM 状态机：先完成失能提交，再改模式/使能。 */
   if (s_dm_disable_req != 0U)
   {
+    DmJ4310_ParamCancel();
     s_dm_disable_req = 0U;
     s_dm_enable_req = s_dm_mode_req = 0U;
     Debug_RequestDmDisable();
@@ -1719,6 +1868,38 @@ static void Debug_ServiceDm(void)
 
 /* --------------------------- 对外接口 ------------------------------ */
 
+static uint8_t Debug_TrajectoryRx(const char *line)
+{
+  uint8_t allowed=(uint8_t)(Debug_WheelReady() && !s_stop_req && !s_zero_req && !s_offset_req &&
+    !s_manual_active && !s_goto_active && !s_zdt_req && !s_zdt_active &&
+    !VisionTrack_IsActive() && !(s_vision_req>=1U && s_vision_req<=6U));
+  if(Traj_ParseLine(line,HAL_GetTick(),allowed)) return 1U;
+  /* 手动接管、原点变化和旧运动命令均撤销整批；PING/读参/机械动作不续发路径。 */
+  if(Debug_StrCaseCmp(line,"STOP")==0U || Debug_StrCaseCmp(line,"ZERO")==0U ||
+     Debug_StrCaseCmp(line,"WHEELEN")==0U || Debug_StrCaseCmp(line,"WHEELOFF")==0U ||
+     Debug_StrCaseCmpN(line,"OPSOFFSET=",10U)==0U || Debug_StrCaseCmpN(line,"MANUAL=",7U)==0U ||
+     Debug_StrCaseCmpN(line,"GOTO",4U)==0U || Debug_StrCaseCmpN(line,"ZDT=",4U)==0U ||
+     Debug_StrCaseCmpN(line,"VTRACK=",7U)==0U) Traj_Cancel(15U);
+  return 0U;
+}
+
+static void Debug_ServiceTrajectory(void)
+{
+  TrajPose_t pose;float velocity[3];uint8_t action,allowed;
+  const OPS_Data_t *ops=OPS_GetData();
+  allowed=(uint8_t)(Debug_WheelReady() && !s_stop_req && !s_zero_req && !s_offset_req &&
+    (uint32_t)(HAL_GetTick()-s_host_last_tick)<=DEBUG_HOST_TIMEOUT_MS);
+  if(!Traj_Busy()) return;
+  MecanumControl_GetPose(&pose.x,&pose.y,&pose.yaw);
+  pose.sequence=ops->valid_count;pose.pose_tick=ops->last_update_tick;
+  if(!OPS_IsOnline(DEBUG_OPS_TIMEOUT_MS)) pose.pose_tick=HAL_GetTick()-201U;
+  action=Traj_Step(HAL_GetTick(),&pose,allowed,velocity);
+  /* 计算期间STOP可以抢占；最后再检查状态，不提交被取消的旧速度。 */
+  if(action==1U && Traj_OutputAllowed() && Debug_WheelReady() && !s_stop_req && !s_zero_req && !s_offset_req)
+    MecanumControl_MoveWorldVelocity(velocity[0],velocity[1],velocity[2],pose.yaw);
+  else if(action==2U || (action==1U && !Traj_OutputAllowed())) Debug_ChassisStop();
+}
+
 
 
 /**
@@ -1726,6 +1907,10 @@ static void Debug_ServiceDm(void)
  */
 void DebugUsart_Init(void)
 {
+  Traj_Init();
+  Debug_ResetRxStream(0U);
+  s_parser_epoch = APP_RX_Epoch(APP_RX_HOST);
+  s_line_discard=0U;
   memset((void *)s_stepper_req, 0, sizeof(s_stepper_req));
   memset(s_stepper_seen, 0, sizeof(s_stepper_seen));
   memset(s_stepper_watch_cmd, 0, sizeof(s_stepper_watch_cmd));
@@ -1755,6 +1940,7 @@ void DebugUsart_Init(void)
   s_dm_kd = DEBUG_DM_DEFAULT_KD;
   s_dm_torque = DEBUG_DM_DEFAULT_TORQUE;
   memset(&s_dm_feedback, 0, sizeof(DmJ4310Feedback_t));
+  s_dm_feedback_tick = 0U;
   s_dm_enable_req = 0U;
   s_dm_disable_req = 0U;
   s_dm_zero_req = 0U;
@@ -1784,42 +1970,38 @@ void DebugUsart_Init(void)
 /**
  * @brief  发送一次 VOFA+ JustFloat 数据帧
  */
-void DebugUsart_Send(void)
+/* 底盘服务只能由chassis任务调用；机构与Flash不占用该控制周期。 */
+static void Debug_ControlSafety(void)
 {
-  float data[DEBUG_VOFA_CHANNELS];
-  float user_x, user_y;      /* 统一坐标：X=左右(+左)、Y=前后(+车头) */
-  float err_x, err_y;        /* 统一坐标下的位置误差 */
-  DmJ4310Feedback_t dmFb;
-  uint32_t i;
-  uint32_t len;
-  uint32_t primask;
-
-  {
-    uint32_t now = HAL_GetTick();
-    MecanumControl_SetPeriod(now - s_control_tick);
-    s_control_tick = now;
-  }
-  DebugUsart_ServiceTx();
+  uint32_t i, primask;
+  uint8_t urgent;
+  primask = __get_PRIMASK(); __disable_irq();
+  urgent = s_fast_pending & 7U; s_fast_pending &= 8U;
+  if (urgent & 1U) s_stop_req = 1U;
+  if (urgent & 2U) s_wheel_req = 2U;
+  if (urgent & 4U) s_zero_req = 1U;
+  if (!primask) __enable_irq();
+  /* TBEGIN解析途中被急停抢占时，ISR可能尚未看到RECEIVING；任务侧再次取消。 */
+  if (urgent) Traj_Cancel(15U);
   Debug_ServiceWheelFault();
   /* OPS 错误恢复和会话变化必须先于遥测/运动服务处理。OPS 重启后
    * 坐标系原点会变化，继续执行旧 GOTO 会产生错误方向，因此立即取消。 */
-  OPS_ServiceRx();
   if (OPS_ConsumeSessionChanged() != 0U)
   {
+    Traj_Cancel(17U);
     s_goto_active = 0U;
     Debug_ChassisStop();
   }
 
 
-  DebugUsart_ServiceRx();
-  Debug_ServiceZdtReplies();
-  Debug_ServiceZdt();
 
   /* 上位机失联时停止仍在运行的调试动作 */
   if ((uint32_t)(HAL_GetTick() - s_host_last_tick) > DEBUG_HOST_TIMEOUT_MS)
   {
+    Traj_Cancel(16U);
     s_stepper_req[0].action = s_stepper_req[1].action = 0U;
     s_dm_enable_req = s_dm_mode_req = s_dm_zero_req = 0U;
+    DmJ4310_ParamCancel();
     if (VisionTrack_IsActive() || (s_vision_req >= 1U && s_vision_req <= 6U))
       s_vision_req = 0xFFU;
     if (s_goto_active != 0U)
@@ -1835,6 +2017,8 @@ void DebugUsart_Send(void)
     }
   }
 
+  /* 在清除STOP/ZERO等标志前先取消单轮测试，禁止其阶段1重新使能。 */
+  if (s_stop_req || s_zero_req || s_offset_req || s_wheel_req) Debug_ServiceZdt();
   /* 处理等待执行的命令 */
   primask = __get_PRIMASK();
   __disable_irq();
@@ -1848,11 +2032,14 @@ void DebugUsart_Send(void)
   if (primask == 0U) __enable_irq();
   if (i != 0U)
   {
+    Traj_Cancel(15U);
+    if (s_wheel_req != 2U) s_wheel_req = 0U;
     s_stepper_req[0].action = s_stepper_req[1].action = 0U;
     s_manual_active = 0U;
     s_goto_active = 0U;
     s_vision_req = 0xFFU;
     s_vision_moving = 0U;
+    VisionTrack_Stop();
     /* STOP 不是使能命令：四轮已失能时只清目标，不下发速度帧。 */
     Debug_ChassisStop();
     s_dm_active = 0U;
@@ -1860,7 +2047,9 @@ void DebugUsart_Send(void)
     s_dm_enable_req = 0U;
     s_dm_mode_req = 0U;
     Debug_RequestDmDisable();
+    DmJ4310_ParamCancel();
     s_stop_in_progress = 0U;
+    RTOS_APP_NotifyMechanism();
   }
 
   if (s_zero_req != 0U)
@@ -1871,6 +2060,7 @@ void DebugUsart_Send(void)
     s_vision_req = 0xFFU;
     s_vision_moving = 0U;
     Debug_ChassisStop();
+    VisionTrack_Stop();
     OPS_ZeroCoordinates();
   }
 
@@ -1890,6 +2080,25 @@ void DebugUsart_Send(void)
     (void)OPS_SetMountOffset(x_mm, y_mm);
   }
 
+}
+
+void DebugUsart_ControlEmergency(void)
+{
+  Debug_ControlSafety();
+  Debug_ServiceWheel();
+  Debug_ServiceWheelFault();
+}
+
+void DebugUsart_ControlService(void)
+{
+  uint32_t now = HAL_GetTick();
+  MecanumControl_SetPeriod(now - s_control_tick);
+  s_control_tick = now;
+  Debug_ControlSafety();
+  Debug_ServiceZdtReplies();
+  Debug_ServiceZdt();
+  Debug_ServiceTrajectory();
+
   Debug_ServiceVision();
 
   Debug_ServiceGoto();
@@ -1902,16 +2111,59 @@ void DebugUsart_Send(void)
   Debug_ServiceWheel();
   Debug_ServiceWheelFault();
 
-  Debug_ServiceDm();
 
+}
+
+void DebugUsart_MechanismEmergency(void)
+{
+  uint32_t mask = __get_PRIMASK(); __disable_irq();
+  if (s_fast_pending & 8U) s_dm_disable_req = 1U;
+  s_fast_pending &= 7U;
+  if (!mask) __enable_irq();
+  if (s_dm_disable_req || s_stop_req ||
+      (uint32_t)(HAL_GetTick() - s_host_last_tick) > DEBUG_HOST_TIMEOUT_MS) {
+    s_dm_disable_req = s_dm_enable_req = s_dm_mode_req = s_dm_zero_req = 0U;
+    DmJ4310_ParamCancel();
+    Debug_RequestDmDisable();
+  }
+  Debug_ServiceDmDisable();
+}
+
+void DebugUsart_MechanismService(void)
+{
+  Debug_ServiceDmParams();
+  Debug_ServiceDm();
   Debug_ServiceStepperReplies();
   Debug_ServiceSteppers();
+}
 
-  Debug_ServiceParams(); /* DMA忙也必须推进保存；每周期至多一个短Flash步骤。 */
+void DebugUsart_CommunicationRecover(void)
+{
+  DebugUsart_ServiceTx();
+}
 
-  /* 控制服务始终执行；DMA 忙时仅跳过遥测，禁止改写仍在发送的 s_tx。
-     本函数由 defaultTask 单独调用，USART1 TX 缓冲不得交给其他任务共用。 */
+/* 只由通信任务调用；不产生轮速/CAN动作，也不访问Flash。 */
+void DebugUsart_Send(void)
+{
+  float data[DEBUG_VOFA_CHANNELS];
+  float user_x, user_y, err_x, err_y;
+  DmJ4310Feedback_t dmFb;
+  uint32_t i, len, primask;
+  /* DMA忙时不改写在途缓冲；底盘由独立任务照常运行。 */
   if (huart1.gState != HAL_UART_STATE_READY) return;
+
+  /* 整批应答与遥测交替，避免连续上传占满TX导致PC误判定位失联。 */
+  if(!s_traj_reply_last) {
+    TrajReply_t token;
+    uint16_t n=Traj_PeekReply((char *)s_tx,sizeof(s_tx),&token);
+    if(n) {
+      if(HAL_UART_Transmit_DMA(&huart1,s_tx,n)==HAL_OK) {
+        Traj_ReplySent(&token);s_traj_reply_last=1U;
+      }
+      return;
+    }
+  }
+  s_traj_reply_last=0U;
 
   /* 发送缓冲区仅在DMA空闲时改写；成功提交才消费事件，忙/失败留待下次重试。
    * 应答优先于遥测；切换瞬间可能仍有上一帧遥测在途，不截断正在发送的DMA。 */
@@ -1933,6 +2185,15 @@ void DebugUsart_Send(void)
       }
       s_tx[19] = '\r'; s_tx[20] = '\n';
       reply_len = 21U;
+    }
+    else if (s_ack_queue[s_ack_read] == DEBUG_ACK_DM_PARAM)
+    {
+      const DmJ4310ParamResult_t *r = &s_ack_dm_param[s_ack_read];
+      uint32_t acc, dec;
+      memcpy(&acc, &r->acc, sizeof(acc)); memcpy(&dec, &r->dec, sizeof(dec));
+      reply_len = (uint16_t)snprintf((char *)s_tx, sizeof(s_tx),
+        "DMREG %u %u %u %08lX %08lX\r\n", (unsigned int)r->seq,
+        (unsigned int)r->id, (unsigned int)r->status, (unsigned long)acc, (unsigned long)dec);
     }
     else if (s_ack_queue[s_ack_read] == DEBUG_ACK_STEPPER)
     {
@@ -2029,52 +2290,87 @@ void DebugUsart_Send(void)
 /**
  * @brief  USART1 空闲接收回调
  */
+/* 急停只扫描最多16字符的完整行，支持拆包及前导空格；超长行整行丢弃。 */
+static uint8_t Debug_FastSafetyByte(uint8_t ch)
+{
+  uint8_t urgent = 0U;
+  if (ch == '\r' || ch == '\n') {
+    if (!s_fast_discard && s_fast_len) {
+      s_fast_line[s_fast_len] = '\0';
+      if (Debug_StrCaseCmp(s_fast_line, "STOP") == 0U) { s_stop_req = 1U; s_fast_pending |= 1U; urgent = 1U; }
+      else if (Debug_StrCaseCmp(s_fast_line, "WHEELOFF") == 0U) { s_wheel_req = 2U; s_fast_pending |= 2U; urgent = 2U; }
+      else if (Debug_StrCaseCmp(s_fast_line, "ZERO") == 0U) { s_zero_req = 1U; s_fast_pending |= 4U; urgent = 4U; }
+      else if (Debug_StrCaseCmp(s_fast_line, "DMOFF") == 0U ||
+               Debug_StrCaseCmp(s_fast_line, "DMSTOP") == 0U) {
+        s_dm_disable_req = 1U; s_fast_pending |= 8U; urgent = 8U;
+      }
+    }
+    s_fast_len = s_fast_discard = 0U;
+  } else if (!s_fast_discard) {
+    if (!s_fast_len && (ch == ' ' || ch == '\t')) return 0U;
+    if (s_fast_len < sizeof(s_fast_line) - 1U) s_fast_line[s_fast_len++] = (char)ch;
+    else s_fast_discard = 1U;
+  }
+  return urgent;
+}
+
 void DebugUsart_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
 {
   uint16_t i;
-
-  if (huart->Instance != USART1)
-  {
-    return;
-  }
-
-  /* 恢复期间可能仍有旧DMA事件到达，不解析可能损坏的半帧。 */
-  if (s_rx_recover) return;
-
-  if (Size > sizeof(s_rx))
-  {
-    Size = (uint16_t)sizeof(s_rx);
-  }
-
-  for (i = 0U; i < Size; ++i)
-  {
-    uint8_t ch = s_rx[i];
-
-    if ((ch == '\r') || (ch == '\n'))
-    {
-      if (s_line_len > 0U)
-      {
-        s_line[s_line_len] = '\0';
-        s_line_len = 0U;
-        s_host_last_tick = HAL_GetTick();
-
-        Debug_ParseLine((char *)s_line);
-      }
-    }
-    else if (s_line_len < (DEBUG_LINE_SIZE - 1U))
-    {
-      s_line[s_line_len++] = ch;
-    }
-    else
-    {
-      s_line_len = 0U;
-    }
-  }
-
-  /* 正常包立即重启；失败后由任务清理RX状态并重试。 */
+  uint8_t urgent = 0U;
+  if (huart->Instance != USART1 || s_rx_recover) return;
+  if (Size > sizeof(s_rx)) Size = (uint16_t)sizeof(s_rx);
+  memcpy(s_rx_copy, s_rx, Size);
   DebugUsart_StartRx();
+  if (s_rx_recover) { s_stop_req = 1U; s_fast_pending |= 1U; RTOS_APP_NotifyControl(); return; }
+  for (i = 0U; i < Size; ++i) urgent |= Debug_FastSafetyByte(s_rx_copy[i]);
+  if (urgent) {
+    /* 急停是接收屏障：撤销积压包及同包旧动作，不允许稍后解析重新启动。 */
+    s_host_last_tick = HAL_GetTick();
+    if (urgent & 7U) Traj_Cancel(15U);
+    Debug_ResetRxStream((uint8_t)(Size && s_rx_copy[Size-1U] != '\r' && s_rx_copy[Size-1U] != '\n'));
+    if (urgent & 7U) RTOS_APP_NotifyControl();
+    if (urgent & 8U) RTOS_APP_NotifyMechanism();
+  } else if (!APP_RX_Push(APP_RX_HOST, s_rx_copy, Size, HAL_GetTick()) && Size) {
+    s_stop_req = 1U; s_fast_pending |= 1U; Traj_Cancel(19U);
+    Debug_ResetRxStream((uint8_t)(s_rx_copy[Size-1U] != '\r' && s_rx_copy[Size-1U] != '\n'));
+    RTOS_APP_NotifyControl();
+  }
+  RTOS_APP_NotifyComm();
 }
 
+void DebugUsart_ProcessPending(void)
+{
+  AppRxPacket packet;
+  uint16_t i;
+  uint32_t epoch;
+  DebugUsart_ServiceRx();
+  epoch = APP_RX_Epoch(APP_RX_HOST);
+  if (s_parser_epoch != epoch) {
+    s_parser_epoch = epoch; s_line_len = 0U;
+    s_line_discard = s_rx_discard_pending;
+  }
+  if (!APP_RX_Take(APP_RX_HOST, &packet)) return;
+  if ((uint32_t)(HAL_GetTick() - packet.tick) > DEBUG_OPS_TIMEOUT_MS) {
+    s_stop_req = 1U; s_fast_pending |= 1U; Traj_Cancel(19U); Debug_ResetRxStream(1U);
+    RTOS_APP_NotifyControl(); return;
+  }
+  for (i = 0U; i < packet.size; ++i) {
+    uint8_t ch = packet.data[i];
+    if (s_rx_recover || packet.epoch != APP_RX_Epoch(APP_RX_HOST)) break;
+    if (ch == '\r' || ch == '\n') {
+      if (s_line_discard) { s_line_discard = 0U; s_line_len = 0U; continue; }
+      if (s_line_len) {
+        s_line[s_line_len] = '\0'; s_line_len = 0U;
+        s_host_last_tick = packet.tick;
+        if (!Debug_TrajectoryRx((char *)s_line)) Debug_ParseLine((char *)s_line);
+      }
+    } else if (!s_line_discard) {
+      if (s_line_len < DEBUG_LINE_SIZE - 1U) s_line[s_line_len++] = ch;
+      else { s_line_len = 0U; s_line_discard = 1U; Traj_Cancel(19U); }
+    }
+  }
+}
 
 /**
  * @brief  CAN 接收回调：解析 DM 电机反馈并缓存
@@ -2111,6 +2407,7 @@ void CAN_Rx_Callback(CAN_HandleTypeDef *hcan)
       ((rxData[2] == 0x33U) || (rxData[2] == 0x55U) || (rxData[2] == 0xAAU)) &&
       (rxData[3] <= 81U))
   {
+    if (hcanRxFrame.StdId != 0x7FFU) DmJ4310_ParamOnRx(rxData);
     return;
   }
 
@@ -2123,5 +2420,6 @@ void CAN_Rx_Callback(CAN_HandleTypeDef *hcan)
       (hcanRxFrame.StdId == (uint32_t)s_dm_id))
   {
     memcpy(&s_dm_feedback, &fb, sizeof(DmJ4310Feedback_t));
+    s_dm_feedback_tick = HAL_GetTick();
   }
 }

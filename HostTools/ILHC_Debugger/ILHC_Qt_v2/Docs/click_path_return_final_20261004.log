@@ -1,0 +1,8 @@
+test_mid_match_stop_then_direct_sim_home_bypasses_obstacles_without_restart (test_map_click_qt.MapClickQtTests.test_mid_match_stop_then_direct_sim_home_bypasses_obstacles_without_restart) ... ok
+test_direct_sim_home_respects_selected_zone_mapping_stop_and_disabled (test_map_click_qt.MapClickQtTests.test_direct_sim_home_respects_selected_zone_mapping_stop_and_disabled) ... ok
+test_pending_sim_wheel_disable_cannot_be_bypassed_by_direct_return (test_map_click_qt.MapClickQtTests.test_pending_sim_wheel_disable_cannot_be_bypassed_by_direct_return) ... ok
+
+----------------------------------------------------------------------
+Ran 3 tests in 8.266s
+
+OK

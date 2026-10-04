@@ -1,0 +1,12 @@
+test_adaptive_parallel_lanes_work_when_every_original_lane_is_blocked (tests.test_competition_simulation.AvoidanceOptimizationTests.test_adaptive_parallel_lanes_work_when_every_original_lane_is_blocked) ... ok
+test_completed_ninety_degree_maneuver_has_no_residual_yaw_before_translation (tests.test_competition_simulation.AvoidanceOptimizationTests.test_completed_ninety_degree_maneuver_has_no_residual_yaw_before_translation) ... ok
+test_screenshot_two_cylinders_complete_both_zones_with_all_actual_sweeps_safe (tests.test_competition_simulation.AvoidanceOptimizationTests.test_screenshot_two_cylinders_complete_both_zones_with_all_actual_sweeps_safe) ... ok
+test_small_screenshot_coordinate_error_also_finds_safe_full_round (tests.test_competition_simulation.AvoidanceOptimizationTests.test_small_screenshot_coordinate_error_also_finds_safe_full_round) ... ok
+test_narrow_competition_corner_tracks_without_chord_cutting_into_yellow_zone (tests.test_continuous_tracking.SimulatorContinuousTests.test_narrow_competition_corner_tracks_without_chord_cutting_into_yellow_zone) ... ok
+test_lookahead_keeps_arc_reference_without_premature_turn_or_sideways_chord_motion (tests.test_continuous_tracking.SimulatorContinuousTests.test_lookahead_keeps_arc_reference_without_premature_turn_or_sideways_chord_motion) ... ok
+test_screenshot_two_obstacles_plan_and_complete_through_real_match_button (test_map_click_qt.MapClickQtTests.test_screenshot_two_obstacles_plan_and_complete_through_real_match_button) ... ok
+
+----------------------------------------------------------------------
+Ran 7 tests in 24.158s
+
+OK

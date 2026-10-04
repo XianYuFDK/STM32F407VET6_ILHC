@@ -1,0 +1,114 @@
+[
+  {
+    "name": "test_board_gpio.py",
+    "exit_code": 0
+  },
+  {
+    "name": "test_can_degraded.py",
+    "exit_code": 0
+  },
+  {
+    "name": "test_chassis_move.py",
+    "exit_code": 0
+  },
+  {
+    "name": "test_coordinate_chain.py",
+    "exit_code": 0
+  },
+  {
+    "name": "test_debug_goto_hold.py",
+    "exit_code": 0
+  },
+  {
+    "name": "test_debug_manual.py",
+    "exit_code": 0
+  },
+  {
+    "name": "test_debug_rx_recovery.py",
+    "exit_code": 1
+  },
+  {
+    "name": "test_debug_stepper.py",
+    "exit_code": 0
+  },
+  {
+    "name": "test_debug_wheel.py",
+    "exit_code": 1
+  },
+  {
+    "name": "test_debug_zdt.py",
+    "exit_code": 0
+  },
+  {
+    "name": "test_dm_registers.py",
+    "exit_code": 0
+  },
+  {
+    "name": "test_mecanum_mixer.py",
+    "exit_code": 0
+  },
+  {
+    "name": "test_ops_axis_direction.py",
+    "exit_code": 0
+  },
+  {
+    "name": "test_ops_offset.py",
+    "exit_code": 0
+  },
+  {
+    "name": "test_ops_protocol.py",
+    "exit_code": 1
+  },
+  {
+    "name": "test_ops_zero_frame.py",
+    "exit_code": 0
+  },
+  {
+    "name": "test_param_integration.py",
+    "exit_code": 1
+  },
+  {
+    "name": "test_param_readback.py",
+    "exit_code": 0
+  },
+  {
+    "name": "test_param_store.py",
+    "exit_code": 0
+  },
+  {
+    "name": "test_parse_line_axes.py",
+    "exit_code": 0
+  },
+  {
+    "name": "test_runtime_faults.py",
+    "exit_code": 1
+  },
+  {
+    "name": "test_spi_flash.py",
+    "exit_code": 0
+  },
+  {
+    "name": "test_stepper_x_can.py",
+    "exit_code": 0
+  },
+  {
+    "name": "test_trajectory_bridge.py",
+    "exit_code": 1
+  },
+  {
+    "name": "test_vision_control.py",
+    "exit_code": 1
+  },
+  {
+    "name": "test_vision_rx.py",
+    "exit_code": 0
+  },
+  {
+    "name": "test_zdt_rx.py",
+    "exit_code": 0
+  },
+  {
+    "name": "test_zdt_tx.py",
+    "exit_code": 0
+  }
+]

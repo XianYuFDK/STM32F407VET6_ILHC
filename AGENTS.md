@@ -1,5 +1,217 @@
 # 工程导航与维护约定
 
+## 2026-10-04 用户选择实机500 mm/s档（当前有效，覆盖旧250默认和9参数）
+
+- 用户明确选择500 mm/s。STM32批次默认TVMAX500，TKPX/TKPY/TKPZ仍6，其余旧值保留；新增TACC600 mm/s²、TDEC1000 mm/s²、TVARC150 mm/s，共12项RAM参数，原Flash16字段不变。
+- 路径前馈起步斜坡、扫描未来制动距离并提前减速、ARC段总平移指令限速（固定车头也适用）、STOP制动和偏差接近原门限时降前馈；不得通过放宽margin或错误13门限提速。TACC限制前馈，TDEC用于规划制动距离，不保证完整纠偏矢量/实车加减速度。
+- Qt轨迹页追加500mm/s提速输入，仅填输入；发送全部仍150ms逐项GET确认，执行/上传/READY期间拒绝修改。旧9项JSON只允许缺新三项，按默认补齐，未知/缺原字段仍拒绝。GOTO和PC模拟参数不变。
+- 最新6组自检、249无GUI、174Qt、15真实C速度专项、16原轨迹专项及协议/桥接/RTOS/Flash/轮使能通过；8轮真实C比赛逐帧矩形扫掠DONE。2m直线理想模型250/500档9.12/5.48秒，仅离线，不能声称此前实车FAULT13已消除。
+- EIDE unify_builder编译成功，Flash69636B/RAM96760B；HEX仍MDK-ARM/build/STM32F407VET6_ILHC/STM32F407VET6_ILHC.hex。不调用Keil IDE。本次未烧录/接串口/驱动实车。文档Qt Docs/TRAJECTORY_SPEED_500_20261004.md，日志RTOS_APP/validation/trajectory-speed-500和Qt Docs/trajectory_speed_500_regression_20261004.log。
+
+## 2026-10-04 连续轨迹调参与EIDE构建（当前有效）
+
+- 用户要求新增实机轨迹调参界面，并明确使用EIDE，不再调用Keil IDE窗口。后续构建使用MDK-ARM/.eide/eide.yml与现有builder.params，unify_builder入口；ARMCC可沿用现有D:/keil51工具链路径。最终产物使用MDK-ARM/build/STM32F407VET6_ILHC下HEX。
+- Qt追加“轨迹调参”页索引9，视觉页仍8，其余页不移动；地图实机按钮旁有入口。TVMAX/TKPX/TKPY/TKPZ/TWMAX/TRWMAX/TRACC/THOLD/TLOOK九项RAM参数，默认250/6/6/6/120/60/180/60/100，作用于真实连续控制，不作用于GOTO或PC模拟。
+- 输入编辑/默认/JSON加载不发送；发送全部每150ms至多一项并等GET回读，超时3秒/ERR/不符停止余项，会话重置清空回读。PC与MCU都拒绝轨迹准备/上传/执行期间修改；未修改原Flash记录或安全裕量。
+- 6组自检、248项无GUI、最终173项Qt通过，24项真实C轨迹/参数测试与SET/GET/轮使能/Flash/桥接/RTOS验证通过。EIDE最终0错误/0警告，Flash69124B RAM96744B；日志RTOS_APP/validation/trajectory-settings/eide-build.log，Qt Docs/TRAJECTORY_SETTINGS_20261004.md有完整说明和日志范围。本次未烧录、未接串口/实车。
+
+## 2026-10-04 正常回库目标航向（当前有效）
+
+- 截图DONE/110点/2086mm、场地(104.5,103.1)cm、车头-0.0deg，点击回库报目标边界越界。复现实际-0.005deg/-0.02deg：保持当前把微小偏角带到启停区，长280mm/半长140mm+10mm裕量在中心距边150mm处刚好贴边，微小偏角额外伸出导致INVALID_GOAL。不能通过减小裕量或静默取整真实起点绕过。
+- 正常回启停区入口home_return=True，终点固定恢复场地+Y的0deg，与普通点击目标航向选项独立。core.plan_home_path保留真实起始航向；完整检查当前位置真实矩形及转到最近标准方向的旋转扫掠，通过后规划标准方向路径，并把对齐作为HOME_HEADING_ALIGN TURN台账保存。实机整批执行显式转头连接；不安全对齐/终点仍拒绝。
+- 传输点合并相同量化姿态时不新增ROTATE位，避免0.005deg等转角量化为零后首点带ROTATE被MCU结构校验拒绝；旧有STOP/有效ROTATE保留。
+- 手动/保护停车后例外直接回库不变；正常DONE/清路径仍规划，普通回库并不倒放旧轨迹。只修改PC，未改固件/未烧录/未连接实车。说明Qt Docs/HOME_RETURN_HEADING_20261004.md。
+
+
+- 本轮6组核心自检、245项无GUI与164项离屏Qt全部通过，run_tests.py --qt退出码0；真实C专项六个回庫批次均READY→DONE并逐帧检查实际矩形扫掠。日志Qt Docs/home_return_heading_regression_20261004.log、RTOS_APP/validation/home_return_native_20261004.log。
+
+## 2026-10-04 仅手动/保护停车后直接回库（当前有效，覆盖旧无条件模拟直接回库）
+
+- 用户最终明确只有手动触发停止和保护停止后回启停区才不受规划限制。PC模拟与实机都支持；普通清路径、正常完成、正常回库仍规划，点击规划开关不放开回库门禁。
+- send_line STOP/WHEELOFF、停止比赛/轨迹/跟踪授予下次直接回库；实际STM32 FAULT（含错误13）、碰撞/状态失联保护及模拟运行保护同样授予。旧FAULT记录只观察一次，开始新的运动/比赛/跟踪或成功发起直接回库即清除；串口新会话清除状态。
+- 实机直接回库取消旧路径，SerialWorker仅完整成功写STOP后记录时间；新鲜OPS平移速度<=5mm/s、角速度<=2deg/s连续200ms后只发一次GOTO，按所选启停区及当前映射恢复场地+Y的0deg车头。跳过地图/规划/障碍检查，但保留轮使能、有效新鲜定位、链路和GOTO±300cm范围；不ZERO、不自动使能、不恢复旧比赛。200ms是OPS实际停稳检测，不声称收到STOP ACK。
+- 新STOP/失能、清路径、手动接管、重规划、地图/参数/定位/链路变化取消待发和执行中的回库；旧会话GOTO清除且不向新会话发送旧STOP。模拟复用return_home_direct，先消费旧STOP/失能再创建新目标。实现及验证说明Qt Docs/STOP_RETURN_20261004.md。本轮仅改PC端，未烧录/未连接实车；之前错误13转头修复仍需对应固件。
+
+
+- 本轮完整run_tests.py --qt退出码0：6组核心自检、240项无GUI和163项离屏Qt全部通过，无异常堆栈。日志Qt Docs/stop_return_regression_20261004.log。
+
+## 2026-10-04 400mm原地转头车心保持（当前有效）
+
+- 用户实车截图110/110缓存、进度400mm错误13：当前默认图从启停区1点击中心目标复现先前进250mm再横移150mm，在OPS(150,250)转头90°；截图实际(162,267)，中心偏差约20.8mm超过10mm裕量对应8mm门限。运行保护停车，不是路径没有上传。
+- Hardware/trajectory_buffer.c ROTATE新增X/Y位置闭环保持（速度上限60mm/s、0.5mm死区），角速度最高60deg/s、加减速180deg/s²，按剩余角度制动并在靠近中心位置门限时降低转头速度。角速度历史初始化/离开ROTATE清零。保留原margin-2保护、真实停稳200ms以及定位/失联/STOP门禁，不得通过增大裕量掩盖漂移。
+- PC在后续ROTATE阶段错误13显示原地转头中心偏差与允许门限。说明Qt Docs/ROTATION_CENTER_20261004.md。
+- 本轮30个硬件脚本（15项真实C轨迹专项、两区×四场景回放）、21项PC/Qt专项通过；新增80ms轮速延迟/转头漂移、截图完整路线扫掠及9mm越界停车测试。最新Keil编译0错误0警告，Flash69012B/RAM96704B，日志RTOS_APP/validation/rotation-center/STM32F407VET6_ILHC-STM32F407VET6_ILHC-build.log。需更新固件，未烧录/未连接实车；不声称离线回放证明实车漂移已消失。
+
+## 2026-10-04 当前地图直接实机跑图（当前有效，覆盖下方geometry_verified门禁）
+
+- 用户明确实际场地与比赛地图差异小，无需另外核实；实机点击路径与完整比赛跑图不再要求geometry_verified=true。删除main.py两入口及hardware_trajectory.make_match_batch中的标志门禁，不伪造geometry_verified，不改变地图/障碍几何。
+- geometry_verified保留为地图/导出元数据，不决定路径卡片颜色或执行权限。实机跑图仍要求competition站点配置，点击路径不要求；整车矩形、drivable白名单、固定/手动/随机障碍、量化扫掠、OPS有效性/新鲜度、轮使能、起点5mm/3°和整批CRC/结构校验继续执行。STOP、地图版本变化与失联取消批次。
+- 地图几何确认与OPS/地图坐标映射是不同条件；当前保留坐标设置/启停区ZERO入口。不得再因该标志为false拒绝上传，也不得把false自动改为true。
+- 本次6组核心自检、239项无GUI与151项离屏Qt回归全部通过。日志Qt Docs/current_map_execution_20261004.log；仅修改PC端，不改STM32固件，未烧录/未连接实车。
+
+## 2026-10-04 RTOS_APP任务拆分（当前有效，覆盖下方旧defaultTask归属）
+
+- 用户要求新增RTOS_APP应用层并优化FreeRTOS任务；Core/Src/freertos.c只在USER CODE入口调用RTOS_APP_Init，不恢复defaultTask。chassis High/20ms/2048B、comm AboveNormal/通知+20ms遥测/3072B、mechanism Normal/20ms/2048B、maintenance Low/50ms/1536B。软件定时器任务仍关闭。
+- 运行期底盘/轨迹/GOTO/视觉/轮速只归chassis，USART1文本/OPS完整解析、遥测和串口恢复归comm，DM/步进状态机归mechanism。Flash服务归maintenance且不持应用状态锁；只在参数快照/保存结果时短暂持锁。共享状态使用优先级继承互斥锁。
+- USART1/USART2 ISR复制DMA数据后重启接收、固定队列入包和通知；每端口8槽/7可用/每包256B，保留接收tick与epoch。队满/恢复失败取消旧运行或使定位失效，故障旧包丢弃。STOP/WHEELOFF/ZERO/DMOFF独立锁存，普通解析不能覆盖；提前唤醒底盘只取消/停车，不额外推进轨迹。控制超期跳过旧周期，禁止补跑。
+- RTOS通知只在内核运行后调用；ISR优先级数值不小于5。UART4队列仍由原驱动独占，不能新增第二个轮速发送者。新增源文件同时维护Keil和EIDE的RTOS_APP组六个.c及../RTOS_APP include路径。
+- DWT服务经过周期/超周期计数、每秒任务栈余量/堆余量及接收溢出可通过调试器查看。维护说明见RTOS_APP/README.md。新栈/堆余量需实机采样，不能拿离线统计证明上板实时性。
+- 本轮30个硬件测试脚本（含12项真实C轨迹回放）、6组PC核心自检、239项无GUI测试通过；最新Keil Target STM32F407VET6_ILHC编译0错误0警告，Flash68904B、RAM96704B。日志RTOS_APP/validation/STM32F407VET6_ILHC-STM32F407VET6_ILHC-build.log。本轮未做Qt GUI验收、未烧录、未连接或驱动实车。
+
+## 2026-10-04 点击路径整批执行与模拟直接回库（当前有效）
+
+- Qt连接实机后，地图点击/快速目标规划成功即调用make_path_batch，使用现有完整批次协议；plan_to保留程序预览接口，“执行规划路径”也可提交。点击路径不要求competition配置，但必须实际标定geometry_verified=true、有效OPS/轮使能。全部点接收和CRC/结构校验后只一次TRUN，不逐航点GOTO。
+- 点击批次kind=STM32_POINT_PATH，stations/waits为空；CONTINUOUS优先，无法平滑时STOP_TURN_FALLBACK明确保留已复检台账停转，所有量化车体/平移/转头扫掠重检。首点允许仅STOP位，MCU必须连续200ms真实新鲜OPS停稳后再转头。目标车头遵循选择；规划/预检起点5mm/3°门禁，MCU启动再次验证。批次JSON保存实际碰撞快照，包含手动/随机及动态障碍。实机点表允许±1000cm，PC旧GOTO仍±300cm。
+- 删除“障碍比赛场景”固定预设按钮和处理函数；手动、随机、清障碍入口保留，比赛不追加固定预设。DEMO_OBSTACLES仅作离线测试夹具，场地结构固定障碍仍保留。
+- PC模拟“回启停区”取消比赛/轨迹，以Simulator.return_home_direct从当前位姿直接回库，跳过规划/障碍检查，不瞬移/不ZERO/不清障碍，不恢复旧比赛。状态锁下先处理更早的STOP/失能，再建立回库目标；新STOP/失能仍取消。实机回库仍规划避障。
+- AC5固件编译通过，RAM92136字节，ROM61912字节。6组核心自检、239项无GUI、150项Qt通过；12项真实C专项含点击连续/fallback及8轮比赛通过。未烧录、未连接或驱动实车；操作与离线验证见Qt Docs/CLICK_STM32_RETURN_20261004.md及click_path_*_20261004.log。
+
+## 2026-10-03 实机自动跑图（当前有效，覆盖下方人工作业确认阶段）
+
+- 用户当前仅跑图测试，不需要人工发作业完成。make_match_batch默认AUTO_ROUTE，7处站点只STOP，位置/航向/真实停稳200ms满足后由STM32自动继续；完整点表运行前上传一次，零TRESUME，最终返回DONE。
+- Qt入口“实机自动跑图：整批上传并运行”，删除作业完成按钮。JSON保存station_mode、stations和station_settle_ms；默认waits为空。不实际扫码、抓取、放置，不伪造真实比赛任务完成。
+- 未来真实塔吊显式WAIT_FOR_ACTION模式，Traj_CompleteStation(batch_id,point_index)仅释放匹配的当前WAIT；错误/过期完成、运行中、STOP后不能续跑。USART1 TRESUME复用此门，当前自动模式不调用。
+- 真实C+Python端到端8轮（两区×4场景）7处实际停靠核对、零等待/续发、逐帧矩形扫掠完成；10项C专项含未来塔吊错误门/取消后完成，13项PC/Qt专项。相关桥接/RX恢复/运行故障专项通过。
+- 本轮AC5 RAM92136字节，ROM61440字节，固件已编译，未烧录/实车执行。Qt Docs/stm32_auto_route_native/pc/build_20261003.log和STM32_BATCH_TRAJECTORY_20261003.md记录当前行为。
+
+## 2026-10-03 STM32完整比赛整批接收与本地执行（首版，人工作业确认已由上方自动跑图覆盖）
+
+- 用户确认完整比赛全部路段发车前一次上传，站点停靠后继续，不重发路径。新增Hardware/trajectory_buffer.c/.h与Qt/hardware_trajectory.py；EIDE和Keil清单均同步。
+- USART1 TCAPS/TBEGIN/TPOINT/TCOMMIT/TRUN/TRESUME/TSTATUS/TABORT。3点ACK窗口只控制串口接收；全部点数、CRC32和结构校验完成才启动，不逐目标GOTO。4096×16字节点表SRAM64KB，不写Flash。
+- 点表OPS x/y/s以0.1mm、yaw以0.01°；CRC小端int32 x,y,uint32 s,int16 yaw,uint16 flags。STOP1/WAIT2/ROTATE4/ARC8。UART文本点顺序x,y,yaw,s不同于CRC/JSON，以文档为准。
+- 20mm/3°实机圆弧细采样，整数化后再次完整矩形/相邻扫掠复检。默认未标定地图不得实机上传；真实起点5mm/3°，不自动ZERO。两区仍用户0°朝+Y，倒退切线与真实车头独立。
+- MCU50Hz真实OPS单调投影+100mm前视，当前几何前馈、车头独立、250mm/s及120°/s。只有STOP门停稳；最终DONE、7个作业站WAIT以及显式转头STOP。WAIT只用TRESUME继续；扫码/抓放目前由实际作业确认，不复用模拟0.5秒，不自动操作机构。
+- 本地心跳/OPS/会话/跳变/偏差/接收异常/180秒/调度/进展保护，STOP和旧运动接管取消。ISR存点与增量CRC，任务分批结构校验/控制；OPS快照保留PRIMASK。接收回调先复制再重启DMA；超长整行丢弃。轨迹应答与遥测交替避免饿死遥测。
+- MecanumControl_MoveWorldVelocity世界→车体轴序与既有控制一致；MECANUM_ROTATION_LEVER_MM默认270，轮中心半距和与0.238速度换算须实车标定。禁止声称主机积分等同实车闭环/停稳/电机反馈已验证。
+- AC5 RAM92136字节/128KB，ROM61392字节；产物MDK-ARM/build/STM32F407VET6_ILHC/STM32F407VET6_ILHC.hex。Qt Docs/STM32_BATCH_TRAJECTORY_20261003.md包含操作、协议、坐标及边界。
+- Tests/hardware/test_trajectory_buffer.py真实C+Python上传器8轮（2区×无/单/四/截图双障碍）逐帧矩形扫掠及7处WAIT通过；test_trajectory_bridge.py检查取消竞态与四向世界速度。新PC/Qt专项12项，完整6组自检+236无GUI+143Qt通过，相关9个固件老专项通过。本次未烧录、未连接/驱动车辆。
+
+## 2026-10-03 比赛直车道与长横移（当前有效，覆盖下方保持车头优先的旧策略）
+
+- 用户指出顶部路线弯扭、原料→粗加工长横移。仅修改PC比赛规划，未连接STM32；0°朝+Y约定不变。
+- 麦轮搜索及候选选择沿用方向权重前进1、倒退1.15、横移1.8。横向分量≥500mm时比较两个正交车头；
+  固定候选仍有>500mm连续横移时比较切线前进/倒退。真实50Hz预演、出发转头估计与方向代价共同选择。
+  删除不存在的每站恢复原航向代价；下一站沿用真实结束车头，必要的站点转头仍经完整车体检查。
+- ≥500mm且偏离轴线<12°的浅斜边增加形状代价；可见性捷径不主动产生长浅斜边。
+  浅斜边尝试短接近段+直车道，替代线段整车扫掠、所有半径、全轨迹及实际预演都必须通过；失败保留安全原候选或明确fallback。
+- JSON保存motion_metrics与各候选实际车头、方向权重；反向圆弧元数据同步。出入库斜行和L形fallback保留。
+- 八轮（两区×无障碍/截图单障碍/四障碍/截图两障碍）12抓12放、同色双层、返回，逐帧矩形及扫掠安全。
+  用时89.96/89.94、89.96/87.66、103.04/100.74、126.44/132.38秒；单障碍原料→粗加工两批1630mm直行，无横移。
+  方向系数是代价，不是速度；模拟仍250mm/s、120°/s。加入真实转头后比旧同速长横移模型计时增加，不宣称实车更快。
+- Qt Docs/LANE_DIRECTION_20261003.md、lane_direction_results/preview/targeted/regression_20261003.*记录当前结果；
+  本轮新增3项专项，41项方向/比赛专项通过。旧进程需要重启加载新代码。
+- 最终6组核心自检、228无GUI、139Qt通过；首次Qt两障碍超过旧12秒等待窗口，后台仍未发车，测试窗口改30秒。
+  初轮核心/无GUI日志lane_direction_regression_20261003.log含这次等待失败；最终全Qt日志lane_direction_qt_final_20261003.log为139项通过。
+
+## 2026-10-03 用户车头0°朝+Y（当前有效，覆盖下方旧朝X零点修复记录）
+
+- 用户指出其0°必须朝场地+Y（上）；上一轮按几何+X零点转车头的理解错误。
+  普通模拟、两启停区OPS标定和比赛初始化统一默认朝+Y；校准theta0，比赛实际LAYOUT yaw180。
+- MainWindow._field_heading输出用户角：OPS yaw+theta；0上/+Y，90左/+X，180下，270右。
+  _field_to_body_yaw为其逆，目标选项、回家、跟踪参考与地图说明同步更新。
+  内部Trajectory几何+X零点接口保持；新_field_math_heading只供最终STOP比较，不能用显示角校验几何角。
+- FieldView白色三角形改成尖端位于真实前沿中点、底边位于车心左右，尖端指向车头。
+  旧三角底边在前、尖端朝车心容易看反；Qt测试按实际尖端验证车头与四向，车体碰撞尺寸不变。
+- 重新用+Y初始车头验证六轮，12抓/12放、同色双层及回原区，全实际矩形及扫掠安全。
+  无障碍区1/2 78.20/78.22s；四障碍93.94/94.12s；截图两障碍119.76/126.46s。
+  无障碍与截图保持车头，四障碍有合法90°调整；旧朝X默认的计时及六轮不转向只是历史数据。
+- 说明Qt Docs/YAW_Y_ZERO_20261003.md，数据yaw_y_zero_results_20261003.json；
+  核心6组+225无GUI+138Qt完整回归日志yaw_y_zero_regression_20261003.log；
+  新独立四向专项yaw_y_zero_cardinal_test_20261003.log；三角最终版139项全Qt通过，日志yaw_y_zero_qt_final_20261003.log。
+  本次未改固件/协议，未接STM32，用户旧进程需重启。
+
+## 2026-10-03 麦轮比赛路径与初始车头（当前有效，覆盖下方比赛强制切线车头/禁止斜线的旧阶段约定）
+
+- 用户要求修正模拟初始航向，利用倒退、横移与出入库斜行缩短比赛；仅PC，未改固件/协议、未接STM32。
+- 普通模拟启动及所选启停区OPS校准同时设置位置/航向映射：区1 FIELD0°、映射theta90°；区2 FIELD180°、theta-90°。
+  真正ZERO相对yaw仍为0，不改core/固件语义；实车按启停区标定车头摆放。遥测噪声可使0°显示359.x°。
+- 新mecanum_planner.py：固定实际车头的矩形碰撞代理、整车安全斜线捷径、任意0..180°转角安全圆弧倒角。
+  半径仍120/110/100/90/80/70/60，每角全部失败明确fallback，不强行平滑或用固定车头掩盖运动切线直角。
+- competition_simulation.plan_leg新增body_yaw可选；固定模式添加站点可见斜边、欧氏启发式，缓存包含站点对。
+  短接头会在斜线捷径中消除，不能提前套用90°圆弧局部淘汰；候选全轨迹与真实控制器均预检。
+  优先当前车头，明显绕行或无路比较正交车头；固定方案均失败才试切线前进/倒退。
+  行驶按50Hz预演计时，转向与恢复航向用估计代价；有预算与贪心选择，不宣称全局最优。
+- 出入库先检查真实车体固定车头斜线，失败保留安全L形，L形也不安全则拒绝整轮。
+- Trajectory显式heading_mode=TANGENT/REVERSE_TANGENT/FIXED；FIXED提供LAYOUT body_yaw_deg。
+  field_yaw_deg改为这些显式模式的真实车头，另有FIELD tangent_yaw_deg及motion_mode，两种角独立unwrap。
+  旧隐式切线模式原五字段兼容；显式模式JSON、比赛JSON版本2。位置/车头/切线/类型/弧长/模式都复检。
+- CollisionScene.arc_interval_reason固定车头仍计车心轨道弦高，并独立计车体旋转弦高。
+  完整矩形+pad、全直线扫掠、圆弧<=20mm且<=3°及间隙包络、接受前复检、执行每帧提交前扫掠不变。
+  固定车头弧线不受车头角速度限速，仍250mm/s平移限速；旋转车头的弧线保留角速度限制。
+- 地图绿色箭头为行驶切线，紫色参考与车辆图标为真实车头；JSON区分两者，倒退不能画成前进。
+  图骨架含比赛站点斜向接近；普通点地图仍为原heading A*，新策略由完整比赛使用。
+- 六轮两启停区（三种场景）全部12抓/12放、同色双层、回原启停区，逐帧实际矩形扫掠安全且车头变化0°。
+  无障碍区1/2 78.14/78.32s，四障碍90.02/90.20s，截图两障碍120.18/126.90s；预检约1–2.2秒。
+  区1旧值97.96/108.76/141.28s，截图区2旧148.72s；这些是逻辑抓放与PC积分用时，不是实车比赛时间。
+- 最终6组核心自检+225无GUI+138离屏Qt全部通过；含STOP/版本/障碍取消、堵斜线L形fallback、
+  全半径失败、窄通道真航向、固定车头弧间障碍、元数据篡改和Qt方向/参考/JSON专项。
+  说明、结果、日志、界面和复现脚本在Qt Docs/MECANUM_PLANNING_20261003.md及mecanum_*、verify_mecanum_20261003.py。
+  旧进程需要重启加载新代码。
+
+## 2026-10-03 28/35 调试界面排版（当前有效）
+
+- Qt `main.py` 的 `_build_stepper_card` 分组显示状态、机械目标、辅助操作及折叠原始角度。
+  `StepperCardGrid` 在可用宽度1100px以上双列，否则单列；外层滚动，保留独立窗口功能。
+- 保留 `stepper_widgets` 五元组、`stepper_status`、原始参数范围及所有S28/S35命令。
+  编辑不自动下发，取消待发不停车，顶部STOP仍只停止底盘/DM，未改固件或机械标定。
+- `style.qss` 的 Stepper* 样式限定此页；87项 `test_debugger` 回归通过，宽窄布局离屏检查通过。
+  预览与日志见Qt `Docs/stepper_layout_*_20261003.*`；本次未连接实车或发送硬件动作。
+
+## 2026-10-03 STM32桥接DM梯形加减速（当前有效，覆盖下方仅达妙工具整定约定）
+
+- Qt新增dm_drive.py：ACC/DEC使用电机原始Krad/s²单位，DEC界面输入大小、负值写入。
+  初次默认关闭PC五次曲线；读取电机实际参数后才能执行内置梯形，旧JSON可保留原曲线选择。
+- USART1新增DMREAD=seq、DMACCDEC=seq,acc,dec；seq1..65535，ACC1e-6..1000、DEC-1000..-1e-6。
+  仅电机RAM，不保存DM/STM32 Flash，不改变16字段Flash记录或24通道遥测。
+- dm_j4310.c串行异步：写RID4/5再显式读0x33，0x55回显不算确认。
+  单步400ms超时、结束500ms隔离；任务提交CAN，中断只缓存，保留PRIMASK。
+  MCU空闲且真实CAN失能反馈300ms内才受理；STOP/DMOFF/心跳失联取消，忙时拒绝其他DM设置。
+- DMREG seq id status accBits decBits复用DMA事件队列；状态0成对回读、1拒绝、2发送失败、
+  3超时、4不一致、5取消、6非法。失败可能部分写入，需重新读取。
+  USART序号不是CAN事务序号，无法完全区分同RID迟到应答，不与另一CAN主控并行整定。
+- Qt按seq/ID匹配，旧会话回复忽略，3s无回读报错；SIM结果只演示通信接口，运动仍用原模拟模型。
+  内置梯形直接提交最终DMPOS和正DMVEL，示教/搬运仍按实际反馈停稳判断。
+- 新真实C专项Tests/hardware/test_dm_registers.py，旧故障/解析测试补桩；
+  说明见Qt Docs/DM_TRAPEZOID_20261003.md、Hardware/调试指令手册.md。
+  使用此功能必须更新STM32固件。本次EIDE AC5编译，未烧录或连接实车发送动作。
+  6组核心自检、212无GUI、135Qt（22DM）及真实C专项通过，日志dm_trapezoid_*_20261003.log。
+
+## 2026-10-03 DM 回转调试界面（当前有效）
+
+- DM 页地址使用 `MotorAddressRow` 的整数输入/回读/应用 ID，不创建滑条。
+  `dm_rows["DMID"]` 保留 `spin/readback_channel/set_readback/command_text` 接口，不能再按连续参数放入 ParamRow。
+  地址与模式在顶部工具栏；位置页回转/示教双列卡片，搬运流程单独分组，高级参数在底部折叠。
+  `style.qss` 的 Dm* 规则限定 DM 页，不改协议/运动/示教语义。布局回归110项通过，最终调整后DM15项通过。
+- Qt DM 页用 QStackedWidget 切换 MIT 与位置速度两套控件；下拉只切界面，失能后显式应用模式。
+  模式记录只是本机请求，无电机寄存器回读；每次连接重置请求状态。位置使能先保持当前角度、速度零。
+- 新增 `dm_panel.py`（位置界面/示教/人工确认流程）与 `dm_motion.py`（单位/五次参考曲线/连续到位/原子JSON）。
+  额外传动比不含内置减速器，角度以回转轴度编辑，现有STM32 ±12.5rad/±30rad/s范围不改。
+- 四个位置默认未示教，保存到上位机 `dm_positions.json`，不写STM32 Flash。
+  抓稳抬升确认→转载盘1/2/3→反馈连续停稳→放妥抬升确认→返待抓取位；不自动驱动夹爪/S28/S35。
+- 上位机50ms参考曲线仅保留最新待发DMPOS；内部PID/驱动加减速需达妙工具，不把参考加速度说成驱动寄存器。
+  新遥测角度+速度连续满足条件才到位；超时/故障/失能/调度中断请求DMOFF。
+  外部DM动作会先终止正在执行的流程，原动作需停稳后重发；STOP/DMOFF立即取消。
+- ID/零点/传动比/连接变化撤销示教一致性确认。现有遥测无CAN反馈时间戳，不能证明每帧DM回包新鲜。
+  比赛依据为同目录智能+附件2-1的第7–8页，每抓一个先放到车上；用户附件1-1是另一个赛道。
+  详见Qt `Docs/DM_POSITION_DEBUG_20261003.md`，回归 `tests.test_dm_position` 纳入 `run_tests.py --qt`。
+  本次不改固件、不烧录、不向实车发送动作。
+
+## 2026-10-03 比赛避障与跟踪优化（当前有效）
+
+- 用户截图2个静态圆柱约LAYOUT(1200,1200)/(297,294)，旧版原料→粗加工fallback；不得通过放宽碰撞来解决。
+- competition_simulation补齐配置车道的横纵交点，失败按圆柱/车体/裕量添加偏移线，所有新节点与边仍检查完整矩形。
+  A*启发式、入队同向合并和去重、只检查实际展开的转弯并缓存，同一轮图复用，搜索前检查图连通性。
+  每层最多5000状态，尾部相同的不同前缀保留3个候选；预算用尽只能说未找到，不得断言物理无通路。
+  整路继续120..60圆弧、Trajectory全复检和真实控制器预演；JSON route.search保留搜索统计。
+- trajectory_tracking保留实际位置单调投影和100mm参考X/Y/unwrap Yaw，控制加入当前投影处几何增量、切线/曲率前馈和投影误差反馈。
+  不直追前视弦/提前旋转切内，前视窗口按最小R提前限速；进度不按时间推进，中间点不停稳，最终STOP和实际扫掠门禁不变。
+- PoseManeuver在达到停稳角速度门之前消除小角度残差，90°转后才可固定车头平移；未放宽平移/旋转分离检查。
+- 截图近似布局两出发区分别141.28/148.72s完成，12抓/12放，全实际矩形扫掠安全；轻微坐标偏移也完成。
+  新版区1无障碍97.96s、4障碍预设108.76s，旧102.2/122.6s为历史数据。
+  新增4项比赛无GUI、2项控制无GUI、1项Qt；6组自检+212项无GUI+113项Qt完整通过。
+- 说明/截图/数据/日志见HostTools/ILHC_Debugger/ILHC_Qt_v2/Docs/AVOIDANCE_OPTIMIZATION_20261003.md及avoidance_optimization_*文件。
+  未改固件/协议，未接STM32、动态障碍或雷达；用户当前旧上位机进程需重启加载代码。
+
 ## 2026-10-03 完整比赛静态障碍（当前有效）
 
 - 用户要求比赛仿真加入障碍；仅PC静态圆柱，不增加动态障碍、雷达或STM32接入。

@@ -1,0 +1,3 @@
+Wheel enable/disable service / ordering / gate tests passed
+Chassis stop gate test passed (no speed frame while disabled)
+Firmware wheel lock command, gate and driver wiring passed

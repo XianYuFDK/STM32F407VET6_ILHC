@@ -1,4 +1,4 @@
-"""连续几何Trajectory：场地mm、切线航向、全轨迹整车检查；无串口/执行接口。"""
+"""连续几何Trajectory：场地mm、真实车头/行驶切线、全轨迹整车检查；无串口接口。"""
 from bisect import bisect_right
 import json
 import math
@@ -10,6 +10,7 @@ from navigation_planner import EPS, finite_number, point2
 SAMPLE_SPACING_MM = 20.0
 MAX_TRAJECTORY_POINTS = 100_000
 YAW_CONVENTION = '场地+X为0°、+Y为90°；切线方向，角度unwrap后可超出±180°'
+BODY_YAW_CONVENTION = '场地+X为0°、+Y为90°；field_yaw_deg为真实车头，tangent_yaw_deg为行驶切线；分别unwrap'
 
 
 class TrajectoryError(ValueError):
@@ -40,6 +41,9 @@ def _normalize(primitives):
     pieces = []
     for index, source in enumerate(primitives):
         p = source.as_dict() if hasattr(source, 'as_dict') else dict(source)
+        mode = p.get('heading_mode', 'TANGENT')
+        if mode not in ('TANGENT', 'REVERSE_TANGENT', 'FIXED'):
+            raise TrajectoryError('INVALID_INPUT', '未知车体航向模式：'+str(mode))
         kind = p.get('kind') or ('ARC' if 'radius_mm' in p else 'LINE')
         if kind == 'TURN':
             raise TrajectoryError('FALLBACK_REQUIRED', '第%d段保留原地转向，需要停转；无法生成连续切线Trajectory' % (index+1))
@@ -55,8 +59,8 @@ def _normalize(primitives):
             radius = finite_number(p['radius_mm'], '圆弧半径')
             sweep = finite_number(p['sweep_deg'], '圆弧扫角')
             angle = finite_number(p['start_angle_deg'], '圆弧起始角')
-            if radius <= 0 or abs(abs(sweep)-90) > EPS:
-                raise TrajectoryError('INVALID_INPUT', '只接受正半径90°圆弧')
+            if radius <= 0 or not EPS < abs(sweep) < 180 or (mode != 'FIXED' and abs(abs(sweep)-90) > EPS):
+                raise TrajectoryError('INVALID_INPUT', '需要正半径圆弧：切线车头模式90°，固定车头模式0..180°')
             sign = 1 if sweep > 0 else -1
             if p.get('direction', 'CCW' if sign > 0 else 'CW') != ('CCW' if sign > 0 else 'CW'):
                 raise TrajectoryError('INVALID_INPUT', '圆弧方向与扫角不一致')
@@ -72,12 +76,21 @@ def _normalize(primitives):
                          yaw_in=angle+sign*90, yaw_out=angle+sweep+sign*90)
         else:
             raise TrajectoryError('INVALID_INPUT', '未知segment_type：%s' % kind)
+        piece.update(heading_mode=mode, explicit_heading='heading_mode' in p,
+                     tangent_in=piece['yaw_in'], tangent_out=piece['yaw_out'])
+        if mode == 'FIXED':
+            piece['yaw_in'] = piece['yaw_out'] = finite_number(p['body_yaw_deg'], '真实车体航向')
+        elif mode == 'REVERSE_TANGENT':
+            piece['yaw_in'] += 180
+            piece['yaw_out'] += 180
         if pieces:
             previous = pieces[-1]
             if math.dist(previous['end'], piece['start']) > EPS:
                 raise TrajectoryError('DISCONNECTED', '第%d段入口位置不连续' % (index+1))
             if abs(_delta(previous['yaw_out'], piece['yaw_in'])) > 1e-5:
-                raise TrajectoryError('FALLBACK_REQUIRED', '第%d段切线方向不连续，需要停转或安全圆弧；不强行连接' % (index+1))
+                raise TrajectoryError('FALLBACK_REQUIRED', '第%d段车体切线/航向不连续，需要停转或安全圆弧；不强行连接' % (index+1))
+            if abs(_delta(previous['tangent_out'], piece['tangent_in'])) > 1e-5:
+                raise TrajectoryError('FALLBACK_REQUIRED', '第%d段行驶切线不连续，不能用固定车头掩盖直角换向' % (index+1))
         pieces.append(piece)
     return pieces
 
@@ -93,7 +106,7 @@ def _pose_at(piece, distance):
         angle = math.radians(piece['start_angle_deg']+offset)
         center, radius = piece['center'], piece['radius_mm']
         xy = (center[0]+radius*math.cos(angle), center[1]+radius*math.sin(angle))
-        yaw = piece['yaw_in']+offset
+        yaw = piece['yaw_in']+(0 if piece['heading_mode'] == 'FIXED' else offset)
     if distance <= EPS:
         xy = piece['start']
     elif piece['length_mm']-distance <= EPS:
@@ -101,10 +114,27 @@ def _pose_at(piece, distance):
     return (*xy, yaw)
 
 
-def _stations(pieces, spacing, interrupted):
+def _tangent_at(piece, distance):
+    return piece['tangent_in']+(piece['sweep_deg']*max(0, min(1, distance/piece['length_mm']))
+                              if piece['kind'] == 'ARC' else 0)
+
+
+def _motion_mode(body, tangent):
+    delta = _delta(body, tangent)
+    if abs(delta) < 1e-5:
+        return 'FORWARD'
+    if abs(abs(delta)-180) < 1e-5:
+        return 'REVERSE'
+    if abs(abs(delta)-90) < 1e-5:
+        return 'STRAFE_LEFT' if delta > 0 else 'STRAFE_RIGHT'
+    return 'DIAGONAL'
+
+
+def _stations(pieces, spacing, interrupted, max_arc_angle=None):
     """全程s=0,20,40…；额外保留所有拼接点和终点，间距始终≤spacing。"""
     end, stations, global_index = 0.0, [0.0], 1
     for piece in pieces:
+        begin = end
         end += piece['length_mm']
         while global_index*spacing < end-EPS:
             if interrupted():
@@ -118,7 +148,12 @@ def _stations(pieces, spacing, interrupted):
             global_index += 1
         if len(stations) > MAX_TRAJECTORY_POINTS:
             raise TrajectoryError('RESOURCE_LIMIT', 'Trajectory超过100000个采样点')
-    return stations
+        if max_arc_angle is not None and piece['kind'] == 'ARC':
+            n = math.ceil(abs(piece['sweep_deg'])/max_arc_angle)
+            if len(stations)+n-1 > MAX_TRAJECTORY_POINTS:
+                raise TrajectoryError('RESOURCE_LIMIT', 'Trajectory超过100000个采样点')
+            stations.extend(begin+piece['length_mm']*i/n for i in range(1,n))
+    return sorted(set(stations))
 
 
 def _ends(pieces):
@@ -137,7 +172,7 @@ def _piece_at(pieces, ends, station):
 
 
 def _validate(samples, pieces, scene, spacing, interrupted):
-    """重新检查导出的切线姿态，而非复用原动作航向或已缓存的安全标记。"""
+    """重新检查导出的真实车体姿态及行驶切线，不复用已缓存的安全标记。"""
     if scene.footprint is None:
         raise TrajectoryError('NO_FOOTPRINT', '缺少真实矩形车体，不能核验Trajectory')
     if not samples or not pieces:
@@ -145,7 +180,7 @@ def _validate(samples, pieces, scene, spacing, interrupted):
     ends = _ends(pieces)
     if abs(samples[0]['s_mm']) > EPS or abs(samples[-1]['s_mm']-ends[-1]) > EPS:
         raise TrajectoryError('INVALID_INPUT', 'Trajectory起终点累计弧长不匹配')
-    previous_s, previous_yaw = None, None
+    previous_s, previous_yaw, previous_tangent = None, None, None
     for index, sample in enumerate(samples):
         if interrupted():
             raise TrajectoryError('CANCELLED', 'Trajectory整车检查已取消或超过时限')
@@ -161,13 +196,19 @@ def _validate(samples, pieces, scene, spacing, interrupted):
         expected_yaw = -90-layout_yaw  # 场地/布局线性变换为(dx,dy)→(-dy,-dx)。
         expected_yaw = unwrap_degrees([expected_yaw])[0] if previous_yaw is None else \
                        previous_yaw+_delta(previous_yaw, expected_yaw)
+        tangent = -90-_tangent_at(piece, local)
+        tangent = unwrap_degrees([tangent])[0] if previous_tangent is None else previous_tangent+_delta(previous_tangent, tangent)
+        if piece['explicit_heading'] or 'tangent_yaw_deg' in sample or 'motion_mode' in sample:
+            if (abs(finite_number(sample['tangent_yaw_deg'], '行驶切线')-tangent) > 1e-5 or
+                    sample['motion_mode'] != _motion_mode(-90-layout_yaw, -90-_tangent_at(piece, local))):
+                raise TrajectoryError('INVALID_INPUT', 'Trajectory真实车头/行驶方向元数据不匹配')
         if (math.dist((x, y), expected_xy) > 1e-5 or abs(yaw-expected_yaw) > 1e-5 or
                 sample['segment_type'] != piece['kind']):
             raise TrajectoryError('INVALID_INPUT', 'Trajectory第%d点与原几何切线不匹配' % index)
         px, py = field_to_layout(x, y)
         if not scene.pose_safe(px, py, -90-yaw):
             raise TrajectoryError('UNSAFE', 'Trajectory第%d点：%s' % (index, scene.pose_reason(px, py, -90-yaw)))
-        previous_s, previous_yaw = station, yaw
+        previous_s, previous_yaw, previous_tangent = station, yaw, tangent
     # 完整线段扫掠；圆弧再按≤20mm且≤3°细分，每个姿态和采样间包络均检查。
     for index, piece in enumerate(pieces):
         if interrupted():
@@ -210,8 +251,8 @@ def _spacing(value):
 
 
 def generate_trajectory(primitives, scene, *, spacing_mm=SAMPLE_SPACING_MM,
-                        interrupted=lambda: False):
-    """Line/Arc→五字段连续Trajectory；只有最终整车复检通过才发布样本。"""
+                        interrupted=lambda: False, max_arc_angle_deg=None):
+    """Line/Arc→连续Trajectory；显式车头模式另带切线和运动方式，整车复检后发布。"""
     result = dict(trajectory=[], trajectory_status='NOT_RUN', trajectory_safe=False,
                   trajectory_continuous=False, trajectory_reason='', trajectory_length_mm=0.0,
                   trajectory_spacing_mm=SAMPLE_SPACING_MM, trajectory_frame_id='FIELD_MM',
@@ -220,13 +261,17 @@ def generate_trajectory(primitives, scene, *, spacing_mm=SAMPLE_SPACING_MM,
         if interrupted():
             raise TrajectoryError('CANCELLED', 'Trajectory生成已取消或超过时限')
         spacing = _spacing(spacing_mm)
+        if max_arc_angle_deg is not None:
+            max_arc_angle_deg=finite_number(max_arc_angle_deg, '圆弧角步长')
+            if not EPS < max_arc_angle_deg <= 5:
+                raise TrajectoryError('INVALID_INPUT', '圆弧角步长须在0..5°内')
         result['trajectory_spacing_mm'] = spacing
         pieces = _normalize(primitives)
         if not pieces:
             raise TrajectoryError('EMPTY', '没有可采样的LineSegment/ArcSegment，切线航向未定义')
         ends = _ends(pieces)
-        samples, angles = [], []
-        for station in _stations(pieces, spacing, interrupted):
+        samples, angles, tangents = [], [], []
+        for station in _stations(pieces, spacing, interrupted, max_arc_angle_deg):
             if interrupted():
                 raise TrajectoryError('CANCELLED', 'Trajectory生成已取消或超过时限')
             piece, distance = _piece_at(pieces, ends, station)
@@ -234,9 +279,18 @@ def generate_trajectory(primitives, scene, *, spacing_mm=SAMPLE_SPACING_MM,
             fx, fy = layout_to_field(lx, ly)
             samples.append(dict(x_mm=fx, y_mm=fy, field_yaw_deg=0.0, s_mm=station,
                                 segment_type=piece['kind']))
+            tangent = _tangent_at(piece, distance)
+            tangents.append(-90-tangent)
+            if piece['explicit_heading']:
+                samples[-1].update(tangent_yaw_deg=0.0, motion_mode=_motion_mode(-90-yaw, -90-tangent))
             angles.append(-90-yaw)
         for sample, yaw in zip(samples, unwrap_degrees(angles)):
             sample['field_yaw_deg'] = yaw
+        for sample, tangent in zip(samples, unwrap_degrees(tangents)):
+            if 'tangent_yaw_deg' in sample:
+                sample['tangent_yaw_deg'] = tangent
+        if any(p['explicit_heading'] for p in pieces):
+            result['trajectory_yaw_convention'] = BODY_YAW_CONVENTION
         _validate(samples, pieces, scene, spacing, interrupted)
         result.update(trajectory=samples, trajectory_status='READY', trajectory_safe=True,
                       trajectory_continuous=True, trajectory_length_mm=ends[-1])
@@ -250,7 +304,7 @@ def export_trajectory_json(path, result, *, metadata=None):
     if (result.get('trajectory_status') != 'READY' or not result.get('trajectory_safe') or
             not result.get('trajectory_continuous') or not result.get('trajectory')):
         raise ValueError('没有连续且通过完整整车检查的Trajectory，不能导出：'+result.get('trajectory_reason', ''))
-    data = dict(schema_version=1, frame_id=result['trajectory_frame_id'],
+    data = dict(schema_version=2 if 'tangent_yaw_deg' in result['trajectory'][0] else 1, frame_id=result['trajectory_frame_id'],
                 yaw_convention=result['trajectory_yaw_convention'],
                 sample_spacing_mm=result['trajectory_spacing_mm'],
                 length_mm=result['trajectory_length_mm'], model_safe=True, hardware_ready=False,

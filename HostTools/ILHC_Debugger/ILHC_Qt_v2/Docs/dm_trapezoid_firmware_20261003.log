@@ -1,0 +1,49 @@
+DM register CAN packing, read verification, cancellation and bridge gates passed
+[ INFO ] start building at 2026-10-03 15:06:41
+
+[ TOOL ] Component: ARM Compiler 5.06 update 7 (build 960)
+
+[ INFO ] file statistics (incremental mode)
+
++---------+-----------+-----------+---------------+--------+
+| C Files | Cpp Files | Asm Files | Lib/Obj Files | Totals |
++---------+-----------+-----------+---------------+--------+
+| 1       | 0         | 0         | 0             | 1      |
++---------+-----------+-----------+---------------+--------+
+
+[ INFO ] start compiling ...
+
+>> [100%] CC '../Hardware/debug_usart.c'
+
+[ INFO ] start linking ...
+
+Program Size: Code=43748 RO-data=11104 RW-data=556 ZI-data=25652  
+
+
+Total RO  Size (Code + RO Data)                54852 (  53.57kB)
+Total RW  Size (RW Data + ZI Data)             26208 (  25.59kB)
+Total ROM Size (Code + RO Data + RW Data)      54904 (  53.62kB)
+
+Total Memory Usage:
+
+  RAM: [####                ] 20.0%     25.6KB/128.0KB
+  ROM: [##                  ] 10.5%     53.6KB/512.0KB
+
+Section Memory Usage:
+
+  LR_IROM1 (0x08000000): [##                  ] 10.6%     54.1KB/512.0KB
+    - ER_IROM1 (0x08000000): [##                  ] 10.5%     53.6KB/512.0KB
+    - RW_IRAM1 (0x20000000): [####                ] 20.0%     25.6KB/128.0KB
+
+[ INFO ] start outputting files ...
+
+>> output hex file		[done]
+
+file path: "build/STM32F407VET6_ILHC/STM32F407VET6_ILHC.hex"
+
+>> output s19 file		[done]
+
+file path: "build/STM32F407VET6_ILHC/STM32F407VET6_ILHC.s19"
+
+[ DONE ] build successfully !, elapsed time 0:0:1
+

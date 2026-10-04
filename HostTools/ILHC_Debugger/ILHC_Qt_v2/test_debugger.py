@@ -122,10 +122,8 @@ class DebuggerTests(unittest.TestCase):
         cx = sum(p.x() for p in pts) / len(pts)
         cy = sum(p.y() for p in pts) / len(pts)
         wedge = [main.QPointF(view.car_nose.polygon().at(i)) for i in range(3)]
-        apex = min(wedge, key=lambda p: math.hypot(p.x() - cx, p.y() - cy))
-        front = [p for p in wedge if p is not apex]
-        mid = ((front[0].x() + front[1].x()) / 2.0, (front[0].y() + front[1].y()) / 2.0)
-        return (cx, cy), (mid[0] - cx, mid[1] - cy)
+        apex = max(wedge, key=lambda p: math.hypot(p.x() - cx, p.y() - cy))
+        return (cx, cy), (apex.x()-cx, apex.y()-cy)
 
     def test_car_icon_is_scaled_car_body(self):
         """地图上的车必须是 28cm×26cm 的真实轮廓，车心落在映射位置上。"""
@@ -180,9 +178,9 @@ class DebuggerTests(unittest.TestCase):
                 view = w.map_view
                 _center, nose = self._icon_center_and_nose(view)
                 # 车头向量：场景 → 绘制帧（向量只把 y 取反），再转场地角
-                # （场地 +X=屏幕左=-绘制y、+Y=屏幕上=-绘制x ⇒ F=atan2(-mx,-my)）
+                # （场地 +X=屏幕左=-绘制y、+Y=屏幕上=-绘制x ⇒ 用户角=atan2(-my,-mx)）
                 mx, my = nose[0], -nose[1]
-                drawn = math.degrees(math.atan2(-mx, -my)) % 360.0
+                drawn = math.degrees(math.atan2(-my, -mx)) % 360.0
                 match = re.search(r"航向=(-?[\d.]+)°", w.map_position.text())
                 self.assertIsNotNone(match)
                 shown = float(match.group(1))
@@ -197,9 +195,9 @@ class DebuggerTests(unittest.TestCase):
                 self.assertAlmostEqual(w._field_to_body_yaw(w._field_heading(h)) % 360.0,
                                        h % 360.0, places=6)
         w.map_theta = 0.0
-        w.map_yaw_combo.setCurrentIndex(2)                     # 场地 90° = 屏幕上
+        w.map_yaw_combo.setCurrentIndex(2)                     # 用户车头90° = 屏幕左
         self.assertAlmostEqual(w._field_heading(w._target_yaw_ops()), 90.0, places=6)
-        w.map_yaw_combo.setCurrentIndex(1)                     # 场地 0° = 屏幕左
+        w.map_yaw_combo.setCurrentIndex(1)                     # 用户车头0° = 屏幕上
         self.assertAlmostEqual(w._field_heading(w._target_yaw_ops()), 0.0, places=6)
         w.map_yaw_combo.setCurrentIndex(0)                     # 保持当前
         w.latest = (0.0, 0.0, 33.0) + (0.0,) * 21
@@ -390,8 +388,10 @@ class DebuggerTests(unittest.TestCase):
         w.zone_combo.setCurrentIndex(0)
         w._goto_home()                                # 回启停区1
         self._wait_plan()
+        self.assertIsNone(w.sim.goto)
         self.assertTrue(w.line_q.empty())
         self.assertTrue(w.planned_points)
+        self.assertFalse(w._home_after_stop)
 
     def test_follow_is_simulation_only_and_stops_on_stop(self):
         w = self.window
@@ -460,7 +460,7 @@ class DebuggerTests(unittest.TestCase):
         self.assertIsNone(hit, "全程整车扫掠不应越界或碰撞（撞到 %s）" % hit)
         ex, ey = w._ops_to_field(w.latest[0] * core.OPS_CM_TO_MM,
                                  w.latest[1] * core.OPS_CM_TO_MM)
-        self.assertLess(math.hypot(ex - target[0], ey - target[1]), 1.0)
+        self.assertLess(math.hypot(ex - target[0], ey - target[1]), 1.0,w.map_status.text())
 
     def test_mapping_roundtrip(self):
         for angle in (0, 37, 90, -180):
@@ -494,7 +494,49 @@ class DebuggerTests(unittest.TestCase):
         self.assertEqual((self.window.map_ox, self.window.map_oy), (2100, 0))
         self.assertEqual(self.window._ops_to_field(0, 0), core.ZONE_CENTER[2])
 
-    def test_navigation_and_home_share_checks(self):
+    def test_start_zone_calibration_sets_real_field_heading_and_forward_axis(self):
+        w = self.window
+        for index, zone, heading in ((0, 1, 0), (1, 2, 0)):
+            w.zone_combo.setCurrentIndex(index)
+            w._set_start_zone()
+            w.sim.handle_line('ZERO')
+            w.sim.make_frame(0)
+            snap = w.sim.navigation_snapshot()
+            self.assertAlmostEqual(w._field_heading(snap['yaw']), heading)
+            home = core.layout_to_field(*w._ops_to_field(*snap['hold']))
+            forward = core.layout_to_field(*w._ops_to_field(0, 100))
+            self.assertAlmostEqual(forward[0]-home[0], 0)
+            self.assertAlmostEqual(forward[1]-home[1], 100)
+
+    def test_normal_simulator_start_uses_selected_zone_field_heading(self):
+        w = self.window
+        w.toggle_sim(False)
+        w.toggle_sim(True)
+        try:
+            self.assertAlmostEqual(w._field_heading(w.sim.navigation_snapshot()['yaw']), 0)
+            self.assertEqual(w._ops_to_field(*w.sim.navigation_snapshot()['hold']), core.ZONE_CENTER[1])
+            nose, _left = w._body_nose_left(w.sim.navigation_snapshot()['yaw'])
+            dx, dy = w._ops_dir_to_map(*nose)
+            self.assertAlmostEqual(dx, -1)
+            self.assertAlmostEqual(dy, 0)
+            self.assertEqual(w.map_theta, 0)
+        finally:
+            w.toggle_sim(False)
+
+    def test_target_heading_cardinal_directions_match_y_zero_convention(self):
+        w = self.window
+        for theta in (0,37,-90,145):
+            w.map_theta = theta
+            for heading, expected in ((0,(0,1)), (90,(1,0)), (180,(0,-1)), (270,(-1,0))):
+                ops = w._field_to_body_yaw(heading)
+                nose, _left = w._body_nose_left(ops)
+                lx, ly = w._ops_dir_to_map(*nose)
+                self.assertAlmostEqual(-ly, expected[0])
+                self.assertAlmostEqual(-lx, expected[1])
+                self.assertAlmostEqual(w._field_heading(ops), heading)
+                self.assertAlmostEqual(w._field_math_heading(ops), (90-heading)%360)
+
+    def test_simulation_home_bypasses_path_checks(self):
         self.window.plan_click_check.setChecked(False)   # 本用例测"直接下发 GOTO"这条路
         self.window.latest = (0.0, 0.0, 0.0) + (0.0,) * 21
         self.window._goto_field(2150, 2250)
@@ -502,7 +544,9 @@ class DebuggerTests(unittest.TestCase):
         # 新约定下同一物理位置(左1650/前1650)的遥测为正值，映射到与旧用例相同的layout(600,600)，
         # 因此到启停区1的直线仍穿越中央物料区。
         self.window.latest = (165.0, 165.0, 0.0) + (0.0,) * 21
+        self.window.send_line("STOP")
         self.window._goto_home()
+        self.assertEqual(self.window.sim.goto,(0,0,0))
         self.assertTrue(self.window.line_q.empty())
 
     def test_stepper_buttons_units_and_uint32(self):
@@ -1307,8 +1351,9 @@ class VisionPageTests(unittest.TestCase):
     def test_page_registered_last_without_shifting_existing_pages(self):
         """新页面必须追加在末尾：既有测试与 _render_ui 依赖页面下标。"""
         w = self.window
-        self.assertEqual(w.page_names[-1], "视觉跟踪")
-        self.assertEqual(w.vision_page_index, len(w.page_names) - 1)
+        self.assertEqual(w.page_names[8], "视觉跟踪")
+        self.assertEqual(w.vision_page_index, 8)
+        self.assertEqual(w.page_names[-1], "轨迹调参")
         self.assertEqual(w.stack.count(), len(w.pages))
         self.assertEqual(w.page_names[:8], ["总览", "实时波形", "比赛地图", "底盘调参",
                                             "DM 电机", "数据记录", "命令终端", "28 / 35 步进"])

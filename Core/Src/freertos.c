@@ -21,12 +21,11 @@
 #include "FreeRTOS.h"
 #include "task.h"
 #include "main.h"
-#include "debug_usart.h"
-#include "vision.h"
 #include "cmsis_os.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "rtos_app.h"
 
 /* USER CODE END Includes */
 
@@ -47,23 +46,13 @@
 
 /* Private variables ---------------------------------------------------------*/
 /* USER CODE BEGIN Variables */
-volatile uint32_t default_task_stack_free, default_task_overruns;
 
 /* USER CODE END Variables */
-/* Definitions for defaultTask */
-osThreadId_t defaultTaskHandle;
-const osThreadAttr_t defaultTask_attributes = {
-  .name = "defaultTask",
-  .stack_size = 512 * 4,
-  .priority = (osPriority_t) osPriorityNormal,
-};
 
 /* Private function prototypes -----------------------------------------------*/
 /* USER CODE BEGIN FunctionPrototypes */
 
 /* USER CODE END FunctionPrototypes */
-
-void StartDefaultTask(void *argument);
 
 void MX_FREERTOS_Init(void); /* (MISRA C 2004 rule 8.1) */
 
@@ -94,52 +83,16 @@ void MX_FREERTOS_Init(void) {
   /* USER CODE END RTOS_QUEUES */
 
   /* Create the thread(s) */
-  /* creation of defaultTask */
-  defaultTaskHandle = osThreadNew(StartDefaultTask, NULL, &defaultTask_attributes);
 
   /* USER CODE BEGIN RTOS_THREADS */
-  /* add threads, ... */
+  /* 应用任务的划分、优先级和周期统一由RTOS_APP维护。 */
+  if (!RTOS_APP_Init()) Error_Handler();
   /* USER CODE END RTOS_THREADS */
 
   /* USER CODE BEGIN RTOS_EVENTS */
   /* add events, ... */
   /* USER CODE END RTOS_EVENTS */
 
-}
-
-/* USER CODE BEGIN Header_StartDefaultTask */
-/**
-  * @brief  Function implementing the defaultTask thread.
-  * @param  argument: Not used
-  * @retval None
-  */
-/* USER CODE END Header_StartDefaultTask */
-void StartDefaultTask(void *argument)
-{
-  /* USER CODE BEGIN StartDefaultTask */
-  /* Infinite loop */
-  /* 调用 OPS 全局定位移动示例（当前串口输出结构建议每20ms调用）：
-     chassis_move(目标X左右, 目标Y前后, 目标航向角);   // 统一坐标
-     SetMotorVoltageAndDirection(SpeedTarget[0], SpeedTarget[1], SpeedTarget[2], SpeedTarget[3]);
-     对外协议 GOTO=X,Y,Z 原序传入，X/Y 的 cm 先换算为 mm 再进入位置环。
-  */
-  uint32_t deadline = osKernelGetTickCount();
-  const uint32_t period = osKernelGetTickFreq() / 50U;
-  for(;;)
-  {
-    Vision_ServiceRx();
-    DebugUsart_Send();
-    /* 调试器可读取栈余量；CMSIS 返回字节数。 */
-    default_task_stack_free = osThreadGetStackSpace(defaultTaskHandle);
-    deadline += period;
-    if ((int32_t)(deadline - osKernelGetTickCount()) <= 0)
-    {
-      ++default_task_overruns;
-      deadline = osKernelGetTickCount() + period;
-    }
-    osDelayUntil(deadline);
-  }
-  /* USER CODE END StartDefaultTask */
 }
 
 /* Private application code --------------------------------------------------*/

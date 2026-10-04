@@ -25,7 +25,7 @@ for required in (
 
 
 def function(source, name):
-    pattern = (r"^(?:static )?(?:uint8_t|uint16_t|void) " +
+    pattern = (r"^(?:static )?(?:uint8_t|uint16_t|uint32_t|void) " +
                re.escape(name) + r"\(")
     match = re.search(pattern, source, re.M)
     if match is None:
@@ -147,11 +147,14 @@ static uint32_t s_last_frame_tick;
 static float s_reference_yaw, s_origin_yaw;
 static uint8_t s_new_flag;
 
+static uint8_t s_processing_rx;
+static uint32_t s_processing_tick;
 static uint32_t tick=1234U;
 static uint32_t HAL_GetTick(void) { return tick; }
 '''
 
 functions = [
+    "OPS_ReceiveTick",
     "OPS_CalcCRC8",
     "OPS_VerifyCRC8",
     "OPS_CalcCRC16",
@@ -178,6 +181,8 @@ static void near(float a, float b)
 
 int main(void)
 {
+  s_processing_rx=1;s_processing_tick=100;assert(OPS_ReceiveTick()==100);
+  s_processing_rx=0;assert(OPS_ReceiveTick()==tick);
   static const uint8_t valid_v2[] = { %s };
   static const uint8_t invalid_v2[] = { %s };
   static const uint8_t session_v2[] = { %s };
@@ -277,10 +282,61 @@ int main(void)
     bytes_c(valid_v1),
 )
 
-code = prelude
-code += crc8_match.group(0) + "\n"
-code += "\n".join(function(OPS, name) for name in functions)
-code += "\n" + check
+# 完整接收路径：ISR只入队，任务解析，保留接收时间并注入队满/重启失败。
+rx_prelude=r'''
+#include "app_rx.h"
+#define USART2 ((void *)2)
+#define HAL_OK 0
+#define HAL_ERROR 1
+typedef struct {void *Instance;} UART_HandleTypeDef;
+static UART_HandleTypeDef huart2={USART2};
+static uint8_t s_rx_buf[OPS_RX_BUFFER_SIZE],s_rx_copy[OPS_RX_BUFFER_SIZE],s_rx_recover;
+static uint32_t irq_mask,comm_notifications,control_notifications,restarts;
+static int restart_result,inject_rx_error;
+void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart);
+static uint32_t __get_PRIMASK(void){return irq_mask;}
+static void __disable_irq(void){irq_mask=1;}
+static void __enable_irq(void){irq_mask=0;}
+static void __DMB(void){}
+static int OPS_RestartReceive(void){++restarts;s_rx_recover=restart_result!=HAL_OK;return restart_result;}
+static void RTOS_APP_NotifyComm(void){++comm_notifications;}
+static void RTOS_APP_NotifyControl(void){++control_notifications;}
+'''
+queued_check=r'''
+  memset(&s_ops,0,sizeof(s_ops));s_parse_len=0;s_continuity_lost=s_session_pending=0;
+  APP_RX_Reset(APP_RX_OPS);tick=2000;
+  memcpy(s_rx_buf,valid_v2,sizeof(valid_v2));HAL_UARTEx_RxEventCallback(&huart2,sizeof(valid_v2));
+  assert(s_ops.frame_count==0&&APP_RX_Pending()&&restarts&&comm_notifications);
+  tick=2050;OPS_ProcessPending();assert(s_ops.pose_valid&&s_ops.last_update_tick==2000);
+  tick=2201;assert(!OPS_IsOnline(200)); /* 不得用2050ms解析时刻续期。 */
+  tick=2210;memcpy(s_rx_buf,valid_v1,5);HAL_UARTEx_RxEventCallback(&huart2,5);
+  tick=2220;memcpy(s_rx_buf,valid_v1+5,sizeof(valid_v1)-5);HAL_UARTEx_RxEventCallback(&huart2,sizeof(valid_v1)-5);
+  uint32_t before=s_ops.valid_count;OPS_ProcessPending();assert(s_ops.valid_count==before);
+  OPS_ProcessPending();assert(s_ops.valid_count==before+1&&s_ops.last_update_tick==2220);
+  /* 溢出不发布残缺数据，并立即锁存定位不可用。 */
+  before=s_ops.valid_count;tick=2300;
+  for(unsigned j=0;j<8;j++){memcpy(s_rx_buf,valid_v1,sizeof(valid_v1));HAL_UARTEx_RxEventCallback(&huart2,sizeof(valid_v1));}
+  assert(APP_RX_Fault(APP_RX_OPS)&&!s_ops.pose_valid&&s_ops.session_changed&&control_notifications);
+  OPS_ProcessPending();assert(!APP_RX_Pending()&&s_ops.valid_count==before&&app_rx_overflows[APP_RX_OPS]==1);
+  tick=2310;memcpy(s_rx_buf,valid_v1,sizeof(valid_v1));HAL_UARTEx_RxEventCallback(&huart2,sizeof(valid_v1));
+  OPS_ProcessPending();assert(s_ops.pose_valid&&s_ops.last_update_tick==2310);
+  /* 错误中断在帧发布中途抢占，任务最终不得把旧帧标为有效。 */
+  inject_rx_error=1;memcpy(s_rx_buf,valid_v1,sizeof(valid_v1));HAL_UARTEx_RxEventCallback(&huart2,sizeof(valid_v1));
+  OPS_ProcessPending();assert(s_rx_recover&&!s_ops.pose_valid);s_rx_recover=0;
+  /* 已过期的完整旧包也必须拒绝；后续失败重挂不能伪装定位在线。 */
+  tick=2400;memcpy(s_rx_buf,valid_v1,sizeof(valid_v1));HAL_UARTEx_RxEventCallback(&huart2,sizeof(valid_v1));
+  tick=2601;OPS_ProcessPending();assert(!s_ops.pose_valid&&!APP_RX_Pending());
+  restart_result=HAL_ERROR;s_ops.pose_valid=1;HAL_UARTEx_RxEventCallback(&huart2,sizeof(valid_v1));
+  assert(s_rx_recover&&!s_ops.pose_valid&&!APP_RX_Pending());
+  s_ops.pose_valid=1;HAL_UART_ErrorCallback(&huart2);assert(!s_ops.pose_valid&&s_rx_recover);
+  puts("OPS任务接收：ISR不解析、分包、接收时间、过期、溢出、DMA重启失败与失效唤醒通过");
+'''
+check=check.replace('  return 0;',queued_check+'  return 0;')
+queue_source=(ROOT/'RTOS_APP/app_rx.c').read_text(encoding='utf-8').replace('#include "main.h"','')
+code=prelude+rx_prelude+queue_source+'\n'+crc8_match.group(0)+'\n'
+code+='\n'.join(function(OPS,name) for name in functions+['OPS_IsOnline','HAL_UARTEx_RxEventCallback','OPS_ProcessPending','HAL_UART_ErrorCallback'])
+code=code.replace('  s_ops.frame_count++;','  s_ops.frame_count++; if(inject_rx_error){inject_rx_error=0;HAL_UART_ErrorCallback(&huart2);}')
+code+='\n'+check
 
 with tempfile.TemporaryDirectory(prefix="ilhc_ops_protocol_") as directory:
     folder = Path(directory)
@@ -289,7 +345,7 @@ with tempfile.TemporaryDirectory(prefix="ilhc_ops_protocol_") as directory:
     source.write_text(code, encoding="utf-8")
     subprocess.run(
         ["gcc", "-std=c99", "-Wall", "-Wextra", "-Werror",
-         str(source), "-lm", "-o", str(executable)],
+         "-I",str(ROOT/"RTOS_APP"),str(source), "-lm", "-o", str(executable)],
         check=True,
     )
     subprocess.run([str(executable)], check=True)

@@ -31,6 +31,7 @@ def block(start_marker, end_marker):
 
 prelude = r'''
 #include <stdint.h>
+static uint8_t s_fast_pending __attribute__((unused));
 #include <stddef.h>
 #include <assert.h>
 #include <string.h>
@@ -73,6 +74,8 @@ static void __enable_irq(void) {mask=0;}
 static uint8_t Debug_ParseStepper(const char *line) {(void)line; return 0U;}
 static uint8_t Debug_RejectCanCommand(const char *line) {(void)line; return 0U;}
 static void Debug_SetDmValue(const char *n, float v) {(void)n; (void)v;}
+static uint8_t Debug_ParseDmParams(const char *line) {(void)line; return 0;}
+static uint8_t DmJ4310_ParamBusy(void) {return 0;}
 static void Debug_ZdtAck(uint8_t e) {(void)e;}
 static uint8_t VisionTrack_IsActive(void) {return vision_active;}
 /* 参数回读只做名称转交（查表与文本格式化在 test_param_readback.py 里验） */

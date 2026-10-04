@@ -1,5 +1,13 @@
 # 驱动主机回归测试
 
+完整比赛整批轨迹：`python Tests/hardware/test_trajectory_buffer.py`（GCC及Qt目录现有Python依赖）。编译真实C接收/跟踪模块，与Python上传器端到端运行8个自动跑图场景、每轮7处站点实际启停、零TRESUME及取消/CRC/定位/调度等故障。点击路径另验证完整上传、初始/最终转头、连续路径和停转fallback、逐帧矩形扫掠和最终DONE。保留未来塔吊WAIT完成门专项，错误/过期/取消后完成不能续跑。不打开串口。
+`python Tests/hardware/test_trajectory_bridge.py`检查真实USART1轨迹桥接的取消竞态/OPS快照/心跳与四向世界速度换算。配套`test_debug_rx_recovery.py`增加异常取消和超长命令整行丢弃。均为离线/HAL替身，不证明真实电机和总线时序已经验证。
+
+DM内置梯形参数：`python Tests/hardware/test_dm_registers.py`（需要GCC）。
+编译真实DM驱动和调试桥接，验证CAN读写/显式回读、错误节点/RID、失能和反馈新鲜度门禁、
+邮箱忙/发送失败/超时、部分写入不一致、非法浮点、STOP/失联取消、队列满、PRIMASK恢复、tick回绕。
+不连接硬件，不证明电机固件支持或实际梯形曲线效果。
+
 X固件28/35步进通信：`python Tests/hardware/test_stepper_x_can.py`（需要GCC）。
 编译真实步进驱动及调试解析/调度函数，验证FD双包、RPM缩放、角度边界、状态/使能报文、
 邮箱不足重试、匹配回复与超时、事件队列及中断状态恢复。旧`test_debug_stepper.py`入口转调此测试。

@@ -520,6 +520,16 @@ void MecanumControl_MoveVelocity(float vxRpm, float vyRpm, float vzRpm)
   SetMotorVoltageAndDirection(wheel[0], wheel[1], wheel[2], wheel[3]);
 }
 
+void MecanumControl_MoveWorldVelocity(float vx,float vy,float omega,float yaw)
+{
+  float c,s;
+  if(!isfinite(vx) || !isfinite(vy) || !isfinite(omega) || !isfinite(yaw)) { MecanumControl_Stop();return; }
+  c=cosf(yaw*0.0174532925f);s=sinf(yaw*0.0174532925f);
+  /* 与chassis_move保持同一世界→车体旋转，不交换左右/前后轴。 */
+  MecanumControl_MoveVelocity((c*vx-s*vy)*0.238f,(s*vx+c*vy)*0.238f,
+                             omega*0.0174532925f*MECANUM_ROTATION_LEVER_MM*0.238f);
+}
+
 /**
  * @brief  基于 OPS 全局定位执行一次 GOTO 控制
  * @return 1 到位，0 未到位

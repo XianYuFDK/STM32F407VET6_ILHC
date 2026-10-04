@@ -1,0 +1,123 @@
+
+RUN: test_board_gpio.py
+Board GPIO and CubeMX configuration tests passed
+
+RUN: test_can_degraded.py
+CAN degraded startup and command isolation passed
+
+RUN: test_chassis_move.py
+chassis_move rotation, gain, limit, min and symmetry tests passed
+
+RUN: test_coordinate_chain.py
+Unified coordinate guards passed:
+  GUI/protocol/internal/telemetry use X=left, Y=front, Z=CCW directly
+  OPS raw axes use fixed mapping X=-raw_x, Y=raw_y
+  OPS ZERO rebuilds XY axes from the saved yaw
+  mecanum mixer, 24-channel JustFloat frame and existing commands unchanged
+
+RUN: test_debug_goto_hold.py
+GOTO one-shot and GOTOHOLD continuous position-loop tests passed
+
+RUN: test_debug_manual.py
+Manual parser / mixed velocity / timeout / tick wrap tests passed
+
+RUN: test_debug_rx_recovery.py
+USART1 RX recovery tests passed
+
+RUN: test_debug_stepper.py
+X stepper CAN bytes / debug routing / replies / retries passed
+
+RUN: test_debug_wheel.py
+Wheel enable/disable service / ordering / gate tests passed
+Chassis stop gate test passed (no speed frame while disabled)
+Firmware wheel lock command, gate and driver wiring passed
+
+RUN: test_debug_zdt.py
+ZDT tests passed
+
+RUN: test_dm_registers.py
+DM register CAN packing, read verification, cancellation and bridge gates passed
+
+RUN: test_mecanum_mixer.py
+Unified-coordinate mecanum mixer and ZDT direction tests passed
+
+RUN: test_ops_axis_direction.py
+OPS fixed axis direction X=-raw_x, Y=raw_y and ZERO frame passed
+
+RUN: test_ops_offset.py
+Unified OPS coordinate/offset/zero/raw/validation tests passed
+
+RUN: test_ops_protocol.py
+OPS protocol: V2 flags/CRC16, split stream, noise resync, CRC retry, V1 and session passed
+OPS任务接收：ISR不解析、分包、接收时间、过期、溢出、DMA重启失败与失效唤醒通过
+
+RUN: test_ops_zero_frame.py
+OPS ZERO frame math tests passed
+
+RUN: test_param_integration.py
+PASS: 16-field mapping, restore, IRQ boundaries, save ACK, fault isolation; no motion dependencies
+
+RUN: test_param_readback.py
+Param readback reply format, queue and gate tests passed
+Firmware param readback (GET) format, queue, gate and wiring passed
+
+RUN: test_param_store.py
+PASS: debounce, fields, rollover, power cuts, CRC, faults, v1 address migration
+
+RUN: test_parse_line_axes.py
+ParseLine unified X/Y protocol passed:
+  GOTO/GOTOHOLD/OPSOFFSET/MANUAL use X=left,Y=front directly
+  KPX->mKpx, KPY->mKpy
+
+RUN: test_rtos_app.py
+PASS: task ownership, creation failure, ISR startup, queue faults, STOP deadline, overrun/wrap, RX budget, Flash unlock, 1Hz stats
+
+RUN: test_runtime_faults.py
+runtime DM/wheel/TX fault state-machine tests and ISR safety latch races passed
+
+RUN: test_spi_flash.py
+PASS: SPI1 configuration, JEDEC, commands, bounds, busy, WEL, timeout, CS release
+
+RUN: test_stepper_x_can.py
+X stepper CAN bytes / debug routing / replies / retries passed
+
+RUN: test_trajectory_bridge.py
+整批桥接STOP/心跳/快照与四向世界速度换算通过
+
+RUN: test_trajectory_buffer.py
+test_clicked_path_upload_once_initial_rotation_and_local_execution (__main__.TrajectoryFirmwareTests.test_clicked_path_upload_once_initial_rotation_and_local_execution) ... ok
+test_crc_count_sequence_and_shape_fail_closed (__main__.TrajectoryFirmwareTests.test_crc_count_sequence_and_shape_fail_closed) ... ok
+test_duplicates_cannot_change_content_or_replay_start (__main__.TrajectoryFirmwareTests.test_duplicates_cannot_change_content_or_replay_start) ... ok
+test_entire_competition_upload_then_local_execution_all_obstacle_cases (__main__.TrajectoryFirmwareTests.test_entire_competition_upload_then_local_execution_all_obstacle_cases) ... ok
+test_entire_run_deadline_includes_station_wait (__main__.TrajectoryFirmwareTests.test_entire_run_deadline_includes_station_wait) ... ok
+test_future_crane_completion_requires_current_wait_and_cannot_revive_cancelled_batch (__main__.TrajectoryFirmwareTests.test_future_crane_completion_requires_current_wait_and_cannot_revive_cancelled_batch) ... ok
+test_initial_stop_requires_fresh_settled_pose_before_rotation (__main__.TrajectoryFirmwareTests.test_initial_stop_requires_fresh_settled_pose_before_rotation) ... ok
+test_ready_does_not_move_until_run_and_no_stop_at_samples (__main__.TrajectoryFirmwareTests.test_ready_does_not_move_until_run_and_no_stop_at_samples) ... ok
+test_rotation_holds_center_with_wheel_lag_and_turn_induced_drift (__main__.TrajectoryFirmwareTests.test_rotation_holds_center_with_wheel_lag_and_turn_induced_drift) ... ok
+test_rotation_position_fault_still_stops_outside_margin (__main__.TrajectoryFirmwareTests.test_rotation_position_fault_still_stops_outside_margin) ... ok
+test_screenshot_click_fallback_completes_with_turn_drift_and_wheel_lag (__main__.TrajectoryFirmwareTests.test_screenshot_click_fallback_completes_with_turn_drift_and_wheel_lag) ... ok
+test_stop_disabled_stale_jump_and_wrong_start (__main__.TrajectoryFirmwareTests.test_stop_disabled_stale_jump_and_wrong_start) ... ok
+test_terminal_rotation_and_wrapped_heading (__main__.TrajectoryFirmwareTests.test_terminal_rotation_and_wrapped_heading) ... ok
+test_wait_resume_keeps_batch_and_wrong_gate_does_not_release (__main__.TrajectoryFirmwareTests.test_wait_resume_keeps_batch_and_wrong_gate_does_not_release) ... ok
+test_watchdogs_and_deviation (__main__.TrajectoryFirmwareTests.test_watchdogs_and_deviation) ... ok
+
+----------------------------------------------------------------------
+Ran 15 tests in 55.760s
+
+OK
+C整批回放(含离线上传时间/停稳，不是实车计时)： [('none', 1, 860, 86.66), ('none', 2, 857, 86.6), ('one', 1, 860, 86.64), ('one', 2, 856, 82.86), ('four', 1, 1132, 102.08), ('four', 2, 1128, 98.58), ('screenshot', 1, 1607, 126.46), ('screenshot', 2, 1717, 132.5)]
+
+RUN: test_vision_control.py
+vision debug-control arbitration passed
+
+RUN: test_vision_rx.py
+vision V1.1 RX + track tests passed
+
+RUN: test_zdt_rx.py
+ZDT RX tests passed
+
+RUN: test_zdt_tx.py
+ZDT UART4 non-blocking TX queue tests passed
+ZDT TX 非阻塞队列测试通过
+
+HARDWARE SCRIPTS: 30; FAILED: []

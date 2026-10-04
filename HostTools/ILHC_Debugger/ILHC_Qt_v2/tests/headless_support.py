@@ -88,10 +88,11 @@ def make_window():
     w.map_target=None; w.planned_points=[]; w.planned_result=None; w._planned_context=None
     w.sim_obstacles=[]          # 模拟障碍：运行时演示物体，不写进地图数据
     w.follow=None; w.wheel_state=True; w.send_count=0
+    w._home_after_stop=False; w._direct_home=None
     w._plan_request_id=0; w._plan_cancel=None; w._plan_future=None; w._plan_context_pending=None
     w.nav_map=nav.load_map(ROOT/'navigation_map.json')
     w._planner_pool=ThreadPoolExecutor(max_workers=1)
-    for name in ('map_status','plan_info','plan_text','follow_btn','follow_timer','map_view',
+    for name in ('map_status','competition_status','plan_info','plan_text','follow_btn','follow_timer','map_view',
                  'obstacle_info','obstacle_mode_check','strafe_limit_check'):
         setattr(w,name,Widget())
     for name,value in (('map_ox_spin',0),('map_oy_spin',0),('map_theta_spin',0),

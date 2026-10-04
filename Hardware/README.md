@@ -1,5 +1,24 @@
 # Hardware
 
+## RTOS_APP任务归属（2026-10-04）
+
+应用任务已拆分到根目录 [RTOS_APP](../RTOS_APP/README.md)：底盘20ms控制与轮速归chassis，USART1/OPS解析、遥测和串口恢复归comm，DM/步进机构归mechanism，Flash参数保存归maintenance。原defaultTask已经移除；下文历史描述中的任务归属以此处和RTOS_APP维护说明为准。
+
+2026-10-04：点击目标规划复用trajectory_buffer整批缓存/本地执行。首点允许仅STOP位，支持从实际起始车头执行显式ROTATE；首点仍必须s=0，不能WAIT/ROTATE/ARC。其余协议和取消保护不变；编译及真实C离线回放通过，未烧录或实车运行。
+
+### 2026-10-03 完整比赛整批轨迹
+
+新增trajectory_buffer.c/.h：发车前缓存全部路段，CRC/结构复检后本地连续跟踪OPS。当前为自动跑图，7处站点位置/航向/停稳满足后自动继续，无需人工作业确认或TRESUME；最后返回启停区DONE。未来塔吊显式WAIT模式由Traj_CompleteStation释放当前站点，取消后不能复活旧路径。4096点/64KB，RAM总计约90KB/128KB。EIDE/Keil均已加入源文件；实机接收/运行代码已编译，未烧录或实物验证。
+新MecanumControl_MoveWorldVelocity保留世界/车体轴序；旋转轮距参数MECANUM_ROTATION_LEVER_MM须按实车标定。
+完整协议、操作及测试见[整批轨迹说明](../HostTools/ILHC_Debugger/ILHC_Qt_v2/Docs/STM32_BATCH_TRAJECTORY_20261003.md)。
+
+### 2026-10-03 DM内部梯形参数桥接
+
+dm_j4310.c/.h新增ACC/DEC成对异步读写及真实回读确认，debug_usart.c接入DMREAD和DMACCDEC。
+只修改电机RAM，单位Krad/s²，DEC为负；失能及300ms内实际CAN反馈才受理。
+STOP/DMOFF/心跳失联取消，发送失败/回读超时明确返回。24通道遥测、模式切换与Flash记录不变。
+接口、状态码及部分写入处理见调试指令手册顶部；真实C专项见Tests/hardware/test_dm_registers.py。
+
 ### 2026-09-10 驱动修正与注释
 
 28/35 和 OLED 的头文件已逐个说明参数单位、返回值、边界、刷新与调用限制。CAN 公共发送层改为局部发送头，短临界区保护邮箱提交；短帧先复制到八字节本地缓冲，避免 HAL 固定读取八字节时越过四字节回零命令。DLC 仍保持实际长度。分包提前检查整个 ID 范围，保留 HAL_BUSY 返回；本接口仍不保证总线原子送达。
@@ -98,7 +117,7 @@ SoftSPI_OLED_Refresh();
     OPS_ConsumeSessionChanged() 读取 V2 复位/重连事件
   - session_id 运行期变化时，任务层取消旧 GOTO；接收端自动把新会话首帧
     重设为本地零点参考，避免 OPS 复位后沿用旧原点
-  - USART2 错误回调只置恢复请求，默认任务通过 OPS_ServiceRx() 重挂 DMA
+  - USART2 错误回调只置恢复请求，通信任务通过 OPS_ServiceRx() 重挂 DMA
   - 统一轴序：X=左右（+车左）、Y=前后（+车头）、Z 逆时针为正；内部与协议同序同号，
     不再做 X/Y 交换或取反。OPS 原始帧到统一坐标固定为 `X=-raw_x、Y=raw_y`，
     不存在方向模式或其他分支。位置、绝对坐标、ZERO、`OPS_SetOrigin()` 和
@@ -114,7 +133,7 @@ SoftSPI_OLED_Refresh();
   - Emm 固件速度模式：地址 + 0xF6 + 方向 + 速度 + 加速度 + 同步 + 0x6B
   - 支持使能、失能、立即停止、速度模式控制
   - **发送为非阻塞**：`ZDT_X42S_InitTx()` 建立 UART4 中断发送队列，
-    `ZDT_X42S_ServiceTx()` 由默认任务每周期推进；控制任务只把帧压入固定长度队列，
+    `ZDT_X42S_ServiceTx()` 由底盘任务每周期推进；控制任务只把帧压入固定长度队列，
     轮速下发不再阻塞控制周期。同地址速度帧覆盖尚未发送的旧帧，停止/失能清除同地址
     待发送的旧速度，防止安全帧之后重新启动。TX 完成后由 TIM7 毫秒中断留出至少 1ms
     帧间空闲，再发下一帧；调度器启动前也能推进，所以 `InitTx` 必须在首次命令之前调用。
@@ -214,7 +233,7 @@ USART3已接入视觉协议V1响应接收，PE9 PWM用于夹爪舵机预留；PD
 同一逻辑任务重发复用同一序号，HAL忙时保留待发（换序号会被Jetson当成新任务）。
 `main.c`在USART3初始化后调用`Vision_Init()`；USART3中断做帧头、任务码、状态码、帧尾和CRC校验，
 逐字节滑动重同步（不清空整个缓冲、不按`0x77`截帧），完整响应存入15个可用槽位的队列；
-默认任务调用`Vision_ServiceRx()`恢复串口接收错误。
+通信任务调用`Vision_ServiceRx()`恢复串口接收错误。
 应用层用`Vision_PopResponse()`取结果，**只采用 `task` 与 `seq` 同时匹配当前活动任务的结果**，
 再按任务调用`Vision_DecodeTrack()`（TRACK载荷）、`Vision_DecodeTarget()`（SCAN载荷）或
 `Vision_DecodeQr()`。批量任务按 INDEX 位图去重并在 COMPLETE 时校验完整性（`Vision_GetBatch()`）；

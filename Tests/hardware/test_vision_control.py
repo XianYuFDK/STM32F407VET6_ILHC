@@ -101,7 +101,7 @@ with tempfile.TemporaryDirectory() as temporary:
     subprocess.run([str(exe)], check=True)
 
 # 控制优先级还包含默认任务中的STOP、失联和四轮故障路径。
-send = source[source.index("void DebugUsart_Send(void)"):]
+send = (source[source.index("static void Debug_ControlSafety(void)"):source.index("void DebugUsart_ControlEmergency(void)")] + source[source.index("void DebugUsart_ControlService(void)"):source.index("void DebugUsart_MechanismEmergency(void)")])
 assert "s_vision_req = 0xFFU;" in send
 assert send.index("Debug_ServiceVision();") < send.index("Debug_ServiceGoto();")
 assert send.index("Debug_ServiceVision();") < send.index("Debug_ServiceWheel();")

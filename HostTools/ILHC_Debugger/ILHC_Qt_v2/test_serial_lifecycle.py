@@ -39,6 +39,18 @@ class Port:
 
 
 class SerialLifecycleTests(unittest.TestCase):
+    def test_stop_timestamp_requires_a_complete_successful_write(self):
+        worker=core.SerialWorker('TEST',115200,queue.Queue(),queue.Queue())
+        worker.ser=Port()
+        with patch.object(worker.ser,'write',return_value=2):
+            self.assertFalse(worker._write_line('STOP'))
+        self.assertEqual(worker.last_stop_write_monotonic,0)
+        with patch.object(core.time,'monotonic',return_value=123.5):
+            self.assertTrue(worker._write_line('STOP'))
+        self.assertEqual(worker.last_stop_write_monotonic,123.5)
+        self.assertTrue(worker._write_line('GOTO=0,0,0'))
+        self.assertEqual(worker.last_stop_write_monotonic,123.5)
+
     def test_stop_while_port_is_opening(self):
         port = Port()
         opening = threading.Event()

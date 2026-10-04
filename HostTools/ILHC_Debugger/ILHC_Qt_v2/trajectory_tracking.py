@@ -2,9 +2,9 @@
 from bisect import bisect_right
 import math
 
-from core import layout_to_field, field_to_layout
+from core import layout_to_field, field_to_layout, SEND_HZ
 from navigation_planner import EPS, finite_number, point2
-from trajectory import _normalize, _ends, _pose_at
+from trajectory import _normalize, _ends, _pose_at, _tangent_at, _motion_mode
 
 LOOKAHEAD_MM = 100.0
 
@@ -22,9 +22,11 @@ class TrajectoryTracker:
         self.last_position = None
         self.cross_track = 0.0
         self.yaws = [finite_number(samples[0]['field_yaw_deg'], '起始切线航向')]
+        self.tangent_yaws = [finite_number(samples[0].get('tangent_yaw_deg', samples[0]['field_yaw_deg']), '起始行驶切线')]
         for before, after in zip(self.pieces, self.pieces[1:]):
             change = before['yaw_out']-before['yaw_in']
             self.yaws.append(self.yaws[-1]-change)
+            self.tangent_yaws.append(self.tangent_yaws[-1]-(before['tangent_out']-before['tangent_in']))
         if abs(finite_number(samples[-1]['s_mm'], '最终弧长')-self.length) > 1e-5:
             raise ValueError('Trajectory与连续几何总长不一致')
 
@@ -35,8 +37,13 @@ class TrajectoryTracker:
         piece = self.pieces[index]
         lx, ly, yaw = _pose_at(piece, station-begin)
         fx, fy = layout_to_field(lx, ly)
-        return dict(x_mm=fx, y_mm=fy, field_yaw_deg=self.yaws[index]-(yaw-piece['yaw_in']),
-                    s_mm=station, segment_type='STOP' if station >= self.length-EPS else piece['kind'])
+        reference = dict(x_mm=fx, y_mm=fy, field_yaw_deg=self.yaws[index]-(yaw-piece['yaw_in']),
+                         s_mm=station, segment_type='STOP' if station >= self.length-EPS else piece['kind'])
+        if piece['explicit_heading']:
+            tangent = _tangent_at(piece, station-begin)
+            reference.update(tangent_yaw_deg=self.tangent_yaws[index]-(tangent-piece['tangent_in']),
+                             motion_mode=_motion_mode(-90-yaw, -90-tangent))
+        return reference
 
     def update_progress(self, position):
         position = point2(position, '实际位置')
@@ -88,14 +95,28 @@ class TrajectoryTracker:
         yaw_error = (ref['field_yaw_deg']-yaw+180) % 360-180
         speed_limit = max(0.0, finite_number(speed_limit, '模拟限速'))
         yaw_rate_limit = max(0.0, finite_number(yaw_rate_limit, '模拟角速度'))
-        # 小半径限速，使转弯角速度有足够余量；不存在中间点停稳条件。
+        # 前视窗口提前按最小圆弧限速，进入小半径时保留角速度余量。
         index = min(bisect_right(self.ends, self.progress), len(self.pieces)-1)
-        piece = self.pieces[index]
-        if piece['kind'] == 'ARC':
-            speed_limit = min(speed_limit, piece['radius_mm']*math.radians(yaw_rate_limit)*.8)
+        for i in range(index, len(self.pieces)):
+            begin = self.ends[i-1] if i else 0.0
+            if begin > ref['s_mm']+EPS:
+                break
+            piece = self.pieces[i]
+            if piece['kind'] == 'ARC' and piece['heading_mode'] != 'FIXED':
+                speed_limit = min(speed_limit, piece['radius_mm']*math.radians(yaw_rate_limit)*.8)
         speed = min(speed_limit, distance*4.0) if ref['segment_type'] == 'STOP' else speed_limit
-        omega = max(-yaw_rate_limit, min(yaw_rate_limit, yaw_error*6.0))
+        # 100mm参考保留；车体沿当前投影处的切线/曲率运动，避免直接追前视弦而切内。
+        # 弧长只来自实际位置的单调投影，不按帧数推进，也没有中间采样点到位门。
+        here = self.reference_at(self.progress)
+        ahead = self.reference_at(self.progress+speed/SEND_HZ)
+        vx = SEND_HZ*(ahead['x_mm']-here['x_mm'])+6*(here['x_mm']-x)
+        vy = SEND_HZ*(ahead['y_mm']-here['y_mm'])+6*(here['y_mm']-y)
+        magnitude = math.hypot(vx, vy)
+        if magnitude > speed_limit and magnitude > EPS:
+            vx, vy = vx*speed_limit/magnitude, vy*speed_limit/magnitude
+        heading_error = (here['field_yaw_deg']-yaw+180) % 360-180
+        omega = SEND_HZ*(ahead['field_yaw_deg']-here['field_yaw_deg'])+6*heading_error
+        omega = max(-yaw_rate_limit, min(yaw_rate_limit, omega))
         if ref['segment_type'] == 'STOP' and distance <= .5 and abs(yaw_error) <= .3:
-            speed, omega = 0.0, 0.0
-        velocity = (0.0, 0.0) if distance <= EPS else (speed*dx/distance, speed*dy/distance)
-        return ref, velocity, omega
+            vx, vy, omega = 0.0, 0.0, 0.0
+        return ref, (vx, vy), omega

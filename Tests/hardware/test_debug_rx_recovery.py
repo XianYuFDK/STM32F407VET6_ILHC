@@ -8,7 +8,7 @@ source = (Path(__file__).resolve().parents[2] / "Hardware/debug_usart.c").read_t
 def function(name):
     # 匹配定义行，避免先匹配调用处或回调注册处。
     import re
-    m = re.search(r"^(?:static )?void " + name + r"\([^;]*?\)\s*\{", source, re.M)
+    m = re.search(r"^(?:static )?(?:void|uint8_t) " + name + r"\([^;]*?\)\s*\{", source, re.M)
     assert m, name
     end, depth = m.end(), 1
     while depth:
@@ -18,6 +18,8 @@ def function(name):
 
 code = r'''
 #include <stdint.h>
+#include "app_rx.h"
+#define DEBUG_OPS_TIMEOUT_MS 200U
 #include <stddef.h>
 #include <string.h>
 #include <assert.h>
@@ -37,13 +39,24 @@ typedef struct {int State;} DMA_HandleTypeDef;
 typedef struct {void *Instance; int gState; DMA_HandleTypeDef *hdmarx;} UART_HandleTypeDef;
 static DMA_HandleTypeDef dma;
 static UART_HandleTypeDef huart1 = {USART1, HAL_UART_STATE_READY, &dma};
-static uint8_t s_rx[256], s_line[64], s_rx_callbacks_ready;
+static uint8_t s_rx[256], s_rx_copy[256], s_line[64], s_rx_callbacks_ready, s_line_discard;
 static volatile uint8_t s_rx_recover;
 static uint16_t s_line_len;
+static char s_fast_line[16];
+static uint8_t s_fast_len,s_fast_discard,s_rx_discard_pending,s_fast_pending;
+static uint8_t s_stop_req,s_zero_req,s_wheel_req,s_dm_disable_req;
+static uint32_t s_parser_epoch,control_notifications,comm_notifications,mechanism_notifications;
+static void RTOS_APP_NotifyControl(void){++control_notifications;}
+static void RTOS_APP_NotifyComm(void){++comm_notifications;}
+static void RTOS_APP_NotifyMechanism(void){++mechanism_notifications;}
+static void __DMB(void){}
 static uint32_t s_host_last_tick, tick, mask;
 static int start_result, abort_result, dma_abort_result, register_result;
 static int start_calls, abort_calls, dma_abort_calls, ht_disabled, clear_calls, registered;
 static int parse_calls, inject_error;
+static uint32_t trajectory_cancels;
+static void Traj_Cancel(uint8_t reason) {assert(reason==19U||reason==15U);trajectory_cancels++;}
+static uint8_t Debug_TrajectoryRx(const char *line) {(void)line;return 0;}
 static char parsed[64];
 static void DebugUsart_ErrorCallback(UART_HandleTypeDef *);
 void DebugUsart_RxEventCallback(UART_HandleTypeDef *, uint16_t);
@@ -69,10 +82,12 @@ static int HAL_UARTEx_ReceiveToIdle_DMA(UART_HandleTypeDef *h,uint8_t *p,uint16_
 #define __HAL_DMA_DISABLE_IT(h,it) (++ht_disabled)
 static void Debug_ParseLine(char *line) {++parse_calls;strcpy(parsed,line);}
 '''
-for name in ("DebugUsart_ErrorCallback", "DebugUsart_StartRx", "DebugUsart_ServiceRx", "DebugUsart_RxEventCallback"):
-    code += function(name) + "\n"
+queue_source=(Path(__file__).resolve().parents[2]/'RTOS_APP/app_rx.c').read_text(encoding='utf-8').replace('#include "main.h"','')
+code+=queue_source+'\n'
+for name in ('Debug_StrCaseCmp','Debug_ResetRxStream','DebugUsart_ErrorCallback','DebugUsart_StartRx','DebugUsart_ServiceRx','Debug_FastSafetyByte','DebugUsart_RxEventCallback','DebugUsart_ProcessPending'):
+    code+=function(name)+'\n'
 code += r'''
-static void receive(const char *s){memcpy(s_rx,s,strlen(s));DebugUsart_RxEventCallback(&huart1,(uint16_t)strlen(s));}
+static void receive(const char *s){memcpy(s_rx,s,strlen(s));int previous=parse_calls;DebugUsart_RxEventCallback(&huart1,(uint16_t)strlen(s));assert(parse_calls==previous);if(!s_rx_recover)DebugUsart_ProcessPending();}
 int main(void) {
  int before;
  UART_HandleTypeDef other={(void *)2,0,&dma};
@@ -86,7 +101,7 @@ int main(void) {
  DebugUsart_ErrorCallback(&huart1);assert(s_rx_recover);
  receive("T=4,50,2\n");assert(!parse_calls&&s_host_last_tick==0);
  DebugUsart_ServiceRx();assert(!s_rx_recover&&s_line_len==0&&s_host_last_tick==0);
- receive("STOP\r\n");assert(parse_calls==1&&!strcmp(parsed,"STOP")&&s_host_last_tick==42);
+ receive("\n");receive("STOP\r\n");assert(s_stop_req&&control_notifications&&!parse_calls&&s_host_last_tick==42);
  /* 接收回调重启失败由任务恢复，恢复不改变正在发送的TX状态。 */
  start_result=HAL_BUSY;receive("PING\n");assert(s_rx_recover);
  start_result=HAL_OK;huart1.gState=HAL_UART_STATE_BUSY_TX;DebugUsart_ServiceRx();assert(!s_rx_recover&&huart1.gState==HAL_UART_STATE_BUSY_TX);
@@ -103,12 +118,32 @@ int main(void) {
  inject_error=1;DebugUsart_StartRx();assert(s_rx_recover);
  DebugUsart_ServiceRx();assert(!s_rx_recover);
  mask=1;DebugUsart_StartRx();assert(mask==1);mask=0;
+ /* 超长命令整行丢弃，尾部STOP不能被误识别；恢复之后新命令仍正常。 */
+ before=parse_calls;
+ receive("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxSTOP\n");
+ assert(parse_calls==before && !s_line_discard && trajectory_cancels>0);
+ receive("PING\n");assert(parse_calls==before+1 && !strcmp(parsed,"PING"));
+ /* STOP清除积压动作；分包、大小写与前导空格均走快速通道。 */
+ before=parse_calls;memcpy(s_rx,"GOTO=1,2\n",9);DebugUsart_RxEventCallback(&huart1,9);
+ assert(APP_RX_Pending());memcpy(s_rx,"\tst",3);DebugUsart_RxEventCallback(&huart1,3);receive("op\n");
+ assert(!APP_RX_Pending()&&parse_calls==before&&(s_fast_pending&1));
+ receive("WHEELOFF\n");assert(s_wheel_req==2&&(s_fast_pending&2));
+ s_wheel_req=1;assert(s_fast_pending&2); /* 模拟旧解析覆盖普通请求，独立锁存仍存在。 */
+ memcpy(s_rx,"DMEN\n",5);DebugUsart_RxEventCallback(&huart1,5);
+ receive("DMOFF\n");assert(!APP_RX_Pending()&&s_dm_disable_req&&(s_fast_pending&8)&&mechanism_notifications);
+ /* 接收队满必须停车并丢弃旧队列，不能截断后继续运行。 */
+ for(unsigned j=0;j<8;j++){memcpy(s_rx,"PING\n",5);DebugUsart_RxEventCallback(&huart1,5);}
+ assert(app_rx_overflows[APP_RX_HOST]==1&&!APP_RX_Pending()&&s_stop_req);
+ /* 延后解析的旧包不能刷新心跳。 */
+ tick=100;memcpy(s_rx,"PING\n",5);DebugUsart_RxEventCallback(&huart1,5);
+ uint32_t old_tick=s_host_last_tick;tick=301;DebugUsart_ProcessPending();
+ assert(s_host_last_tick==old_tick&&!APP_RX_Pending());
  return 0;
 }
 '''
 with tempfile.TemporaryDirectory(prefix="ilhc_rx_recovery_") as d:
     src, exe = Path(d) / "test.c", Path(d) / "test.exe"
     src.write_text(code, encoding="utf-8")
-    subprocess.run(["gcc", "-std=c99", "-Wall", "-Wextra", "-Werror", str(src), "-o", str(exe)], check=True)
+    subprocess.run(["gcc", "-std=c99", "-Wall", "-Wextra", "-Werror", "-I", str(Path(__file__).resolve().parents[2]/"RTOS_APP"), str(src), "-o", str(exe)], check=True)
     subprocess.run([str(exe)], check=True)
 print("USART1 RX recovery tests passed")

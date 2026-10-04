@@ -1,0 +1,102 @@
+test_crc_count_sequence_and_shape_fail_closed (__main__.TrajectoryFirmwareTests.test_crc_count_sequence_and_shape_fail_closed) ... ok
+test_duplicates_cannot_change_content_or_replay_start (__main__.TrajectoryFirmwareTests.test_duplicates_cannot_change_content_or_replay_start) ... ok
+test_entire_competition_upload_then_local_execution_all_obstacle_cases (__main__.TrajectoryFirmwareTests.test_entire_competition_upload_then_local_execution_all_obstacle_cases) ... 
+  test_entire_competition_upload_then_local_execution_all_obstacle_cases (__main__.TrajectoryFirmwareTests.test_entire_competition_upload_then_local_execution_all_obstacle_cases) (scene='none', zone=1) ... ERROR
+  test_entire_competition_upload_then_local_execution_all_obstacle_cases (__main__.TrajectoryFirmwareTests.test_entire_competition_upload_then_local_execution_all_obstacle_cases) (scene='none', zone=2) ... ERROR
+  test_entire_competition_upload_then_local_execution_all_obstacle_cases (__main__.TrajectoryFirmwareTests.test_entire_competition_upload_then_local_execution_all_obstacle_cases) (scene='one', zone=1) ... ERROR
+  test_entire_competition_upload_then_local_execution_all_obstacle_cases (__main__.TrajectoryFirmwareTests.test_entire_competition_upload_then_local_execution_all_obstacle_cases) (scene='one', zone=2) ... ERROR
+  test_entire_competition_upload_then_local_execution_all_obstacle_cases (__main__.TrajectoryFirmwareTests.test_entire_competition_upload_then_local_execution_all_obstacle_cases) (scene='four', zone=1) ... ERROR
+  test_entire_competition_upload_then_local_execution_all_obstacle_cases (__main__.TrajectoryFirmwareTests.test_entire_competition_upload_then_local_execution_all_obstacle_cases) (scene='four', zone=2) ... ERROR
+  test_entire_competition_upload_then_local_execution_all_obstacle_cases (__main__.TrajectoryFirmwareTests.test_entire_competition_upload_then_local_execution_all_obstacle_cases) (scene='screenshot', zone=1) ... ERROR
+  test_entire_competition_upload_then_local_execution_all_obstacle_cases (__main__.TrajectoryFirmwareTests.test_entire_competition_upload_then_local_execution_all_obstacle_cases) (scene='screenshot', zone=2) ... ERROR
+test_ready_does_not_move_until_run_and_no_stop_at_samples (__main__.TrajectoryFirmwareTests.test_ready_does_not_move_until_run_and_no_stop_at_samples) ... ok
+test_stop_disabled_stale_jump_and_wrong_start (__main__.TrajectoryFirmwareTests.test_stop_disabled_stale_jump_and_wrong_start) ... ok
+test_terminal_rotation_and_wrapped_heading (__main__.TrajectoryFirmwareTests.test_terminal_rotation_and_wrapped_heading) ... ok
+test_wait_resume_keeps_batch_and_wrong_gate_does_not_release (__main__.TrajectoryFirmwareTests.test_wait_resume_keeps_batch_and_wrong_gate_does_not_release) ... ok
+test_watchdogs_and_deviation (__main__.TrajectoryFirmwareTests.test_watchdogs_and_deviation) ... ok
+
+======================================================================
+ERROR: test_entire_competition_upload_then_local_execution_all_obstacle_cases (__main__.TrajectoryFirmwareTests.test_entire_competition_upload_then_local_execution_all_obstacle_cases) (scene='none', zone=1)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\Tests\hardware\test_trajectory_buffer.py", line 197, in test_entire_competition_upload_then_local_execution_all_obstacle_cases
+    batch=make_match_batch(match,mapping,scene,token=17)
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\hardware_trajectory.py", line 92, in make_match_batch
+    raise ValueError('ʵ��Բ��ϸ����ʧ�ܣ�'+dense['trajectory_reason'])
+ValueError: ʵ��Բ��ϸ����ʧ�ܣ�'sweep'
+
+======================================================================
+ERROR: test_entire_competition_upload_then_local_execution_all_obstacle_cases (__main__.TrajectoryFirmwareTests.test_entire_competition_upload_then_local_execution_all_obstacle_cases) (scene='none', zone=2)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\Tests\hardware\test_trajectory_buffer.py", line 197, in test_entire_competition_upload_then_local_execution_all_obstacle_cases
+    batch=make_match_batch(match,mapping,scene,token=17)
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\hardware_trajectory.py", line 92, in make_match_batch
+    raise ValueError('ʵ��Բ��ϸ����ʧ�ܣ�'+dense['trajectory_reason'])
+ValueError: ʵ��Բ��ϸ����ʧ�ܣ�'sweep'
+
+======================================================================
+ERROR: test_entire_competition_upload_then_local_execution_all_obstacle_cases (__main__.TrajectoryFirmwareTests.test_entire_competition_upload_then_local_execution_all_obstacle_cases) (scene='one', zone=1)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\Tests\hardware\test_trajectory_buffer.py", line 197, in test_entire_competition_upload_then_local_execution_all_obstacle_cases
+    batch=make_match_batch(match,mapping,scene,token=17)
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\hardware_trajectory.py", line 92, in make_match_batch
+    raise ValueError('ʵ��Բ��ϸ����ʧ�ܣ�'+dense['trajectory_reason'])
+ValueError: ʵ��Բ��ϸ����ʧ�ܣ�'sweep'
+
+======================================================================
+ERROR: test_entire_competition_upload_then_local_execution_all_obstacle_cases (__main__.TrajectoryFirmwareTests.test_entire_competition_upload_then_local_execution_all_obstacle_cases) (scene='one', zone=2)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\Tests\hardware\test_trajectory_buffer.py", line 197, in test_entire_competition_upload_then_local_execution_all_obstacle_cases
+    batch=make_match_batch(match,mapping,scene,token=17)
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\hardware_trajectory.py", line 92, in make_match_batch
+    raise ValueError('ʵ��Բ��ϸ����ʧ�ܣ�'+dense['trajectory_reason'])
+ValueError: ʵ��Բ��ϸ����ʧ�ܣ�'sweep'
+
+======================================================================
+ERROR: test_entire_competition_upload_then_local_execution_all_obstacle_cases (__main__.TrajectoryFirmwareTests.test_entire_competition_upload_then_local_execution_all_obstacle_cases) (scene='four', zone=1)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\Tests\hardware\test_trajectory_buffer.py", line 197, in test_entire_competition_upload_then_local_execution_all_obstacle_cases
+    batch=make_match_batch(match,mapping,scene,token=17)
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\hardware_trajectory.py", line 92, in make_match_batch
+    raise ValueError('ʵ��Բ��ϸ����ʧ�ܣ�'+dense['trajectory_reason'])
+ValueError: ʵ��Բ��ϸ����ʧ�ܣ�'sweep'
+
+======================================================================
+ERROR: test_entire_competition_upload_then_local_execution_all_obstacle_cases (__main__.TrajectoryFirmwareTests.test_entire_competition_upload_then_local_execution_all_obstacle_cases) (scene='four', zone=2)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\Tests\hardware\test_trajectory_buffer.py", line 197, in test_entire_competition_upload_then_local_execution_all_obstacle_cases
+    batch=make_match_batch(match,mapping,scene,token=17)
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\hardware_trajectory.py", line 92, in make_match_batch
+    raise ValueError('ʵ��Բ��ϸ����ʧ�ܣ�'+dense['trajectory_reason'])
+ValueError: ʵ��Բ��ϸ����ʧ�ܣ�'sweep'
+
+======================================================================
+ERROR: test_entire_competition_upload_then_local_execution_all_obstacle_cases (__main__.TrajectoryFirmwareTests.test_entire_competition_upload_then_local_execution_all_obstacle_cases) (scene='screenshot', zone=1)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\Tests\hardware\test_trajectory_buffer.py", line 197, in test_entire_competition_upload_then_local_execution_all_obstacle_cases
+    batch=make_match_batch(match,mapping,scene,token=17)
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\hardware_trajectory.py", line 92, in make_match_batch
+    raise ValueError('ʵ��Բ��ϸ����ʧ�ܣ�'+dense['trajectory_reason'])
+ValueError: ʵ��Բ��ϸ����ʧ�ܣ�'sweep'
+
+======================================================================
+ERROR: test_entire_competition_upload_then_local_execution_all_obstacle_cases (__main__.TrajectoryFirmwareTests.test_entire_competition_upload_then_local_execution_all_obstacle_cases) (scene='screenshot', zone=2)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\Tests\hardware\test_trajectory_buffer.py", line 197, in test_entire_competition_upload_then_local_execution_all_obstacle_cases
+    batch=make_match_batch(match,mapping,scene,token=17)
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\hardware_trajectory.py", line 92, in make_match_batch
+    raise ValueError('ʵ��Բ��ϸ����ʧ�ܣ�'+dense['trajectory_reason'])
+ValueError: ʵ��Բ��ϸ����ʧ�ܣ�'sweep'
+
+----------------------------------------------------------------------
+C�����ط�(�������ϴ�ʱ��/ͣ�ȣ�����ʵ����ʱ)�� []
+Ran 8 tests in 50.570s
+
+FAILED (errors=8)

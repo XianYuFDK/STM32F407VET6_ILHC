@@ -89,6 +89,40 @@ class MonotoneProgressTests(unittest.TestCase):
 
 
 class SimulatorContinuousTests(unittest.TestCase):
+    def test_narrow_competition_corner_tracks_without_chord_cutting_into_yellow_zone(self):
+        import competition_simulation as competition
+        geometry = competition.collision_scene(competition.load_profile())
+        smooth = smooth_90_corners(*competition._ledger(
+            [(1200, 2030), (2100, 2030), (2100, 400), (1200, 400)]), geometry)
+        result = generate_trajectory(smooth['smoothed_primitives'], geometry)
+        self.assertTrue(result['trajectory_safe'])
+        sim = core.Simulator(queue.Queue(), queue.Queue()); sim.handle_line('ZERO')
+        first = result['trajectory'][0]
+        sim.hold = first['x_mm'], first['y_mm']; sim.zval = 90-first['field_yaw_deg']
+        sim.submit_navigation_trajectory(sim.begin_navigation(), result['trajectory'],
+                                         smooth['smoothed_primitives'], (0, 0, 0), geometry)
+        maximum_error = 0.0
+        for i in range(3000):
+            sim.make_frame(i*.02)
+            snap = sim.navigation_snapshot()
+            maximum_error = max(maximum_error, snap['cross_track_mm'])
+            if not snap['tracking']: break
+        self.assertEqual(snap['tracking_status'], 'COMPLETE', snap['fault'])
+        self.assertLess(maximum_error, .5)
+
+    def test_lookahead_keeps_arc_reference_without_premature_turn_or_sideways_chord_motion(self):
+        result, primitives, _scene = prepared()
+        tracker = TrajectoryTracker(result['trajectory'], primitives)
+        for x in range(500, 1341, 10):
+            tracker.update_progress(core.layout_to_field(x, 500))
+        ref, velocity, omega = tracker.command((*core.layout_to_field(1340, 500), -90), 250, 120)
+        self.assertEqual(ref['s_mm']-tracker.progress, 100)
+        self.assertEqual(ref['segment_type'], 'ARC')
+        self.assertNotEqual(ref['field_yaw_deg'], -90)
+        self.assertAlmostEqual(velocity[0], 0)
+        self.assertLess(velocity[1], 0)
+        self.assertAlmostEqual(omega, 0)
+
     def test_straight_l_z_u_complete_without_intermediate_stops(self):
         routes = ([(500, 500), (1500, 500)], L,
                   [(500, 500), (1500, 500), (1500, 900), (2000, 900)],

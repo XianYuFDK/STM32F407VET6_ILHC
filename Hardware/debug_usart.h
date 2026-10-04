@@ -20,6 +20,9 @@
  *                          DMID=3 / DMEN / DMOFF / DMZERO
  *                          DMMODE=1 (MIT) / DMMODE=2 (位置速度)
  *                          DMPOS=3.14 / DMVEL=2 / DMKP=2 / DMKD=1 / DMTOR=0.5
+ *                          DMREAD=序号 / DMACCDEC=序号,加速度,负减速度
+ *                          序号1..65535；ACC/DEC原始单位Krad/s²，失能反馈300ms内才接受
+ *                          成对读写电机RAM并通过DMREG文字行回传真实回读，24通道不变
  *          - 调试动作超过 1s 未收到任何命令/PING 时，底盘停车、视觉跟踪退出且 DM 失能
  ******************************************************************************
  */
@@ -31,6 +34,7 @@ extern "C" {
 #endif
 
 #include "main.h"
+#include "debug_param_store.h"
 
 /* VOFA+ JustFloat 通道数：12 路底盘 + 12 路 DM 电机 */
 #define DEBUG_VOFA_CHANNELS   24U
@@ -43,11 +47,20 @@ void DebugUsart_Init(void);
 
 
 /**
- * @brief  发送一次 VOFA+ JustFloat 数据帧，并处理待执行命令
- * @note   同时恢复异常中断的USART1接收，只复位RX，不主动中止TX。
- * @note   建议 10~50ms 周期调用
+ * @brief  通信任务独占USART1 TX，发送应答或24通道遥测；不执行运动或Flash。
  */
 void DebugUsart_Send(void);
+
+/* 以下服务由RTOS_APP在应用状态锁内调用，禁止其他任务直接输出轮速。 */
+void DebugUsart_ControlService(void);
+void DebugUsart_ControlEmergency(void);
+void DebugUsart_MechanismService(void);
+void DebugUsart_MechanismEmergency(void);
+void DebugUsart_ProcessPending(void);
+void DebugUsart_ParamSnapshot(DebugParamValues *values);
+void DebugUsart_ParamResult(ParamStoreResult result);
+/* 仅通信任务调用；TX恢复在状态锁外执行。 */
+void DebugUsart_CommunicationRecover(void);
 
 /**
  * @brief  USART1 空闲接收回调（由 HAL 注册调用）

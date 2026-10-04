@@ -19,6 +19,7 @@ static uint8_t ZDT_X42S_PopReply(uint8_t *p){(void)p;return 0;}
 static uint32_t s_zdt_tick,s_zdt_duration,tick,stops,enables,speeds,last_addr,last_dir;
 static uint32_t disables,cstops,cclears;
 static uint8_t s_wheel_enable_pending, s_wheel_fault, s_stop_in_progress;
+static uint8_t s_fast_pending __attribute__((unused));
 static uint8_t s_wheel_enabled=1;
 static void Debug_ZdtAck(uint8_t event){(void)event;}
 static uint32_t __get_PRIMASK(void){return 0;}

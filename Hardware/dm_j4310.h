@@ -109,6 +109,23 @@ uint8_t DmJ4310_PosVelControl(uint16_t canId, float pos, float vel);
  */
 uint8_t DmJ4310_SetControlMode(uint16_t canId, uint8_t mode);
 
+/* ACC(4)/DEC(5) 成对读写。只更新电机 RAM，不保存电机 Flash。
+ * Start 只登记请求；Service 在任务中非阻塞提交 CAN，OnRx 仅缓存读应答。
+ * status: 0回读有效、1拒绝/忙、2发送失败、3超时、4写入不一致、5取消、6非法值。
+ * seq 只关联 USART 应答，电机 CAN 协议本身没有事务序号。 */
+typedef struct {
+  uint16_t seq, id;
+  uint8_t status;
+  float acc, dec;
+} DmJ4310ParamResult_t;
+uint8_t DmJ4310_ParamStart(uint16_t id, uint16_t seq, uint8_t write,
+                          float acc, float dec);
+uint8_t DmJ4310_ParamBusy(void);
+void DmJ4310_ParamCancel(void);
+void DmJ4310_ParamService(void);
+void DmJ4310_ParamOnRx(const uint8_t *data);
+uint8_t DmJ4310_ParamTakeResult(DmJ4310ParamResult_t *result);
+
 /**
  * @brief  使能电机（命令帧：FF...FC）
  * @param  canId 电机 ID

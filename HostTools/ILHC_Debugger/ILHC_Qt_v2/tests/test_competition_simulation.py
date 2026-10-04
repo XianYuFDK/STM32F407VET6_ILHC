@@ -99,6 +99,53 @@ class CompetitionFlowTests(unittest.TestCase):
         second_pick = [i for i, s in enumerate(stages) if s['kind'] == 'RAW_PICK' and s['batch'] == 2]
         self.assertLess(max(first_store), min(second_pick))
 
+    def test_mecanum_round_compares_direction_cost_and_keeps_diagonal_docking(self):
+        for zone, match in self.matches.items():
+            with self.subTest(zone=zone):
+                self.assertTrue(match['diagonal_docking'])
+                maneuvers = [s for s in match['stages'] if s['kind'] == 'MANEUVER']
+                self.assertEqual(maneuvers[0]['target'], tuple(self.data['competition']['staging'][str(zone)]))
+                self.assertEqual(maneuvers[-1]['target'], tuple(match['home']))
+                self.assertEqual(match['start_yaw'], 180)  # 初始车头仍+Y，界面0°。
+                headings = {round(p['field_yaw_deg'], 2) for l in match['legs'] for p in l['route']['trajectory']}
+                self.assertGreater(len(headings), 1)
+                modes = {p['motion_mode'] for l in match['legs'] for p in l['route']['trajectory']}
+                self.assertTrue({'FORWARD','REVERSE','DIAGONAL'} <= modes)
+                for l in match['legs']:
+                    self.assertTrue(l['route']['trajectory_safe'])
+                    self.assertIn('selection', l['route'])
+                    self.assertEqual(l['route']['selection']['policy'], 'DIRECTION_COST_AND_VERIFIED_TIME')
+                for leg in (match['legs'][2], match['legs'][5]):
+                    self.assertLess(leg['route']['motion_metrics']['longest_strafe_mm'], 1)
+                    self.assertAlmostEqual(leg['route']['trajectory_length_mm'], 1630)
+
+    def test_screenshot_one_obstacle_has_straight_lanes_and_no_raw_to_rough_strafe(self):
+        from mecanum_planner import shallow_diagonal
+        match = competition.compile_match(self.data, sim_obstacles=[(700, 1200)])
+        for leg in match['legs']:
+            points = leg['route'].get('driving_points', leg['route']['points'])
+            self.assertFalse(any(shallow_diagonal(a, b) for a, b in zip(points, points[1:])), leg['label'])
+        for leg in (match['legs'][2], match['legs'][5]):
+            self.assertLess(leg['route']['motion_metrics']['lateral_mm'], 1)
+            self.assertEqual({p['motion_mode'] for p in leg['route']['trajectory']}, {'FORWARD'})
+        runner = runner_for(match)
+        until(runner, lambda r: not r.active)
+        self.assertEqual(runner.status, 'COMPLETE', runner.reason)
+        self.assertEqual((runner.grabs, runner.placements), (12, 12))
+
+    def test_blocked_diagonal_docking_uses_safe_l_maneuvers(self):
+        match = competition.compile_match(self.data, sim_obstacles=[(2340,2070)])
+        scene = competition.collision_scene(self.data, sim_obstacles=match['sim_obstacles'])
+        staging = tuple(self.data['competition']['staging']['1'])
+        self.assertIsNotNone(scene.translation_reason(match['home'], staging, match['start_yaw']))
+        self.assertFalse(match['diagonal_docking'])
+        self.assertEqual(match['stages'][0]['target'], (2100,2250))
+        self.assertEqual(match['stages'][1]['target'], staging)
+        runner = runner_for(match)
+        until(runner, lambda r:not r.active)
+        self.assertEqual(runner.status, 'COMPLETE', runner.reason)
+        self.assertEqual((runner.grabs,runner.placements), (12,12))
+
     def test_code_display_waits_for_qr_arrival_and_scan_action(self):
         runner = runner_for(self.matches[1])
         until(runner, lambda r: r.stage['kind'] == 'SCAN')
@@ -266,6 +313,68 @@ class CompetitionObstacleTests(unittest.TestCase):
         self.assertEqual((runner.sim.hold, runner.sim.zval), before)
         self.assertFalse(runner.sim.navigation_snapshot()['tracking'])
         self.assertEqual((runner.grabs, runner.placements), (0, 0))
+
+
+class AvoidanceOptimizationTests(unittest.TestCase):
+    def test_screenshot_two_cylinders_complete_both_zones_with_all_actual_sweeps_safe(self):
+        # 截图中心障碍约LAYOUT(1200,1200)，另一障碍由FIELD(195.6,195.3)cm换算。
+        for zone in (1, 2):
+            match = competition.compile_match(competition.load_profile(), zone=zone,
+                                               sim_obstacles=[(1200, 1200), (297, 294)])
+            runner = runner_for(match)
+            previous = None
+            while runner.active:
+                advance(runner)
+                snap = runner.sim.navigation_snapshot()
+                actual = (*core.field_to_layout(*snap['hold']), -180+snap['yaw'])
+                self.assertIsNone(runner.scene.pose_reason(*actual))
+                if previous is not None:
+                    self.assertIsNone(runner.scene.moving_pose_reason(previous, actual))
+                previous = actual
+            self.assertEqual(runner.status, 'COMPLETE', runner.reason)
+            self.assertLess(runner.elapsed_s, 180)
+            self.assertEqual((runner.grabs, runner.placements), (12, 12))
+            self.assertEqual(runner.storage, {1: [1, 1], 2: [5, 5], 3: [6, 6]})
+            self.assertEqual(actual[:2], tuple(match['home']))
+            self.assertLess(max(leg['route']['search']['expanded'] for leg in match['legs']), 5000)
+
+    def test_small_screenshot_coordinate_error_also_finds_safe_full_round(self):
+        match = competition.compile_match(competition.load_profile(),
+                                          sim_obstacles=[(1188, 1210), (294, 297)])
+        runner = runner_for(match)
+        until(runner, lambda r: not r.active)
+        self.assertEqual(runner.status, 'COMPLETE', runner.reason)
+        self.assertLess(runner.elapsed_s, 180)
+
+    def test_adaptive_parallel_lanes_work_when_every_original_lane_is_blocked(self):
+        points = [(1000, 500), (1000, 1500), (500, 1000), (1500, 1000)]
+        scene = competition.nav.CollisionScene([], [], (0, 0, 2400, 2400), 10, (280, 260, 0),
+                                               sim_circles=core.sim_obstacle_circles(points))
+        anchors = [(500, 500), (500, 1500), (1500, 500), (1500, 1500)]
+        route = competition.plan_leg((500, 500), (1500, 1500), scene, anchors)
+        self.assertTrue(route['search']['refined'])
+        self.assertTrue(route['trajectory_safe'])
+        self.assertEqual(route['points'][0], (500, 500))
+        self.assertEqual(route['points'][-1], (1500, 1500))
+        self.assertIsNone(competition._tracking_reason(route, scene, lambda: False))
+
+    def test_completed_ninety_degree_maneuver_has_no_residual_yaw_before_translation(self):
+        scene = competition.nav.CollisionScene([], [], (0, 0, 2400, 2400), 10, (280, 260, 0))
+        sim = core.Simulator(queue.Queue(), queue.Queue())
+        sim.handle_line('ZERO'); sim.hold = core.layout_to_field(1200, 1200); sim.zval = 180
+        sim.submit_navigation_maneuver(sim.begin_navigation(), (1200, 1200), 90, (0, 0, 0), scene)
+        for i in range(500):
+            sim.make_frame(i*.02)
+            if not sim.navigation_snapshot()['tracking']: break
+        snap = sim.navigation_snapshot()
+        self.assertEqual(snap['tracking_status'], 'COMPLETE', snap['fault'])
+        self.assertAlmostEqual((snap['yaw']-180) % 360, 90, places=6)
+        sim.submit_navigation_maneuver(sim.begin_navigation(), (1200, 1400), 90, (0, 0, 0), scene)
+        for i in range(500):
+            sim.make_frame(i*.02)
+            if not sim.navigation_snapshot()['tracking']: break
+        self.assertEqual(sim.navigation_snapshot()['tracking_status'], 'COMPLETE')
+        self.assertEqual(core.field_to_layout(*sim.hold), (1200, 1400))
 
 
 if __name__ == '__main__': unittest.main()

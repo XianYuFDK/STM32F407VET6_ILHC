@@ -1,0 +1,6 @@
+test_entire_run_deadline_includes_station_wait (__main__.TrajectoryFirmwareTests.test_entire_run_deadline_includes_station_wait) ... ok
+
+----------------------------------------------------------------------
+Ran 1 test in 0.397s
+
+OK

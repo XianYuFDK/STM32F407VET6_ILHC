@@ -1,0 +1,297 @@
+[
+  {
+    "case": "baseline",
+    "zone": 1,
+    "status": "COMPLETE",
+    "elapsed_s": 97.96,
+    "reason": "",
+    "preflight_s": 0.601,
+    "correct_grabs": 12,
+    "correct_placements": 12,
+    "final_layout_mm": [
+      2250.0,
+      2250.0
+    ],
+    "sim_obstacles": [],
+    "search": [
+      {
+        "refined": false,
+        "expanded": 5,
+        "candidates": 1,
+        "vertices": 25
+      },
+      {
+        "refined": false,
+        "expanded": 5,
+        "candidates": 1,
+        "vertices": 25
+      },
+      {
+        "refined": false,
+        "expanded": 2,
+        "candidates": 1,
+        "vertices": 25
+      },
+      {
+        "refined": false,
+        "expanded": 4,
+        "candidates": 1,
+        "vertices": 25
+      },
+      {
+        "refined": false,
+        "expanded": 4,
+        "candidates": 1,
+        "vertices": 25
+      },
+      {
+        "refined": false,
+        "expanded": 2,
+        "candidates": 1,
+        "vertices": 25
+      },
+      {
+        "refined": false,
+        "expanded": 4,
+        "candidates": 1,
+        "vertices": 25
+      },
+      {
+        "refined": false,
+        "expanded": 9,
+        "candidates": 1,
+        "vertices": 25
+      }
+    ]
+  },
+  {
+    "case": "four_obstacles",
+    "zone": 1,
+    "status": "COMPLETE",
+    "elapsed_s": 108.76,
+    "reason": "",
+    "preflight_s": 1.195,
+    "correct_grabs": 12,
+    "correct_placements": 12,
+    "final_layout_mm": [
+      2250.0,
+      2250.0
+    ],
+    "sim_obstacles": [
+      [
+        1200,
+        1700
+      ],
+      [
+        220,
+        700
+      ],
+      [
+        220,
+        1700
+      ],
+      [
+        700,
+        220
+      ]
+    ],
+    "search": [
+      {
+        "refined": false,
+        "expanded": 5,
+        "candidates": 1,
+        "vertices": 25
+      },
+      {
+        "refined": false,
+        "expanded": 5,
+        "candidates": 1,
+        "vertices": 25
+      },
+      {
+        "refined": false,
+        "expanded": 7,
+        "candidates": 1,
+        "vertices": 25
+      },
+      {
+        "refined": false,
+        "expanded": 4,
+        "candidates": 1,
+        "vertices": 25
+      },
+      {
+        "refined": false,
+        "expanded": 4,
+        "candidates": 1,
+        "vertices": 25
+      },
+      {
+        "refined": false,
+        "expanded": 7,
+        "candidates": 1,
+        "vertices": 25
+      },
+      {
+        "refined": false,
+        "expanded": 4,
+        "candidates": 1,
+        "vertices": 25
+      },
+      {
+        "refined": false,
+        "expanded": 9,
+        "candidates": 1,
+        "vertices": 25
+      }
+    ]
+  },
+  {
+    "case": "screenshot",
+    "zone": 1,
+    "status": "COMPLETE",
+    "elapsed_s": 141.28,
+    "reason": "",
+    "preflight_s": 1.633,
+    "correct_grabs": 12,
+    "correct_placements": 12,
+    "final_layout_mm": [
+      2250.0,
+      2250.0
+    ],
+    "sim_obstacles": [
+      [
+        1200,
+        1200
+      ],
+      [
+        297,
+        294
+      ]
+    ],
+    "search": [
+      {
+        "refined": false,
+        "expanded": 5,
+        "candidates": 1,
+        "vertices": 20
+      },
+      {
+        "refined": false,
+        "expanded": 4,
+        "candidates": 1,
+        "vertices": 20
+      },
+      {
+        "refined": false,
+        "expanded": 12,
+        "candidates": 1,
+        "vertices": 20
+      },
+      {
+        "refined": false,
+        "expanded": 25,
+        "candidates": 1,
+        "vertices": 20
+      },
+      {
+        "refined": false,
+        "expanded": 3,
+        "candidates": 1,
+        "vertices": 20
+      },
+      {
+        "refined": false,
+        "expanded": 12,
+        "candidates": 1,
+        "vertices": 20
+      },
+      {
+        "refined": false,
+        "expanded": 25,
+        "candidates": 1,
+        "vertices": 20
+      },
+      {
+        "refined": false,
+        "expanded": 7,
+        "candidates": 1,
+        "vertices": 20
+      }
+    ]
+  },
+  {
+    "case": "screenshot",
+    "zone": 2,
+    "status": "COMPLETE",
+    "elapsed_s": 148.72,
+    "reason": "",
+    "preflight_s": 1.986,
+    "correct_grabs": 12,
+    "correct_placements": 12,
+    "final_layout_mm": [
+      2250.0,
+      150.0
+    ],
+    "sim_obstacles": [
+      [
+        1200,
+        1200
+      ],
+      [
+        297,
+        294
+      ]
+    ],
+    "search": [
+      {
+        "refined": false,
+        "expanded": 6,
+        "candidates": 1,
+        "vertices": 20
+      },
+      {
+        "refined": false,
+        "expanded": 4,
+        "candidates": 1,
+        "vertices": 20
+      },
+      {
+        "refined": false,
+        "expanded": 12,
+        "candidates": 1,
+        "vertices": 20
+      },
+      {
+        "refined": false,
+        "expanded": 25,
+        "candidates": 1,
+        "vertices": 20
+      },
+      {
+        "refined": false,
+        "expanded": 3,
+        "candidates": 1,
+        "vertices": 20
+      },
+      {
+        "refined": false,
+        "expanded": 12,
+        "candidates": 1,
+        "vertices": 20
+      },
+      {
+        "refined": false,
+        "expanded": 25,
+        "candidates": 1,
+        "vertices": 20
+      },
+      {
+        "refined": false,
+        "expanded": 6,
+        "candidates": 1,
+        "vertices": 20
+      }
+    ]
+  }
+]

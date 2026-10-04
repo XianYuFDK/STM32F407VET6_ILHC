@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "kind": "ILHC_TRAJECTORY_SETTINGS",
+  "parameters": {
+    "TVMAX": 80,
+    "TKPX": 6,
+    "TKPY": 6,
+    "TKPZ": 6,
+    "TWMAX": 60,
+    "TRWMAX": 30,
+    "TRACC": 90,
+    "THOLD": 60,
+    "TLOOK": 100
+  }
+}
