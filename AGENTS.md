@@ -1,5 +1,118 @@
 # 工程导航与维护约定
 
+## 2026-10-05 v2.1.7 点击目标快速规划（当前有效，仅PC）
+
+- 用户确认点击地图设置小车目标。默认interactive先尝试直达斜移/单折弯并完整50Hz整数轮速矩形扫掠，局部350ms后回原车道搜索first_safe；FIXED也可立即接受。不宣称最优。新增“充分优化点击路线（较慢）”勾选后沿用8秒优化；回库/整场比赛仍充分优化，地图/参数/STOP/会话取消和量化预检保留。
+- 修复_seed_route安全FIXED上界因继续搜索超时而丢失：incumbent回调保留完整预演结果，取消不能复活。core搜索前区分INVALID_START/INVALID_GOAL，不改变保持当前车头语义。PC v2.1.7，无固件改动。
+- 同cProfile离线6有效点击原0.67～2.93s、新0.05～0.28s，非法目标.783→.002s；不含串口回读/上传，不承诺实车或复杂地图时间。说明Qt Docs/CLICK_PLANNING_20261005.md、benchmark_click_planner脚本及before/after JSON/profile。
+- 最终6核心自检+317无GUI全量进程0；54真实Qt中53首过、1提示漏“停靠点”修正后复测通过；最后8快规划+15最优性/取消+1Qt共24项进程0。假UI夹具同步新复选框后全量重跑；初始失败/GBK勾号编码日志保留不当通过。日志click_planner*记录验证。没有串口/烧录/实车运动/重启用户程序/提交；本轮只需重启PC，v2.1.6固件要求仍有效。
+
+## 2026-10-05 v2.1.6停稳抖动与持续纠偏（当前有效，覆盖坐标3秒故障旧要求）
+
+- 用户确认已刷v2.1.5新HEX，又在进度7818mm、OPS约220/1050mm/269.5deg截图FAULT14；随后明确要求取消会导致停车因素。本轮坐标3秒无进展改CSTALL告警并持续纠偏，不发STOP/不跳站点。旧密集轨迹5秒故障保留；STOP、失能、OPS失效/跳变、失联、75mm偏差、180秒总上限不改。PC模拟坐标RECOVERING继续，预演仍拒绝无安全可执行候选。
+- 真实C静止体仅加OPS±.03mm/±.03deg的50Hz噪声即可复现旧停稳失败。coordinate_settle检查200ms全窗口平面跨度≤.2mm/角度≤.2deg，并保持原完成位置<1mm/角度<1deg/请求速度≤1；真实2mm/s或1.5deg/s漂移不放行，不只查首尾。原严格停车带.5mm/.3deg内三轴输出0，取消角误差×50的补角脉冲。PC StopWindow与deadband同步，不伪造显示姿态。
+- CSTALL保留目标/位置角误差/测得及请求速度/停稳ms；新tokenkind3/独立generation支持重试与旧ACK不消耗新诊断。PC解析CSTALL并保存最多32条stall_diagnostics，状态提示继续纠偏、进度恢复清提示。正常协议TCAPS/CCAPS1与CRC/七参数保持，PCv2.1.6。
+- 最终6核心自检+309无GUI235.391s、53真实Qt392.046s、C坐标12整组224.607s/8轮19～34目标全DONE、旧C轨迹16项66.646s，均进程0；另外诊断重试/扩充位置角度漂移专项通过。八轮模型47.74/48.26、54.62/52.96、67.26/67.62、79.60/82.08秒。说明Qt Docs/STATION_STOP_20261005.md，日志station-stop*/station_stop*。旧RPM对比脚本显式恢复3秒故障作历史对比。
+- EIDE MDK-ARM/STM32F407VET6_ILHC构建0错误0警告，Flash75820B/RAM97024B；HEX仍MDK-ARM/build/STM32F407VET6_ILHC/STM32F407VET6_ILHC.hex，mtime18:55:41。这轮仍需再次烧录+PC重启，未接串口/烧录/动车/提交。
+
+## 2026-10-05 v2.1.5出库后整数RPM截断修复（当前有效）
+
+- 截图进度210mm/FAULT14在staging停车，离线真实C+真实世界/麦轮/整数RPM/ZDT层复现(149.118,149.118)mm、进度210.9mm、四轮0而请求每轴2.029mm/s、故障14。截图无原始流，不断言当次所有轮速。
+- WorldVelocity浮点混控/同比限幅后累积每轮不足1RPM余量；零速/反向/STOP/ClearTarget/Disable/MoveVelocity接管清余量，3000上限、七底盘参数和保护不变。PC CoordinateTracker同步整数RPM模型。坐标FAULT14说明改3秒，旧轨迹仍5秒。PC v2.1.5。
+- C坐标测试改为真实电机输出积分，8专项/8整轮全部DONE，19～34目标、全矩形/扫掠/站点/PASS/零TRESUME通过。八轮模型48.36/48.90、55.38/53.22、67.68/68.26、80.30/82.88秒。旧路线优化时间是此前浮点模型，不当本轮新结果。
+- EIDE MDK-ARM/STM32F407VET6_ILHC，0错误0警告，Flash75188B/RAM96952B，HEX仍MDK-ARM/build/STM32F407VET6_ILHC/STM32F407VET6_ILHC.hex。需双端更新；未串口/烧录/动车/提交。说明Qt Docs/EXIT_STOP_20261005.md，日志exit-stop*/exit_stop*。
+- 最终6核心自检+308无GUI通过176.477s、53真实Qt地图/实机入口通过348.347s、C坐标8专项/8整轮185.397s、旧C轨迹16项53.066s，均进程0；麦轮方向/坐标链/桥接通过。PC旧3项精确浮点断言改为整数电机平均速度/最小航向步长后全量通过，生产停靠门限未放宽。旧Qt错误模块名日志不当最终验收。
+
+## 2026-10-05 v2.1.4安全骨架与控制候选优化（当前有效）
+
+- coordinate_navigation.plan_route以旧安全结果作上界，coordinate_search.RankedRoutes按含前驱的反向Dijkstra下界枚举三图骨架；新搜索无前缀quota，直连边存在才合并共线点，循环节点禁用。目标词典序：安全骨架长度+120mm/折弯、模型用时、方向代价/实际长度。三车头×九设置去重后完整比较。
+- 各图12000展开、总96骨架；只有所有更便宜/同价候选比较完成才optimality.proven=true，限定三有限图/简化骨架/27组合/安全预演；global_continuous_proven和global_time_proven仍false，不证明整场航向组合最优。旧_seed_route只供上界。
+- PC点击8秒预算与取消分离，OptimizationDeadline只中止优化并保留已完整预演的安全上界；无安全结果拒绝。STOP/地图/参数/会话取消继续抛出，不能返回上界复活。main标限定最优/预算内最佳，版本2.1.4。每次规划缓存1024个完整程序（含参数/约束）、扫掠65536，地图缓存按冻结scene隔离。
+- 两地图×两场景×两区8轮64路段限定范围证明完成；20段降低骨架代价最多7.22%，8轮模型用时均降1.18～4.14s（2～4.44%），12抓12放、整车扫掠/量化通过。旧51/64是放宽控制条件的图下界，不能直接当同指标51→64。
+- 真实C执行器8轮无/单/四/两障碍×两区全DONE，5专项CRC/参数/映射/STOP/偏差等通过。仅PC，无串口/烧录/动车/提交；需重启PC。本轮说明Qt Docs/ROUTE_OPTIMIZER_20261005.md，对比JSON/日志route_optimizer*，C日志RTOS_APP/validation/route-optimizer-coordinate-c-20261005.log。
+- 最终6核心自检+307无GUI、53真实Qt地图/实机入口、5项C专项全部进程0；最后15搜索/预算复核通过。初始测试8秒硬取消/异步只等5秒已修复，final日志有效。
+
+## 2026-10-05 实机competition自动补齐与路线最优性核算（当前有效）
+
+- 实机整轮入口在参数回读/签名前用with_competition_defaults补缺start_zones/staging/stations/lane_nodes，来源competition_map.json；深拷贝保留当前地图几何/动态障碍/版本核验状态和自定义值，不写文件，不自动ZERO。完整配置无默认文件依赖，非法显式坐标/损坏模板拒绝。
+- collision_scene补动态矩形/圆，实机整轮承接当前动态地图；模拟原有清动态行为保留。起点5mm/3°、STOP、回读和完整扫掠/量化安全不改。
+- coordinate结果加skeleton_points/search/optimality.proven=false，策略不变：有限图分阶段、2000预算、前缀quota、首个安全非FIXED与有界fallback，不能称全局最优。
+- 独立带前驱状态Dijkstra核算2地图×2障碍场景×2区8整轮64段：51条等选定图下界、13条高于放宽控制约束的下界、最大10.7011%；13条下界骨架27组合预演全部不可用。区1无障碍8段各27组合只1个更快安全例4.82→4.78s（2模型步长），不自动替换运行路线，不宣称实车提速。
+- 79相关回归进程0，最后8配置/最短路专项复核；64路段审计完成。说明Qt Docs/COMPETITION_AUTOLOAD_OPTIMALITY_20261005.md，JSON route_optimality_results，脚本audit_route_optimality，日志competition_autoload_optimality_regression和route_optimality_audit_final。仅PC，无串口/烧录/动车/提交；需重启PC，上一轮CRC固件要求仍有效。
+
+## 2026-10-05 地图异常与低FPS双端修复（当前有效）
+
+- 真实DebugUsart_Send复现50时隙+31普通文字回复只剩19位置帧；旧底栏fps实际接收频率、渲染定时器50ms。截图无原始流，不断言当次31回复或硬件线路故障。
+- TELEM=1选择CRC1固定112B：A5/5A/01/18、seq32、HALtick32、24float、CRC32IEEE。DMA合并<=100B文字+位置，成功才消费队列/序号、忙不覆写；轨迹/普通ACK公平。VOFA保持第三方旧100B兼容，默认115200/8N1不改。
+- PC v2.1.3自动协商/复位恢复；CRC/序号/有限OPS验证先于所有消费者，损坏不刷新新鲜度，CRC1不回退payload伪尾；二进制不扫描GET。批量read按设备tick区分帧时间。旧固件显式标无校验，本次彻底传输修复需双端更新。
+- 20ms精确刷新，显示刷新与遥测Hz、RX KB/s、CRC/丢包和失步提示。缓存版本避免重复地图路径、相同姿态/目标跳过图元更新、状态变化才polish。降采样保留NaN断点，运行保护/尺寸/坐标/裕量不改。
+- 六硬件脚本通过（真实发送/GET/命令解析/RX/桥接/RTOS）；9 CRC专项含3357损坏分片组合；6自检+286无GUI全量、137组合回归+60其他Qt进程退出0，最后12专项复核通过。离线含真实字体刷新/接收49.86Hz、地图viewport固定，非实车测量。
+- EIDE最终0错误0警告，Flash74796B/RAM96936B。说明Qt Docs/TELEMETRY_UI_ROOT_CAUSE_20261005.md，日志telemetry*及RTOS_APP/validation/telemetry-crc-*。构建仍MDK-ARM/build/...hex；未COM14/烧录/动车/重启用户程序/提交。
+
+## 2026-10-05 实机运行地图碰撞开关与图标跳闪（当前有效）
+
+- 用户要求截图“实际车体碰撞保护”加开关并修地图车图标跳闪。地图实机按钮下新增默认开启复选框；只门控PC运行期pose/sweep取消分支，关闭状态显式显示并导出，重开清旧扫掠起点。规划/量化预检/定位链接/轮使能/STOP/MCU故障不受影响。
+- MapPoseFilter只供显示：异常单帧保持旧有效位姿、两相符新帧支持真实ZERO/恢复。图标/标签/显示轨迹一致，另设显示环形缓存；原latest/波形/原traj_ring/录像/运行保护不滤。会话重置清空。标签固定高度防提示变化导致fitInView缩放跳动。
+- 用户二维码板截图X22.4cm/Y100.8cm/yaw11.8°当前地图1mm判定None；不能认定当前车体碰板。新增终止事件区分当前pose/相邻sweep，保存触发坐标、前帧、航向和遥测时间；无当次原始字节不倒推具体故障。
+- 本轮126项相关Qt/串口/实机批次/混合遥测回归通过，进程退出0；git diff --check通过。说明Qt Docs/COLLISION_SWITCH_DISPLAY_20261005.md，回归日志collision_switch_display_final_20261005.log。本轮仅PC，未固件/串口/烧录/动车。
+
+## 2026-10-05 实机地图抽搐与青线修复（当前有效）
+
+- 用户截图4点批次因实际车体越界取消、青线延伸到场外，确认整张地图跳动。复现FrameParser帧间TSTAT/GET文字导致重新搜帧尾，把payload中的+inf误作帧尾；真实OPS0/2/0.5被拼成13.27/小数/小数，污染显示与运行检查。
+- 上位机帧边界先消费完整ASCII应答，分片等待，二进制保持100字节同步；文字独立队列继续交付。地图青线非有限/极端值和500mm跨点跳变断开，原始缓存/录像不删不平滑，运行越界停车门不改。截图无原始字节，不能宣称当次全部取消都是假遥测。
+- 本轮122项相关Qt/串口/实机批次/混合遥测回归通过，进程退出0；日志Qt Docs/map_jitter_regression_20261005.log。说明Qt Docs/MAP_JITTER_20261005.md；新tests.test_mixed_telemetry覆盖混合文字、payload伪帧尾、分片。只改PC，未串口/固件/烧录/动车。
+
+## 2026-10-05 实机关键坐标整批接入（当前有效，覆盖仅PC与实机仍用轨迹页的旧描述）
+
+- 用户要求实机跑图按模拟接入。实机点击/正常回库/整场先异步GET七项实际底盘RAM参数，再用coordinate_mode=True预演并整批上传；新路径使用底盘页，旧密集协议保留轨迹页。参数写入/STOP/地图/会话变化取消待处理；批次准备/运行拒绝调参。
+- CCAPS1/2048/3、CBEGIN含参数快照、CPOINT22字节CRC（文本yaw在s前，二进制s在yaw前）；与旧4096×16表共享64KiB。STM32本地PASS不停稳，STOP200ms后自动继续；自动跑图零TRESUME，机构动作仍不执行。旧固件不支持CCAPS不得运行。错误20为底盘RAM参数不符。
+- MCU新坐标骨架偏差75mm，与PC模型一致；不是旧margin-2门。PC量化预演全车体扫掠、运行实际矩形及相邻帧扫掠（剩余1mm）承担地图约束，MCU不存地图；旧密集偏差保护不变。实车噪声/延迟仍未验证。
+- 正常回库起点微偏航不能取整：显式坐标对齐prefix、到staging坐标路径、suffix入库一批上传，预演/量化复检。直接STOP后恢复回库GOTO调试入口仍保留原明确语义。
+- 本轮6组核心自检、276无GUI、179分模块Qt（各进程退出0）、5项新坐标C专项含8轮全场扫掠/站点/零TRESUME、旧C16项及参数/GET/RTOS/公共核心通过。桥接提取测试适配同步参数声明后final日志通过。
+- EIDE构建0错误0警告，Flash74532B/RAM96816B，HEX仍MDK-ARM/build/STM32F407VET6_ILHC/STM32F407VET6_ILHC.hex。未烧录/接串口/驱动实车；不额外提交。说明Qt Docs/STM32_COORDINATE_BATCH_20261005.md，日志RTOS_APP/validation/coordinate-batch-*。
+
+## 2026-10-05 PC小圈和长横移修复（当前有效）
+
+- 用户截图复现：原料→粗加工FIXED约1598mm横移，粗加工→暂存选三个短折返小圈。大角度20%平移在1600参数下仍320mm/s，直接过弯候选先扫入窄道；原料站直接转头还受圆盘限制。
+- PC坐标大于30°纠偏改5%平移；增加5mm通过/10mm提前转头候选、80/120mm同直线离站过渡点，短首段保持原航向再接纵向车道。七项底盘参数、无圆弧、PASS不停稳不变。所有坐标规划候选实际连续横移超过500mm拒绝，实际指标写入结果；不靠长横移兜底，也不放宽车体扫掠。
+- 默认原料→粗加工首批先短移80mm、连续侧移约38mm；粗加工→暂存走直接两段，消除角落小圈。默认两区测试检查每段横移<100mm、累计转角<=181°、各轴不折返。说明Qt Docs/COORDINATE_TURNS_20261005.md；仅PC，无串口/固件/烧录动作。
+- 本轮35逻辑专项、28Qt地图、90Qt界面及8轮场景完整矩形扫掠通过；无障碍两区15目标/59秒（理想模型）。日志coordinate_turn_*final_20261005.log及coordinate_turn_results_20261005.json；不把上一轮全量测试数当本轮重跑。
+
+## 2026-10-05 新PC坐标直接使用chassis_move底盘参数（当前有效，覆盖独立250/120与schema1）
+
+- 用户要求新坐标直接使用chassis_move参数。本轮PC点击和比赛TRAVEL的预演/执行读取模拟器已生效七项KPX/KPY/KPZ/XVMAX/ZVMAX/XVMIN/ZVMIN，默认来自公共CHASSIS_PARAMS表；不是读取尚未发送的输入控件。队列按原顺序处理后捕获快照，不能越过STOP/失能等旧命令。
+- KPX车体左右、KPY前后，numerical_limit死区5内保留P、区外加同号最小补偿再逐轴限幅。Z输出轮缘线速度量/270mm换算deg/s，默认ZVMAX750约159.15deg/s；新坐标去掉独立250/120帽。大角度20%平移减速保留，末点门内实际积分消除小角度残差、Z限速/KPZ0禁止隐藏控制、扫掠复检后10帧停稳；不减margin或伪造姿态。旧段兼容/出入库MANEUVER保留原模型限速，PC不复制所有电机延迟/固件斜坡。
+- GUI发送底盘参数立即取消旧计划/跟踪/比赛，参数值进导航签名；接受前/中/后及运行核对参数快照，变化不能复活旧轨迹。整场比赛chassis_control快照跨站点/出入库有效。零增益/速度导致无进展显式拒绝，保留全部车体/地图/STOP门。
+- PC_COORDINATE_PROGRAM升级schema2/control_source=CHASSIS_MOVE，七项小写控制量+turn_lead_mm；旧schema1需重新规划。仅改PC，新坐标尚未接STM32；实机GOTO用底盘页、整批轨迹仍用轨迹页，未构建/烧录/串口/驱动车辆。说明Qt Docs/COORDINATE_CHASSIS_PARAMS_20261005.md；本地Git检查点仍f38e7cb，不额外提交。
+- 默认1600参数下增加5mm通过范围/200mm提前转头组合，先原车道图、再正交短侧移、最后细化车道，每轮独立预算，避免侧移分支挤掉旧有效路径。两障碍区2暂存返程补侧移外侧通道，仍完整矩形扫掠；不生成圆弧或强行放行。
+- 最终6组核心自检、276无GUI及分模块178Qt（90/9/28/22/19/10）均退出0；两启停区×四场景8轮COMPLETE/12抓12放，删TRAVEL密集表后仍完整矩形/扫掠安全。无障碍模型63.26/61.14s，两障碍82.70/84.98s，不承诺实车时间。结果/动画/真实Qt转头截图见上述说明；早期失败日志与final日志区分。夹具补新帧与停后台GET轮询，不减生产新鲜度/回读门。
+
+## 2026-10-04 PC关键坐标定位无圆弧过弯（当前有效，覆盖PC端点/圆弧默认）
+
+- 用户要求采用开源车的X/Y误差经实际航向转为车体轴、与航向纠偏混合四轮速度，平移与转头同时进行，不需要圆弧。本轮仅PC：coordinate_navigation.PC_COORDINATE_PROGRAM/CoordinateTracker；Qt模拟点击与compile_match(coordinate_mode=True) TRAVEL默认改用，Simulator.submit_navigation_coordinates；旧plan_to/段API及实机整批协议保留。
+- 运行只持关键坐标/车头/PASS门；中间位置接近且出口航向误差<30°切下点，不要求停稳；站点及末点STOP仍10帧位置/航向/速度停稳。同坐标两端支持保持/原地对齐，完整检查旋转扫掠，多目标路线重复点拒绝。
+- PC默认2.3/2.3/9、250mm/s、120deg/s，提前转头距离比较200/60/40mm、通过范围100/60/20mm并按短段限制。大航向误差平移降20%，倒退优先比较；安全固定车头fallback仍受横移限制。不是直接调用固件chassis_move，不使用实机调参页，不声称实车提速或FAULT13消除。
+- A*候选完整50Hz控制器预演、真实矩形+裕量+drivable+障碍+相邻扫掠通过才放行。图/精确姿态对缓存只在同一不可变规划scene对象内复用，执行接受/导出独立复检、运行每步新检查；75mm/无进展/取消/地图/会话保护不减弱。无安全候选明确fallback，搜索预算与物理无路分开。
+- JSON waypoints为LAYOUT_MM和layout_yaw_deg，start/goal/预演为FIELD_MM内部数学角，GUI仍场地+Y为0°。PC_COORDINATE_REPLAY密集帧只用于显示/诊断，hardware_ready=false；不能作为STM32点表。说明/动画/结果见Qt Docs/COORDINATE_NAVIGATION_20261004.md。此前Git检查点仍f38e7cb；本轮不提交、不烧录、不接串口。
+- 最终6组核心自检、267无GUI及分模块175Qt（90/9/25/22/19/10）通过，各进程退出0，日志coordinate_navigation_headless_final与coordinate_navigation_qt_*_20261004.log。早期零长度回库/界面文案/两障碍预演时间问题已处理；不得把早期失败日志当最终通过。详细限制见上述说明。
+- 两启停区×四场景8轮均COMPLETE/12抓12放，删除全部TRAVEL密集表后执行并逐帧矩形/扫掠复检。无障碍14坐标目标/约94.5秒，四障碍约109–110秒，两障碍151–158秒；PC仍250mm/s，不比旧约90秒更快，不宣称提速。动画/轨迹图及真实Qt同时平移转头截图已生成，见上述Docs说明；最终验证于10月5日完成。
+
+## 2026-10-04 PC直线端点/圆弧模拟（当前有效）
+
+- 用户要求先改上位机观察模拟效果；PC点击路径与比赛TRAVEL改用segment_route.PC_SEGMENT_PROGRAM和Simulator.submit_navigation_segments，只保存LINE端点/ARC参数，由SegmentTracker按实际位置单调投影、100mm前视解析计算参考；密集点表仅显示/完整车体复检。原TrajectoryTracker兼容保留，共用控制律；STM32协议、固件及实机500档本轮不变。
+- 同方向/同车头策略共线合并；FIXED/TANGENT/REVERSE_TANGENT、unwrap保留，中途不停车，站点/最终STOP停稳。不连续/未平滑转角拒绝几何段执行，仍由旧明确停转fallback处理。接受阶段及运行矩形/扫掠复检、STOP/地图/会话/失能保护不减弱；GUI新增端点/圆弧JSON导出并显示段数/参考点。
+- 程序segments frame_id=LAYOUT_MM；start/goal参考X/Y是FIELD_MM，field_yaw_deg内部数学角，GUI仍90-field_yaw_deg（朝+Y0°）。导出hardware_ready=false；不是实机点表格式。运行安全由几何重建，不信任导出metadata。
+- PC保持250mm/s旧模型。两启停区×四场景8轮均COMPLETE/12抓12放/逐帧矩形扫掠安全；默认20段替代执行679样本，二维码→原料3段/8.44s。同速路线/用时基本不变，不声称改段存储就提速。完整比赛预演删除所有TRAVEL trajectory/smoothed_primitives后仍完成。
+- 验证6组核心/257无GUI及分模块174Qt（各进程退出0）；合并Qt先出现供帧过期一项失败，独立复现通过，合并重跑174断言通过但退出原生异常-1073740791，未确定根因，不能记为整进程成功。保留异常与分模块日志，未放宽门禁。说明及动画/截图见Qt Docs/SEGMENT_SIMULATION_20261004.md。此前Git检查点仍f38e7cb；本轮不提交、不烧录、不接串口。
+
+## 2026-10-04 公共坐标闭环与Git检查点（当前有效）
+
+- 用户要求用坐标定位；路径原本已用OPS，此次将chassis_move位置核心提取为浮点chassis_move_reference，实现在既有mecanum_control.c，chassis_position.h仅声明。单点GOTO与轨迹起点保持/转头车心保持/行进纠偏共用；轨迹使用保护检查的同一OPS快照，不逐点等待、不重复上传。
+- 公共接口计算目标坐标减实际坐标，最短航向误差，叠加可选前馈；非有限输入/运算溢出清零拒绝。原底盘车体轴增益/等效角向线速度与轨迹世界轴增益/deg/s范围保留，不能直接混用KPZ/TKPZ。保留500/150速度规划和原STOP/偏差等门禁。
+- 用户中途要求先Git保存之前版本：main本地提交f38e7cb已保存已验证500档及此前完整功能，未推送远端。该提交不包含本次坐标复用，新改动留在工作区。早期草稿另备份在.git/codex-backups/coordinate-pending-20261004；不得把这份未验证草稿覆盖最终实现。
+- 本次10个硬件验证脚本全部通过：6项公共核心、15项速度/参数、16项原轨迹专项（8轮比赛完整矩形扫掠DONE）、原chassis_move/坐标链/SET-GET/桥接/RTOS/GOTO/轮使能。EIDE构建成功，Flash70152B/RAM96760B。日志RTOS_APP/validation/chassis-position/native.log和eide-build.log。仅固件及测试/说明改动，不把先前PC全量回归当成本次新运行。
+- 说明Qt Docs/CHASSIS_POSITION_20261004.md。HEX仍MDK-ARM/build/STM32F407VET6_ILHC/STM32F407VET6_ILHC.hex。本次未烧录、未连接串口、未驱动车辆；不声称此前实车错误13已消除。
+
 ## 2026-10-04 用户选择实机500 mm/s档（当前有效，覆盖旧250默认和9参数）
 
 - 用户明确选择500 mm/s。STM32批次默认TVMAX500，TKPX/TKPY/TKPZ仍6，其余旧值保留；新增TACC600 mm/s²、TDEC1000 mm/s²、TVARC150 mm/s，共12项RAM参数，原Flash16字段不变。

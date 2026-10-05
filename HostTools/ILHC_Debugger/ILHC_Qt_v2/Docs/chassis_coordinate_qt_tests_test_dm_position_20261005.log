@@ -1,0 +1,27 @@
+test_arrival_requires_new_continuous_samples (tests.test_dm_position.MotionTests.test_arrival_requires_new_continuous_samples) ... ok
+test_latest_reference_preserves_other_commands (tests.test_dm_position.MotionTests.test_latest_reference_preserves_other_commands) ... ok
+test_reference_bounds_speed_acceleration_and_reverse (tests.test_dm_position.MotionTests.test_reference_bounds_speed_acceleration_and_reverse) ... ok
+test_simulator_posvel_zero_speed_and_no_mit_gain_dependency (tests.test_dm_position.MotionTests.test_simulator_posvel_zero_speed_and_no_mit_gain_dependency) ... ok
+test_unit_ratio_and_limits (tests.test_dm_position.MotionTests.test_unit_ratio_and_limits) ... ok
+test_apply_mode_and_enable_keep_current_position (tests.test_dm_position.PositionQtTests.test_apply_mode_and_enable_keep_current_position) ... ok
+test_corrupt_profile_does_not_replace_positions (tests.test_dm_position.PositionQtTests.test_corrupt_profile_does_not_replace_positions) ... ok
+test_drive_parser_handles_split_repeated_mixed_telemetry (tests.test_dm_position.PositionQtTests.test_drive_parser_handles_split_repeated_mixed_telemetry) ... ok
+test_drive_register_write_and_simulated_readback (tests.test_dm_position.PositionQtTests.test_drive_register_write_and_simulated_readback) ... ok
+test_drive_requires_disabled_and_stop_cancels_deferred_send (tests.test_dm_position.PositionQtTests.test_drive_requires_disabled_and_stop_cancels_deferred_send) ... ok
+test_drive_session_reset_rejects_late_response (tests.test_dm_position.PositionQtTests.test_drive_session_reset_rejects_late_response) ... ok
+test_drive_stale_response_mismatch_and_timeout (tests.test_dm_position.PositionQtTests.test_drive_stale_response_mismatch_and_timeout) ... ok
+test_external_target_stops_flow_without_restarting (tests.test_dm_position.PositionQtTests.test_external_target_stops_flow_without_restarting) ... ok
+test_flow_requires_arrival_then_manual_release_and_return (tests.test_dm_position.PositionQtTests.test_flow_requires_arrival_then_manual_release_and_return) ... ok
+test_internal_trapezoid_preset_flow (tests.test_dm_position.PositionQtTests.test_internal_trapezoid_preset_flow) ... ok
+test_internal_trapezoid_requires_readback_and_sends_final_target_once (tests.test_dm_position.PositionQtTests.test_internal_trapezoid_requires_readback_and_sends_final_target_once) ... ok
+test_mode_selection_only_switches_interface (tests.test_dm_position.PositionQtTests.test_mode_selection_only_switches_interface) ... ok
+test_no_move_until_mode_enabled_and_limits_valid (tests.test_dm_position.PositionQtTests.test_no_move_until_mode_enabled_and_limits_valid) ... ok
+test_persistence_and_zero_invalidation (tests.test_dm_position.PositionQtTests.test_persistence_and_zero_invalidation) ... ok
+test_stale_telemetry_aborts_and_clears_reference (tests.test_dm_position.PositionQtTests.test_stale_telemetry_aborts_and_clears_reference) ... ok
+test_switch_to_mit_requires_explicit_apply_before_enable (tests.test_dm_position.PositionQtTests.test_switch_to_mit_requires_explicit_apply_before_enable) ... ok
+test_switching_mode_stops_running_goal (tests.test_dm_position.PositionQtTests.test_switching_mode_stops_running_goal) ... ok
+
+----------------------------------------------------------------------
+Ran 22 tests in 2.774s
+
+OK

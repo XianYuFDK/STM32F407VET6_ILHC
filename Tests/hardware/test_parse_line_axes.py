@@ -36,6 +36,13 @@ static uint8_t s_fast_pending __attribute__((unused));
 #include <assert.h>
 #include <string.h>
 #include <stdio.h>
+#include "trajectory_buffer.h"
+TrajControlParams_t traj_control_params={500,6,6,6,120,60,180,60,100,600,1000,150};
+uint8_t Traj_Busy(void){return 0;}
+uint8_t Traj_SetControlParam(float *target,float value,float lo,float hi){
+ if(value<lo || value>hi || value!=value)return 3;
+ *target=value;return 1;
+}
 /* 底盘内部量同样使用 X=左右、Y=前后，参数表直接对应。 */
 static float mKpx = 2.3f, mKpy = 2.3f, mKpz = 9.0f;
 static float XYVmax = 1600.0f, ZVmax = 750.0f, XYVmin = 5.0f, ZVmin = 5.0f;
@@ -58,6 +65,7 @@ static uint8_t s_wheel_enabled = 1U;
 static volatile uint8_t s_wheel_req;
 static int16_t s_zdt_args[3];
 static volatile uint8_t s_zdt_active, s_zdt_req, s_zdt_text_mode;
+static uint8_t s_telemetry_crc;
 static volatile uint8_t s_dm_enable_req, s_dm_disable_req, s_dm_zero_req;
 static uint32_t tick, mask;
 #define DEBUG_GOTO_MOVE 1U
@@ -66,6 +74,8 @@ static uint32_t tick, mask;
 #define DEBUG_ACK_VTRACK_STOP 22U
 #define DEBUG_ACK_VTRACK_FORMAT 23U
 #define DEBUG_ACK_VTRACK_BUSY 24U
+#define DEBUG_ACK_TRAJ_BUSY 28U
+#define DEBUG_ACK_TRAJ_RANGE 29U
 static uint32_t HAL_GetTick(void) {return tick;}
 static uint32_t __get_PRIMASK(void) {return mask;}
 static void __disable_irq(void) {mask=1;}
@@ -98,6 +108,11 @@ int main(void) {
   __disable_irq();
   __enable_irq();
   assert(mask == 0U);
+
+  /* CRC1 negotiation only selects transport; VOFA keeps third-party compatibility. */
+  s_zdt_text_mode=1;strcpy(line,"TELEM=1");Debug_ParseLine(line);
+  assert(s_telemetry_crc==1 && s_zdt_text_mode==0 && !s_manual_active && !s_goto_active);
+  strcpy(line,"VOFA");Debug_ParseLine(line);assert(s_telemetry_crc==0 && !s_zdt_text_mode);
 
   /* MANUAL：X(左右),Y(前后),W 原序暂存。 */
   strcpy(line, "MANUAL=70,60,30");
@@ -243,5 +258,5 @@ with tempfile.TemporaryDirectory(prefix="ilhc_parse_axis_") as directory:
     folder = Path(directory)
     src, exe = folder / "test.c", folder / "test.exe"
     src.write_text(code, encoding="utf-8")
-    subprocess.run(["gcc", "-std=c99", "-Wall", "-Wextra", "-Werror", str(src), "-o", str(exe)], check=True)
+    subprocess.run(["gcc", "-std=c99", "-Wall", "-Wextra", "-Werror", "-I",str(ROOT/'Hardware'),str(src), "-o", str(exe)], check=True)
     subprocess.run([str(exe)], check=True)

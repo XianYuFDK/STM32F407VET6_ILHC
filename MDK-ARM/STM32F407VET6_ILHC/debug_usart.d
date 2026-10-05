@@ -34,6 +34,7 @@ stm32f407vet6_ilhc\debug_usart.o: ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_
 stm32f407vet6_ilhc\debug_usart.o: ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_tim.h
 stm32f407vet6_ilhc\debug_usart.o: ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_tim_ex.h
 stm32f407vet6_ilhc\debug_usart.o: ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_uart.h
+stm32f407vet6_ilhc\debug_usart.o: ../Hardware/debug_param_store.h
 stm32f407vet6_ilhc\debug_usart.o: ../Core/Inc/usart.h
 stm32f407vet6_ilhc\debug_usart.o: ../Hardware/mecanum_control.h
 stm32f407vet6_ilhc\debug_usart.o: ../Hardware/ops.h
@@ -43,6 +44,9 @@ stm32f407vet6_ilhc\debug_usart.o: ../Hardware/hcan.h
 stm32f407vet6_ilhc\debug_usart.o: ../Core/Inc/can.h
 stm32f407vet6_ilhc\debug_usart.o: ../Hardware/stepper_2835.h
 stm32f407vet6_ilhc\debug_usart.o: ../Hardware/zdt_x42s.h
-stm32f407vet6_ilhc\debug_usart.o: ../Hardware/debug_param_store.h
+stm32f407vet6_ilhc\debug_usart.o: ../Hardware/trajectory_buffer.h
+stm32f407vet6_ilhc\debug_usart.o: ../RTOS_APP/rtos_app.h
+stm32f407vet6_ilhc\debug_usart.o: ../Middlewares/Third_Party/FreeRTOS/Source/CMSIS_RTOS_V2/cmsis_os2.h
+stm32f407vet6_ilhc\debug_usart.o: ../RTOS_APP/app_rx.h
 stm32f407vet6_ilhc\debug_usart.o: D:\keil51\ARM\ARMCC\Bin\..\include\string.h
 stm32f407vet6_ilhc\debug_usart.o: D:\keil51\ARM\ARMCC\Bin\..\include\stdio.h

@@ -1,0 +1,9 @@
+test_three_second_stall_warns_then_recovers_without_abort_or_skip (__main__.CoordinateFirmwareTests.test_three_second_stall_warns_then_recovers_without_abort_or_skip) ... ok
+test_stall_does_not_disable_stop_and_total_timeout (__main__.CoordinateFirmwareTests.test_stall_does_not_disable_stop_and_total_timeout) ... ok
+test_stationary_ops_noise_can_finish_initial_stop (__main__.CoordinateFirmwareTests.test_stationary_ops_noise_can_finish_initial_stop) ... ok
+test_real_drift_cannot_finish_initial_stop (__main__.CoordinateFirmwareTests.test_real_drift_cannot_finish_initial_stop) ... ok
+
+----------------------------------------------------------------------
+Ran 4 tests in 1.752s
+
+OK

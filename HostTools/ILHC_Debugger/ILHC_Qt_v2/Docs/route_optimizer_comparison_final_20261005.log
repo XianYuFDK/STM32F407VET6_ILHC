@@ -1,0 +1,9 @@
+{"profile": "default", "case": "clear", "zone": 1, "old_s": 59.0, "new_s": 57.36, "saving_s": 1.64, "planning_wall_s": 7.766671899997164, "point_count": 19, "body_sweeps_safe": true, "quantized_preflight_safe": true}
+{"profile": "default", "case": "clear", "zone": 2, "old_s": 59.0, "new_s": 57.82, "saving_s": 1.18, "planning_wall_s": 7.895568200008711, "point_count": 19, "body_sweeps_safe": true, "quantized_preflight_safe": true}
+{"profile": "default", "case": "two_obstacles", "zone": 1, "old_s": 92.54, "new_s": 88.76, "saving_s": 3.78, "planning_wall_s": 41.07004489999963, "point_count": 33, "body_sweeps_safe": true, "quantized_preflight_safe": true}
+{"profile": "default", "case": "two_obstacles", "zone": 2, "old_s": 94.9, "new_s": 91.6, "saving_s": 3.3, "planning_wall_s": 34.98250479999115, "point_count": 34, "body_sweeps_safe": true, "quantized_preflight_safe": true}
+{"profile": "competition", "case": "clear", "zone": 1, "old_s": 59.0, "new_s": 57.36, "saving_s": 1.64, "planning_wall_s": 8.956794199999422, "point_count": 19, "body_sweeps_safe": true, "quantized_preflight_safe": true}
+{"profile": "competition", "case": "clear", "zone": 2, "old_s": 59.0, "new_s": 57.82, "saving_s": 1.18, "planning_wall_s": 8.315505299979122, "point_count": 19, "body_sweeps_safe": true, "quantized_preflight_safe": true}
+{"profile": "competition", "case": "two_obstacles", "zone": 1, "old_s": 93.32, "new_s": 89.18, "saving_s": 4.14, "planning_wall_s": 52.71401570001035, "point_count": 34, "body_sweeps_safe": true, "quantized_preflight_safe": true}
+{"profile": "competition", "case": "two_obstacles", "zone": 2, "old_s": 94.9, "new_s": 91.62, "saving_s": 3.28, "planning_wall_s": 46.37612000000081, "point_count": 34, "body_sweeps_safe": true, "quantized_preflight_safe": true}
+SUMMARY {"matches": 8, "legs": 64, "proven_legs": 64, "faster_matches": 8, "slower_matches": 0, "elapsed_wall_s": 292.9276903999853}

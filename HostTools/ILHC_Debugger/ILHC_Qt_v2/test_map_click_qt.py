@@ -102,6 +102,93 @@ class MapClickQtTests(unittest.TestCase):
         self.assertEqual(self.w.planned_points, [])
         self.assert_no_command_sent()
 
+    def test_fast_click_and_optional_full_optimization_share_safe_entry(self):
+        self.assertFalse(self.w.plan_optimize_check.isChecked())
+        self.click_layout(330,1200);self.wait_plan()
+        self.assertEqual(self.w.planned_result['optimality']['policy'],'INTERACTIVE_FIRST_VERIFIED_SAFE')
+        self.assertIn('快速点击规划',self.w.plan_text.toPlainText())
+        self.w.plan_optimize_check.setChecked(True)
+        self.assertIsNone(self.w.planned_result)
+        self.click_layout(330,1200);self.wait_plan()
+        self.assertEqual(self.w.planned_result['optimality']['policy'],'ORDERED_SAFE_SKELETON_THEN_REPLAY_TIME')
+        self.assert_no_command_sent()
+
+    def test_coordinate_click_executes_without_arcs_and_exports_program(self):
+        self.click_layout(330, 1200)
+        self.wait_plan()
+        result = self.w.planned_result
+        self.assertIsNotNone(result, self.w.map_status.text())
+        self.assertEqual(result['arcs'], [])
+        self.assertIn('无圆弧', self.w.plan_text.toPlainText())
+        path = Path(self.temp.name)/'coordinates.json'
+        with patch.object(main.QFileDialog,'getSaveFileName',return_value=(str(path),'')):
+            self.w._export_segments()
+        program = main.json.loads(path.read_text(encoding='utf-8'))
+        self.assertEqual(program['kind'], 'PC_COORDINATE_PROGRAM')
+        self.assertNotIn('trajectory',program)
+        self.w.sim.make_frame(0)
+        self.w._toggle_follow()
+        self.assertIsNotNone(self.w.follow,self.w.map_status.text())
+        self.assertEqual(self.w.sim.navigation_snapshot()['execution_representation'],'COORDINATES')
+        for i in range(2000):
+            self.w.latest=self.w.sim.make_frame(i*.02)
+            self.w.latest_received_monotonic=time.monotonic()
+            self.w._follow_step()
+            if self.w.follow is None:break
+        self.assertEqual(self.w.sim.navigation_snapshot()['tracking_status'],'COMPLETE',self.w.map_status.text())
+        self.assert_no_command_sent()
+
+    def test_chassis_send_buttons_supply_all_coordinate_parameters(self):
+        self.click_layout(330,1200);self.wait_plan()
+        old=self.w.planned_result
+        row=self.w.chassis_rows['KPX'];row.spin.setValue(3)
+        self.assertIs(self.w.planned_result,old)
+        self.assertEqual(old['waypoint_program']['control']['kpx'],2.3)
+        settings=dict(KPX=3,KPY=2,KPZ=18,XVMAX=800,ZVMAX=400,XVMIN=3,ZVMIN=2)
+        self.w.sim.param_q=self.w.param_q
+        for key,value in settings.items():
+            row=self.w.chassis_rows[key];row.spin.setValue(value)
+            button,=row.findChildren(main.QPushButton)
+            button.click()
+        self.assertIsNone(self.w.planned_result)
+        self.click_layout(330,1200);self.wait_plan()
+        result=self.w.planned_result
+        self.assertIsNotNone(result,self.w.map_status.text())
+        self.assertEqual(result['waypoint_program']['control_source'],'CHASSIS_MOVE')
+        self.w._process_frames()
+        for name,value in settings.items():
+            self.assertEqual(result['waypoint_program']['control'][core.SIM_PARAM_ATTRS[name]],value)
+            self.assertEqual(self.w.chassis_rows[name].readback.text(),'回读 '+str(value))
+        self.assertIn('底盘参数',self.w.plan_info.text())
+        self.w.sim.make_frame(0);self.w._toggle_follow()
+        self.assertIsNotNone(self.w.follow,self.w.map_status.text())
+        for i in range(2000):
+            self.w.latest=self.w.sim.make_frame(i*.02)
+            self.w.latest_received_monotonic=time.monotonic();self.w._follow_step()
+            if self.w.follow is None:break
+        self.assertEqual(self.w.sim.navigation_snapshot()['tracking_status'],'COMPLETE',self.w.map_status.text())
+        self.assert_no_command_sent()
+
+    def test_chassis_send_immediately_cancels_coordinate_follow(self):
+        self.click_layout(330,1200);self.wait_plan()
+        self.w.sim.make_frame(0);self.w._toggle_follow()
+        self.assertIsNotNone(self.w.follow)
+        self.w.sim.make_frame(.02);pose=self.w.sim.hold,self.w.sim.zval
+        row=self.w.chassis_rows['XVMAX'];row.spin.setValue(500)
+        button,=row.findChildren(main.QPushButton);button.click()
+        self.assertIsNone(self.w.follow)
+        self.assertIsNone(self.w.planned_result)
+        self.w.sim.chassis_parameters(flush=True);self.w.sim.make_frame(.04)
+        self.assertEqual((self.w.sim.hold,self.w.sim.zval),pose)
+        self.assertEqual(self.w.sim.chassis_parameters()['xyvmax'],500)
+
+    def test_chassis_send_cancels_entire_competition(self):
+        runner=self.start_competition()
+        row=self.w.chassis_rows['KPZ'];row.spin.setValue(18)
+        button,=row.findChildren(main.QPushButton);button.click()
+        self.assertEqual(runner.status,'CANCELLED')
+        self.assertFalse(self.w.sim.navigation_snapshot()['active'])
+
     def test_safe_arc_preview_uses_samples_and_exports_arc_geometry(self):
         self.w.nav_map['rects'] = []
         self.w.nav_map['circles'] = []
@@ -214,8 +301,8 @@ class MapClickQtTests(unittest.TestCase):
         self.w.zone_combo.setCurrentIndex(zone-1)
         button, = [b for b in self.w.findChildren(main.QPushButton) if b.text() == '一键比赛模拟']
         button.click()
-        # 多车头及倒退候选均做整车控制预演；等待后台完成，车辆在完成前必须不启动。
-        deadline = time.monotonic()+30
+        # 新搜索穷尽更便宜/同价骨架及控制候选；保持处理Qt事件，优化完成前不启动。
+        deadline = time.monotonic()+120
         while self.w._competition_future is not None and time.monotonic() < deadline:
             self.app.processEvents()
             time.sleep(.01)

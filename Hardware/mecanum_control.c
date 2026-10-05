@@ -71,6 +71,14 @@ uint8_t near_pos   = 0;
 uint8_t delay_pos  = 0;
 static uint32_t s_control_dt_ms = 20U;
 static uint32_t s_settle_ms;
+/* 20ms坐标速度输出保留不足1RPM的余量，避免末端P输出被永久截成0。 */
+static float s_world_rpm_remainder[4];
+
+static void MecanumControl_ResetWorldRpm(void)
+{
+  uint8_t i;
+  for (i = 0U; i < 4U; ++i) s_world_rpm_remainder[i] = 0.0f;
+}
 
 /* 长时间失调度不累计到位时间，斜坡最多采用100ms，避免恢复时突跳。 */
 void MecanumControl_SetPeriod(uint32_t dt_ms)
@@ -118,6 +126,7 @@ static void MecanumControl_UpdatePose(void)
  */
 void SpeedTarget_stop(void)
 {
+  MecanumControl_ResetWorldRpm();
   SpeedTarget[0] = 0;
   SpeedTarget[1] = 0;
   SpeedTarget[2] = 0;
@@ -269,6 +278,42 @@ void numerical_limit(float *value, float max, float min, float dead_zone)
 
 /* ------------------------- OPS 位置闭环 ---------------------------- */
 
+uint8_t chassis_move_reference(const float actual[3], const float target[3],
+                             const float gain[3], const float feedforward[3],
+                             uint8_t body_xy, float error[3], float command[3])
+{
+  uint8_t i;
+  float dx,dy,angle;
+  for(i=0U;i<3U;++i) { error[i]=0.0f;command[i]=0.0f; }
+  for(i=0U;i<3U;++i) {
+    if(!isfinite(actual[i]) || !isfinite(target[i]) || !isfinite(gain[i]) ||
+       (feedforward && !isfinite(feedforward[i]))) return 0U;
+  }
+  error[0]=target[0]-actual[0];error[1]=target[1]-actual[1];
+  /* O(1)最短航向差，179/-179对应2度转头。 */
+  angle=fmodf(target[2]-actual[2],360.0f);
+  if(angle>180.0f) angle-=360.0f;
+  else if(angle< -180.0f) angle+=360.0f;
+  error[2]=angle;dx=error[0];dy=error[1];
+  if(body_xy) {
+    float c=cosf(actual[2]*3.1415926f/180.0f);
+    float s=sinf(actual[2]*3.1415926f/180.0f);
+    dx=c*error[0]-s*error[1];dy=s*error[0]+c*error[1];
+  }
+  command[0]=gain[0]*dx;command[1]=gain[1]*dy;command[2]=gain[2]*angle;
+  for(i=0U;i<3U;++i) {
+    if(feedforward) command[i]+=feedforward[i];
+  }
+  for(i=0U;i<3U;++i) {
+    if(!isfinite(error[i]) || !isfinite(command[i])) {
+      uint8_t j;
+      for(j=0U;j<3U;++j) { error[j]=0.0f;command[j]=0.0f; }
+      return 0U;
+    }
+  }
+  return 1U;
+}
+
 /**
  * @brief  底盘 OPS 全局定位移动（P 控制，参考开源底盘）
  * @param  x 目标全局 X，左右轴，+车左，单位 mm
@@ -282,51 +327,27 @@ void chassis_move(int x, int y, int z)
   float cmd_x = 0.0f;
   float cmd_y = 0.0f;
   float vz  = 0.0f;
+  float actual[3],target[3],gain[3],error[3],command[3];
   uint8_t i;
 
 
   /* 刷新 OPS 当前坐标 */
   MecanumControl_UpdatePose();
 
-  /* 目标 - 当前：X 为左右、Y 为前后，统一坐标下直接构成负反馈。 */
-  devx = (float)x - pos_x;
-  devy = (float)y - pos_y;
-
-  /* 最短航向误差，统一到 [-180, 180]
-   * 必须用 O(1) 写法：目标航向来自串口（GOTO 的 z），若被构造成 Inf
-   * （例如 GOTO=0,0,<40 位数字> 溢出成 +Inf），"while (devz > 180) devz -= 360"
-   * 会永不退出，20ms 任务连同遥测/命令处理一起永久挂死。
-   * 这里用 fmodf 归约到 (-360,360) 再补一次修正；同时对非有限值直接判为 0。 */
-  devz = (float)z - zangle;
-  if (!isfinite(devz))
-  {
-    devz = 0.0f;
+  /* 世界参考坐标与OPS实际坐标进入公共位置闭环，旧模式仍先转车体轴。 */
+  actual[0]=pos_x;actual[1]=pos_y;actual[2]=zangle;
+  target[0]=(float)x;target[1]=(float)y;target[2]=(float)z;
+  gain[0]=mKpx;gain[1]=mKpy;gain[2]=mKpz;
+  if(!chassis_move_reference(actual,target,gain,NULL,1U,error,command)) {
+    SpeedTarget_stop();devx=devy=devz=0.0f;
+    near_pos=in_pos=delay_pos=0U;s_settle_ms=0U;return;
   }
-  devz = fmodf(devz, 360.0f);
-  if (devz > 180.0f)       { devz -= 360.0f; }
-  else if (devz < -180.0f) { devz += 360.0f; }
-
-  /* 世界坐标误差 → 车体坐标，再分别应用 X/Y 增益。
-   * 先旋转可以避免 mKpx != mKpy 时两个轴的增益串到另一轴：
-   *   body_x =  cosθ*devx - sinθ*devy
-   *   body_y = sinθ*devx + cosθ*devy
-   *   cmd_x  = mKpx * body_x
-   *   cmd_y  = mKpy * body_y
-   * 其中 cmd_x 是车体左右控制量，cmd_y 是车体前后控制量。 */
-  {
-    float c = cosf(zangle * 3.1415926f / 180.0f);
-    float s = sinf(zangle * 3.1415926f / 180.0f);
-    float body_x = c * devx - s * devy;
-    float body_y = s * devx + c * devy;
-
-    cmd_x = mKpx * body_x;
-    cmd_y = mKpy * body_y;
-  }
+  devx=error[0];devy=error[1];devz=error[2];
+  cmd_x=command[0];cmd_y=command[1];vz=command[2];
   numerical_limit(&cmd_x, XYVmax, XYVmin, 5.0f);
   numerical_limit(&cmd_y, XYVmax, XYVmin, 5.0f);
 
   /* 航向环不参与旋转：devz 已在上面 wrap 到 [-180,180]，直接 P 控制。 */
-  vz = mKpz * devz;
   numerical_limit(&vz, ZVmax, ZVmin, 5.0f);
 
   MecanumControl_CalcWheelSpeed(cmd_x, cmd_y, vz, speed);
@@ -454,6 +475,7 @@ void MecanumControl_Enable(void)
  */
 void MecanumControl_Disable(void)
 {
+  MecanumControl_ResetWorldRpm();
   ZDT_X42S_Disable(1U);
   ZDT_X42S_Disable(2U);
   ZDT_X42S_Disable(3U);
@@ -506,6 +528,7 @@ void MecanumControl_MoveVelocity(float vxRpm, float vyRpm, float vzRpm)
   int wheel[4];
   uint8_t i;
 
+  MecanumControl_ResetWorldRpm();
   MecanumControl_CalcWheelSpeed(vxRpm, vyRpm, vzRpm, wheel);
 
   /* MANUAL 不走 chassis_move() 的斜坡分支，必须把实际手动轮速同步到
@@ -522,12 +545,32 @@ void MecanumControl_MoveVelocity(float vxRpm, float vyRpm, float vzRpm)
 
 void MecanumControl_MoveWorldVelocity(float vx,float vy,float omega,float yaw)
 {
-  float c,s;
+  float c,s,x,y,z,rpm[4],peak=0.0f,scale,total;
+  int wheel[4];
+  uint8_t i;
   if(!isfinite(vx) || !isfinite(vy) || !isfinite(omega) || !isfinite(yaw)) { MecanumControl_Stop();return; }
   c=cosf(yaw*0.0174532925f);s=sinf(yaw*0.0174532925f);
   /* 与chassis_move保持同一世界→车体旋转，不交换左右/前后轴。 */
-  MecanumControl_MoveVelocity((c*vx-s*vy)*0.238f,(s*vx+c*vy)*0.238f,
-                             omega*0.0174532925f*MECANUM_ROTATION_LEVER_MM*0.238f);
+  x=(c*vx-s*vy)*0.238f;y=(s*vx+c*vy)*0.238f;
+  z=omega*0.0174532925f*MECANUM_ROTATION_LEVER_MM*0.238f;
+  rpm[0]=y-x-z;rpm[1]=-y-x-z;rpm[2]=y+x-z;rpm[3]=-y+x-z;
+  for(i=0U;i<4U;++i) {
+    if(!isfinite(rpm[i])) { MecanumControl_Stop();return; }
+    if(fabsf(rpm[i])>peak) peak=fabsf(rpm[i]);
+  }
+  /* 先同比限幅浮点轮速，再量化；误差余量绝不能越过电机上限。 */
+  scale=peak>(float)ZDT_X42S_MAX_RPM?(float)ZDT_X42S_MAX_RPM/peak:1.0f;
+  for(i=0U;i<4U;++i) {
+    rpm[i]*=scale;
+    /* 零命令/反向立即丢弃旧余量，停车或接管后不会吐出残留脉冲。 */
+    if(rpm[i]==0.0f || fabsf(rpm[i])>=(float)ZDT_X42S_MAX_RPM ||
+       rpm[i]*s_world_rpm_remainder[i]<0.0f) s_world_rpm_remainder[i]=0.0f;
+    total=rpm[i]+s_world_rpm_remainder[i];
+    wheel[i]=(int)total;
+    s_world_rpm_remainder[i]=total-(float)wheel[i];
+    last_Speed[i]=(int)((float)wheel[i]/0.238f);
+  }
+  SetMotorVoltageAndDirection(wheel[0],wheel[1],wheel[2],wheel[3]);
 }
 
 /**

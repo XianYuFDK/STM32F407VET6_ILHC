@@ -404,9 +404,10 @@ class UiLogicTests(unittest.TestCase):
 
     def test_async_request_then_poll(self):
         self.w._request_plan(330,1200)
-        deadline=time.monotonic()+5
+        deadline=time.monotonic()+10  # public optimizer budget is 8s
         while self.w._plan_future is not None and time.monotonic()<deadline:
             self.w._poll_plan();time.sleep(0.005)
+        self.assertIsNone(self.w._plan_future)
         self.assertTrue(self.w.planned_result['ok'])
         self.assertTrue(self.w.line_q.empty())
 

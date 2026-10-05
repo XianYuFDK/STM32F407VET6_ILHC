@@ -35,6 +35,7 @@ static int out_dir[4];
 static int out_rpm[4];
 static int out_calls;
 static int last_Speed[4];
+static float s_world_rpm_remainder[4];
 
 /* 这里不再提供 HAL_Delay 桩：被切片的 SetMotorVoltageAndDirection 已不在帧间
  * 调用 HAL_Delay（阻塞式 HAL_UART_Transmit 返回时已等 TC，无需额外间隔）。
@@ -109,7 +110,8 @@ int main(void)
 }
 '''
 
-implementation = function("SetMotorVoltageAndDirection") + "\n\n" + \
+implementation = function("MecanumControl_ResetWorldRpm") + "\n\n" + \
+    function("SetMotorVoltageAndDirection") + "\n\n" + \
     function("MecanumControl_CalcWheelSpeed") + "\n\n" + \
     function("MecanumControl_MoveVelocity")
 code = prelude + implementation + checks

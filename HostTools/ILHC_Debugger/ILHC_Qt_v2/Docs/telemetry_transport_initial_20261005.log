@@ -1,0 +1,16 @@
+test_repeated_timeouts_or_device_loss_close_connection (test_serial_lifecycle.SerialLifecycleTests.test_repeated_timeouts_or_device_loss_close_connection) ... ok
+test_stop_during_read_keeps_all_io_in_worker (test_serial_lifecycle.SerialLifecycleTests.test_stop_during_read_keeps_all_io_in_worker) ... ok
+test_stop_timestamp_requires_a_complete_successful_write (test_serial_lifecycle.SerialLifecycleTests.test_stop_timestamp_requires_a_complete_successful_write) ... ok
+test_stop_while_port_is_opening (test_serial_lifecycle.SerialLifecycleTests.test_stop_while_port_is_opening) ... ok
+test_write_timeout_preserves_rx_and_does_not_replay_command (test_serial_lifecycle.SerialLifecycleTests.test_write_timeout_preserves_rx_and_does_not_replay_command) ... ok
+test_close_waits_for_worker_before_destroying_window (test_serial_lifecycle.WindowLifecycleTests.test_close_waits_for_worker_before_destroying_window) ... ok
+test_nonfinite_telemetry_renders (test_serial_lifecycle.WindowLifecycleTests.test_nonfinite_telemetry_renders) ... ok
+test_old_error_does_not_stop_new_session (test_serial_lifecycle.WindowLifecycleTests.test_old_error_does_not_stop_new_session) ... ok
+test_reconnect_and_sim_wait_for_previous_worker (test_serial_lifecycle.WindowLifecycleTests.test_reconnect_and_sim_wait_for_previous_worker) ... ok
+test_reply_on_startup_and_repeated_partial_rows_preserve_frame (tests.test_mixed_telemetry.MixedTelemetryTests.test_reply_on_startup_and_repeated_partial_rows_preserve_frame) ... ok
+test_status_and_embedded_tail_preserve_every_pose_and_text (tests.test_mixed_telemetry.MixedTelemetryTests.test_status_and_embedded_tail_preserve_every_pose_and_text) ... ok
+
+----------------------------------------------------------------------
+Ran 11 tests in 1.162s
+
+OK

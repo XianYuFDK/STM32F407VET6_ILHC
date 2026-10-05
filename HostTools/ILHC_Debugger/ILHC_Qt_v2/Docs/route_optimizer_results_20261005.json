@@ -1,0 +1,4028 @@
+{
+  "summary": {
+    "matches": 8,
+    "legs": 64,
+    "proven_legs": 64,
+    "faster_matches": 8,
+    "slower_matches": 0,
+    "elapsed_wall_s": 292.9276903999853
+  },
+  "rows": [
+    {
+      "profile": "default",
+      "case": "clear",
+      "zone": 1,
+      "old_s": 59.0,
+      "new_s": 57.36,
+      "saving_s": 1.64,
+      "planning_wall_s": 7.766671899997164,
+      "point_count": 19,
+      "body_sweeps_safe": true,
+      "quantized_preflight_safe": true,
+      "legs": [
+        {
+          "label": "前往二维码板",
+          "cost_mm": 1056.3014581273465,
+          "predicted_s": 4.2,
+          "optimality": {
+            "proven": true,
+            "policy": "ORDERED_SAFE_SKELETON_THEN_REPLAY_TIME",
+            "objective": "lexicographic: skeleton length + 120mm per bend, modeled travel time, direction cost",
+            "scope": "three finite lane graphs, loopless skeletons, 3 heading modes x 9 controller settings",
+            "cost_tolerance_mm": 1e-07,
+            "global_continuous_proven": false,
+            "global_time_proven": false,
+            "baseline": {
+              "skeleton_cost_mm": 1100.0,
+              "predicted_tracking_s": 4.82
+            },
+            "reason": "all cheaper and tied skeletons and controller settings checked"
+          },
+          "search": {
+            "refined": false,
+            "extended": true,
+            "skeleton_cost_mm": 1056.3014581273465,
+            "turn_penalty_mm": 120,
+            "expanded": 13,
+            "candidates": 3,
+            "replay_tested": 44,
+            "replay_safe": 22,
+            "phases": [
+              {
+                "refined": false,
+                "extended": false,
+                "expanded": 7,
+                "candidates": 2,
+                "graph_lower_bound_mm": 1100.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": false,
+                "extended": true,
+                "expanded": 3,
+                "candidates": 1,
+                "graph_lower_bound_mm": 1056.3014581273465,
+                "remaining_lower_bound_mm": 1100.0,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": true,
+                "extended": true,
+                "expanded": 3,
+                "candidates": 1,
+                "graph_lower_bound_mm": 1056.3014581273465,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              }
+            ]
+          }
+        },
+        {
+          "label": "第1批：前往原料区",
+          "cost_mm": 1930.0,
+          "predicted_s": 5.26,
+          "optimality": {
+            "proven": true,
+            "policy": "ORDERED_SAFE_SKELETON_THEN_REPLAY_TIME",
+            "objective": "lexicographic: skeleton length + 120mm per bend, modeled travel time, direction cost",
+            "scope": "three finite lane graphs, loopless skeletons, 3 heading modes x 9 controller settings",
+            "cost_tolerance_mm": 1e-07,
+            "global_continuous_proven": false,
+            "global_time_proven": false,
+            "baseline": {
+              "skeleton_cost_mm": 1930.0,
+              "predicted_tracking_s": 5.26
+            },
+            "reason": "all cheaper and tied skeletons and controller settings checked"
+          },
+          "search": {
+            "refined": false,
+            "extended": false,
+            "expanded": 27,
+            "candidates": 2,
+            "skeleton_cost_mm": 1930.0,
+            "turn_penalty_mm": 120,
+            "replay_tested": 45,
+            "replay_safe": 16,
+            "phases": [
+              {
+                "refined": false,
+                "extended": false,
+                "expanded": 7,
+                "candidates": 2,
+                "graph_lower_bound_mm": 1930.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": false,
+                "extended": true,
+                "expanded": 7,
+                "candidates": 2,
+                "graph_lower_bound_mm": 1930.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": true,
+                "extended": true,
+                "expanded": 13,
+                "candidates": 2,
+                "graph_lower_bound_mm": 1930.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              }
+            ]
+          }
+        },
+        {
+          "label": "第1批：前往粗加工区",
+          "cost_mm": 1630.0,
+          "predicted_s": 5.1,
+          "optimality": {
+            "proven": true,
+            "policy": "ORDERED_SAFE_SKELETON_THEN_REPLAY_TIME",
+            "objective": "lexicographic: skeleton length + 120mm per bend, modeled travel time, direction cost",
+            "scope": "three finite lane graphs, loopless skeletons, 3 heading modes x 9 controller settings",
+            "cost_tolerance_mm": 1e-07,
+            "global_continuous_proven": false,
+            "global_time_proven": false,
+            "baseline": {
+              "skeleton_cost_mm": 1630.0,
+              "predicted_tracking_s": 5.1
+            },
+            "reason": "all cheaper and tied skeletons and controller settings checked"
+          },
+          "search": {
+            "refined": false,
+            "extended": false,
+            "expanded": 9,
+            "candidates": 1,
+            "skeleton_cost_mm": 1630.0,
+            "turn_penalty_mm": 120,
+            "replay_tested": 12,
+            "replay_safe": 2,
+            "phases": [
+              {
+                "refined": false,
+                "extended": false,
+                "expanded": 3,
+                "candidates": 1,
+                "graph_lower_bound_mm": 1630.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": false,
+                "extended": true,
+                "expanded": 3,
+                "candidates": 1,
+                "graph_lower_bound_mm": 1630.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": true,
+                "extended": true,
+                "expanded": 3,
+                "candidates": 1,
+                "graph_lower_bound_mm": 1630.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              }
+            ]
+          }
+        },
+        {
+          "label": "第1批：前往暂存区",
+          "cost_mm": 1720.0,
+          "predicted_s": 5.14,
+          "optimality": {
+            "proven": true,
+            "policy": "ORDERED_SAFE_SKELETON_THEN_REPLAY_TIME",
+            "objective": "lexicographic: skeleton length + 120mm per bend, modeled travel time, direction cost",
+            "scope": "three finite lane graphs, loopless skeletons, 3 heading modes x 9 controller settings",
+            "cost_tolerance_mm": 1e-07,
+            "global_continuous_proven": false,
+            "global_time_proven": false,
+            "baseline": {
+              "skeleton_cost_mm": 1720.0,
+              "predicted_tracking_s": 5.14
+            },
+            "reason": "all cheaper and tied skeletons and controller settings checked"
+          },
+          "search": {
+            "refined": false,
+            "extended": false,
+            "expanded": 21,
+            "candidates": 2,
+            "skeleton_cost_mm": 1720.0,
+            "turn_penalty_mm": 120,
+            "replay_tested": 45,
+            "replay_safe": 10,
+            "phases": [
+              {
+                "refined": false,
+                "extended": false,
+                "expanded": 5,
+                "candidates": 2,
+                "graph_lower_bound_mm": 1720.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": false,
+                "extended": true,
+                "expanded": 5,
+                "candidates": 2,
+                "graph_lower_bound_mm": 1720.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": true,
+                "extended": true,
+                "expanded": 11,
+                "candidates": 2,
+                "graph_lower_bound_mm": 1720.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              }
+            ]
+          }
+        },
+        {
+          "label": "第2批：前往原料区",
+          "cost_mm": 1750.0,
+          "predicted_s": 5.16,
+          "optimality": {
+            "proven": true,
+            "policy": "ORDERED_SAFE_SKELETON_THEN_REPLAY_TIME",
+            "objective": "lexicographic: skeleton length + 120mm per bend, modeled travel time, direction cost",
+            "scope": "three finite lane graphs, loopless skeletons, 3 heading modes x 9 controller settings",
+            "cost_tolerance_mm": 1e-07,
+            "global_continuous_proven": false,
+            "global_time_proven": false,
+            "baseline": {
+              "skeleton_cost_mm": 1750.0,
+              "predicted_tracking_s": 5.16
+            },
+            "reason": "all cheaper and tied skeletons and controller settings checked"
+          },
+          "search": {
+            "refined": false,
+            "extended": false,
+            "expanded": 21,
+            "candidates": 2,
+            "skeleton_cost_mm": 1750.0,
+            "turn_penalty_mm": 120,
+            "replay_tested": 45,
+            "replay_safe": 10,
+            "phases": [
+              {
+                "refined": false,
+                "extended": false,
+                "expanded": 5,
+                "candidates": 2,
+                "graph_lower_bound_mm": 1750.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": false,
+                "extended": true,
+                "expanded": 5,
+                "candidates": 2,
+                "graph_lower_bound_mm": 1750.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": true,
+                "extended": true,
+                "expanded": 11,
+                "candidates": 2,
+                "graph_lower_bound_mm": 1750.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              }
+            ]
+          }
+        },
+        {
+          "label": "第2批：前往粗加工区",
+          "cost_mm": 1630.0,
+          "predicted_s": 3.56,
+          "optimality": {
+            "proven": true,
+            "policy": "ORDERED_SAFE_SKELETON_THEN_REPLAY_TIME",
+            "objective": "lexicographic: skeleton length + 120mm per bend, modeled travel time, direction cost",
+            "scope": "three finite lane graphs, loopless skeletons, 3 heading modes x 9 controller settings",
+            "cost_tolerance_mm": 1e-07,
+            "global_continuous_proven": false,
+            "global_time_proven": false,
+            "baseline": {
+              "skeleton_cost_mm": 1630.0,
+              "predicted_tracking_s": 3.56
+            },
+            "reason": "all cheaper and tied skeletons and controller settings checked"
+          },
+          "search": {
+            "refined": false,
+            "extended": false,
+            "expanded": 9,
+            "candidates": 1,
+            "skeleton_cost_mm": 1630.0,
+            "turn_penalty_mm": 120,
+            "replay_tested": 12,
+            "replay_safe": 8,
+            "phases": [
+              {
+                "refined": false,
+                "extended": false,
+                "expanded": 3,
+                "candidates": 1,
+                "graph_lower_bound_mm": 1630.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": false,
+                "extended": true,
+                "expanded": 3,
+                "candidates": 1,
+                "graph_lower_bound_mm": 1630.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": true,
+                "extended": true,
+                "expanded": 3,
+                "candidates": 1,
+                "graph_lower_bound_mm": 1630.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              }
+            ]
+          }
+        },
+        {
+          "label": "第2批：前往暂存区",
+          "cost_mm": 1720.0,
+          "predicted_s": 5.16,
+          "optimality": {
+            "proven": true,
+            "policy": "ORDERED_SAFE_SKELETON_THEN_REPLAY_TIME",
+            "objective": "lexicographic: skeleton length + 120mm per bend, modeled travel time, direction cost",
+            "scope": "three finite lane graphs, loopless skeletons, 3 heading modes x 9 controller settings",
+            "cost_tolerance_mm": 1e-07,
+            "global_continuous_proven": false,
+            "global_time_proven": false,
+            "baseline": {
+              "skeleton_cost_mm": 1720.0,
+              "predicted_tracking_s": 5.16
+            },
+            "reason": "all cheaper and tied skeletons and controller settings checked"
+          },
+          "search": {
+            "refined": false,
+            "extended": false,
+            "expanded": 21,
+            "candidates": 2,
+            "skeleton_cost_mm": 1720.0,
+            "turn_penalty_mm": 120,
+            "replay_tested": 36,
+            "replay_safe": 5,
+            "phases": [
+              {
+                "refined": false,
+                "extended": false,
+                "expanded": 5,
+                "candidates": 2,
+                "graph_lower_bound_mm": 1720.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": false,
+                "extended": true,
+                "expanded": 5,
+                "candidates": 2,
+                "graph_lower_bound_mm": 1720.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": true,
+                "extended": true,
+                "expanded": 11,
+                "candidates": 2,
+                "graph_lower_bound_mm": 1720.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              }
+            ]
+          }
+        },
+        {
+          "label": "返回出发启停区前的停车区",
+          "cost_mm": 2720.0,
+          "predicted_s": 5.34,
+          "optimality": {
+            "proven": true,
+            "policy": "ORDERED_SAFE_SKELETON_THEN_REPLAY_TIME",
+            "objective": "lexicographic: skeleton length + 120mm per bend, modeled travel time, direction cost",
+            "scope": "three finite lane graphs, loopless skeletons, 3 heading modes x 9 controller settings",
+            "cost_tolerance_mm": 1e-07,
+            "global_continuous_proven": false,
+            "global_time_proven": false,
+            "baseline": {
+              "skeleton_cost_mm": 2720.0,
+              "predicted_tracking_s": 5.34
+            },
+            "reason": "all cheaper and tied skeletons and controller settings checked"
+          },
+          "search": {
+            "refined": false,
+            "extended": false,
+            "expanded": 41,
+            "candidates": 2,
+            "skeleton_cost_mm": 2720.0,
+            "turn_penalty_mm": 120,
+            "replay_tested": 45,
+            "replay_safe": 10,
+            "phases": [
+              {
+                "refined": false,
+                "extended": false,
+                "expanded": 9,
+                "candidates": 2,
+                "graph_lower_bound_mm": 2720.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": false,
+                "extended": true,
+                "expanded": 9,
+                "candidates": 2,
+                "graph_lower_bound_mm": 2720.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": true,
+                "extended": true,
+                "expanded": 23,
+                "candidates": 2,
+                "graph_lower_bound_mm": 2720.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "profile": "default",
+      "case": "clear",
+      "zone": 2,
+      "old_s": 59.0,
+      "new_s": 57.82,
+      "saving_s": 1.18,
+      "planning_wall_s": 7.895568200008711,
+      "point_count": 19,
+      "body_sweeps_safe": true,
+      "quantized_preflight_safe": true,
+      "legs": [
+        {
+          "label": "前往二维码板",
+          "cost_mm": 1048.062484748657,
+          "predicted_s": 4.18,
+          "optimality": {
+            "proven": true,
+            "policy": "ORDERED_SAFE_SKELETON_THEN_REPLAY_TIME",
+            "objective": "lexicographic: skeleton length + 120mm per bend, modeled travel time, direction cost",
+            "scope": "three finite lane graphs, loopless skeletons, 3 heading modes x 9 controller settings",
+            "cost_tolerance_mm": 1e-07,
+            "global_continuous_proven": false,
+            "global_time_proven": false,
+            "baseline": {
+              "skeleton_cost_mm": 1100.0,
+              "predicted_tracking_s": 4.82
+            },
+            "reason": "all cheaper and tied skeletons and controller settings checked"
+          },
+          "search": {
+            "refined": false,
+            "extended": true,
+            "skeleton_cost_mm": 1048.062484748657,
+            "turn_penalty_mm": 120,
+            "expanded": 13,
+            "candidates": 3,
+            "replay_tested": 44,
+            "replay_safe": 22,
+            "phases": [
+              {
+                "refined": false,
+                "extended": false,
+                "expanded": 7,
+                "candidates": 2,
+                "graph_lower_bound_mm": 1100.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": false,
+                "extended": true,
+                "expanded": 3,
+                "candidates": 1,
+                "graph_lower_bound_mm": 1048.062484748657,
+                "remaining_lower_bound_mm": 1100.0,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": true,
+                "extended": true,
+                "expanded": 3,
+                "candidates": 1,
+                "graph_lower_bound_mm": 1048.062484748657,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              }
+            ]
+          }
+        },
+        {
+          "label": "第1批：前往原料区",
+          "cost_mm": 1930.0,
+          "predicted_s": 5.74,
+          "optimality": {
+            "proven": true,
+            "policy": "ORDERED_SAFE_SKELETON_THEN_REPLAY_TIME",
+            "objective": "lexicographic: skeleton length + 120mm per bend, modeled travel time, direction cost",
+            "scope": "three finite lane graphs, loopless skeletons, 3 heading modes x 9 controller settings",
+            "cost_tolerance_mm": 1e-07,
+            "global_continuous_proven": false,
+            "global_time_proven": false,
+            "baseline": {
+              "skeleton_cost_mm": 1930.0,
+              "predicted_tracking_s": 5.74
+            },
+            "reason": "all cheaper and tied skeletons and controller settings checked"
+          },
+          "search": {
+            "refined": false,
+            "extended": false,
+            "expanded": 27,
+            "candidates": 2,
+            "skeleton_cost_mm": 1930.0,
+            "turn_penalty_mm": 120,
+            "replay_tested": 36,
+            "replay_safe": 10,
+            "phases": [
+              {
+                "refined": false,
+                "extended": false,
+                "expanded": 7,
+                "candidates": 2,
+                "graph_lower_bound_mm": 1930.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": false,
+                "extended": true,
+                "expanded": 7,
+                "candidates": 2,
+                "graph_lower_bound_mm": 1930.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": true,
+                "extended": true,
+                "expanded": 13,
+                "candidates": 2,
+                "graph_lower_bound_mm": 1930.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              }
+            ]
+          }
+        },
+        {
+          "label": "第1批：前往粗加工区",
+          "cost_mm": 1630.0,
+          "predicted_s": 5.1,
+          "optimality": {
+            "proven": true,
+            "policy": "ORDERED_SAFE_SKELETON_THEN_REPLAY_TIME",
+            "objective": "lexicographic: skeleton length + 120mm per bend, modeled travel time, direction cost",
+            "scope": "three finite lane graphs, loopless skeletons, 3 heading modes x 9 controller settings",
+            "cost_tolerance_mm": 1e-07,
+            "global_continuous_proven": false,
+            "global_time_proven": false,
+            "baseline": {
+              "skeleton_cost_mm": 1630.0,
+              "predicted_tracking_s": 5.1
+            },
+            "reason": "all cheaper and tied skeletons and controller settings checked"
+          },
+          "search": {
+            "refined": false,
+            "extended": false,
+            "expanded": 9,
+            "candidates": 1,
+            "skeleton_cost_mm": 1630.0,
+            "turn_penalty_mm": 120,
+            "replay_tested": 12,
+            "replay_safe": 2,
+            "phases": [
+              {
+                "refined": false,
+                "extended": false,
+                "expanded": 3,
+                "candidates": 1,
+                "graph_lower_bound_mm": 1630.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": false,
+                "extended": true,
+                "expanded": 3,
+                "candidates": 1,
+                "graph_lower_bound_mm": 1630.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": true,
+                "extended": true,
+                "expanded": 3,
+                "candidates": 1,
+                "graph_lower_bound_mm": 1630.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              }
+            ]
+          }
+        },
+        {
+          "label": "第1批：前往暂存区",
+          "cost_mm": 1720.0,
+          "predicted_s": 5.14,
+          "optimality": {
+            "proven": true,
+            "policy": "ORDERED_SAFE_SKELETON_THEN_REPLAY_TIME",
+            "objective": "lexicographic: skeleton length + 120mm per bend, modeled travel time, direction cost",
+            "scope": "three finite lane graphs, loopless skeletons, 3 heading modes x 9 controller settings",
+            "cost_tolerance_mm": 1e-07,
+            "global_continuous_proven": false,
+            "global_time_proven": false,
+            "baseline": {
+              "skeleton_cost_mm": 1720.0,
+              "predicted_tracking_s": 5.14
+            },
+            "reason": "all cheaper and tied skeletons and controller settings checked"
+          },
+          "search": {
+            "refined": false,
+            "extended": false,
+            "expanded": 21,
+            "candidates": 2,
+            "skeleton_cost_mm": 1720.0,
+            "turn_penalty_mm": 120,
+            "replay_tested": 45,
+            "replay_safe": 10,
+            "phases": [
+              {
+                "refined": false,
+                "extended": false,
+                "expanded": 5,
+                "candidates": 2,
+                "graph_lower_bound_mm": 1720.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": false,
+                "extended": true,
+                "expanded": 5,
+                "candidates": 2,
+                "graph_lower_bound_mm": 1720.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": true,
+                "extended": true,
+                "expanded": 11,
+                "candidates": 2,
+                "graph_lower_bound_mm": 1720.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              }
+            ]
+          }
+        },
+        {
+          "label": "第2批：前往原料区",
+          "cost_mm": 1750.0,
+          "predicted_s": 5.16,
+          "optimality": {
+            "proven": true,
+            "policy": "ORDERED_SAFE_SKELETON_THEN_REPLAY_TIME",
+            "objective": "lexicographic: skeleton length + 120mm per bend, modeled travel time, direction cost",
+            "scope": "three finite lane graphs, loopless skeletons, 3 heading modes x 9 controller settings",
+            "cost_tolerance_mm": 1e-07,
+            "global_continuous_proven": false,
+            "global_time_proven": false,
+            "baseline": {
+              "skeleton_cost_mm": 1750.0,
+              "predicted_tracking_s": 5.16
+            },
+            "reason": "all cheaper and tied skeletons and controller settings checked"
+          },
+          "search": {
+            "refined": false,
+            "extended": false,
+            "expanded": 21,
+            "candidates": 2,
+            "skeleton_cost_mm": 1750.0,
+            "turn_penalty_mm": 120,
+            "replay_tested": 45,
+            "replay_safe": 10,
+            "phases": [
+              {
+                "refined": false,
+                "extended": false,
+                "expanded": 5,
+                "candidates": 2,
+                "graph_lower_bound_mm": 1750.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": false,
+                "extended": true,
+                "expanded": 5,
+                "candidates": 2,
+                "graph_lower_bound_mm": 1750.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": true,
+                "extended": true,
+                "expanded": 11,
+                "candidates": 2,
+                "graph_lower_bound_mm": 1750.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              }
+            ]
+          }
+        },
+        {
+          "label": "第2批：前往粗加工区",
+          "cost_mm": 1630.0,
+          "predicted_s": 3.56,
+          "optimality": {
+            "proven": true,
+            "policy": "ORDERED_SAFE_SKELETON_THEN_REPLAY_TIME",
+            "objective": "lexicographic: skeleton length + 120mm per bend, modeled travel time, direction cost",
+            "scope": "three finite lane graphs, loopless skeletons, 3 heading modes x 9 controller settings",
+            "cost_tolerance_mm": 1e-07,
+            "global_continuous_proven": false,
+            "global_time_proven": false,
+            "baseline": {
+              "skeleton_cost_mm": 1630.0,
+              "predicted_tracking_s": 3.56
+            },
+            "reason": "all cheaper and tied skeletons and controller settings checked"
+          },
+          "search": {
+            "refined": false,
+            "extended": false,
+            "expanded": 9,
+            "candidates": 1,
+            "skeleton_cost_mm": 1630.0,
+            "turn_penalty_mm": 120,
+            "replay_tested": 12,
+            "replay_safe": 8,
+            "phases": [
+              {
+                "refined": false,
+                "extended": false,
+                "expanded": 3,
+                "candidates": 1,
+                "graph_lower_bound_mm": 1630.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": false,
+                "extended": true,
+                "expanded": 3,
+                "candidates": 1,
+                "graph_lower_bound_mm": 1630.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": true,
+                "extended": true,
+                "expanded": 3,
+                "candidates": 1,
+                "graph_lower_bound_mm": 1630.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              }
+            ]
+          }
+        },
+        {
+          "label": "第2批：前往暂存区",
+          "cost_mm": 1720.0,
+          "predicted_s": 5.16,
+          "optimality": {
+            "proven": true,
+            "policy": "ORDERED_SAFE_SKELETON_THEN_REPLAY_TIME",
+            "objective": "lexicographic: skeleton length + 120mm per bend, modeled travel time, direction cost",
+            "scope": "three finite lane graphs, loopless skeletons, 3 heading modes x 9 controller settings",
+            "cost_tolerance_mm": 1e-07,
+            "global_continuous_proven": false,
+            "global_time_proven": false,
+            "baseline": {
+              "skeleton_cost_mm": 1720.0,
+              "predicted_tracking_s": 5.16
+            },
+            "reason": "all cheaper and tied skeletons and controller settings checked"
+          },
+          "search": {
+            "refined": false,
+            "extended": false,
+            "expanded": 21,
+            "candidates": 2,
+            "skeleton_cost_mm": 1720.0,
+            "turn_penalty_mm": 120,
+            "replay_tested": 36,
+            "replay_safe": 5,
+            "phases": [
+              {
+                "refined": false,
+                "extended": false,
+                "expanded": 5,
+                "candidates": 2,
+                "graph_lower_bound_mm": 1720.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": false,
+                "extended": true,
+                "expanded": 5,
+                "candidates": 2,
+                "graph_lower_bound_mm": 1720.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": true,
+                "extended": true,
+                "expanded": 11,
+                "candidates": 2,
+                "graph_lower_bound_mm": 1720.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              }
+            ]
+          }
+        },
+        {
+          "label": "返回出发启停区前的停车区",
+          "cost_mm": 2720.0,
+          "predicted_s": 5.34,
+          "optimality": {
+            "proven": true,
+            "policy": "ORDERED_SAFE_SKELETON_THEN_REPLAY_TIME",
+            "objective": "lexicographic: skeleton length + 120mm per bend, modeled travel time, direction cost",
+            "scope": "three finite lane graphs, loopless skeletons, 3 heading modes x 9 controller settings",
+            "cost_tolerance_mm": 1e-07,
+            "global_continuous_proven": false,
+            "global_time_proven": false,
+            "baseline": {
+              "skeleton_cost_mm": 2720.0,
+              "predicted_tracking_s": 5.34
+            },
+            "reason": "all cheaper and tied skeletons and controller settings checked"
+          },
+          "search": {
+            "refined": false,
+            "extended": false,
+            "expanded": 39,
+            "candidates": 2,
+            "skeleton_cost_mm": 2720.0,
+            "turn_penalty_mm": 120,
+            "replay_tested": 45,
+            "replay_safe": 10,
+            "phases": [
+              {
+                "refined": false,
+                "extended": false,
+                "expanded": 9,
+                "candidates": 2,
+                "graph_lower_bound_mm": 2720.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": false,
+                "extended": true,
+                "expanded": 9,
+                "candidates": 2,
+                "graph_lower_bound_mm": 2720.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": true,
+                "extended": true,
+                "expanded": 21,
+                "candidates": 2,
+                "graph_lower_bound_mm": 2720.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "profile": "default",
+      "case": "two_obstacles",
+      "zone": 1,
+      "old_s": 92.54,
+      "new_s": 88.76,
+      "saving_s": 3.78,
+      "planning_wall_s": 41.07004489999963,
+      "point_count": 33,
+      "body_sweeps_safe": true,
+      "quantized_preflight_safe": true,
+      "legs": [
+        {
+          "label": "前往二维码板",
+          "cost_mm": 1036.5564437074636,
+          "predicted_s": 4.24,
+          "optimality": {
+            "proven": true,
+            "policy": "ORDERED_SAFE_SKELETON_THEN_REPLAY_TIME",
+            "objective": "lexicographic: skeleton length + 120mm per bend, modeled travel time, direction cost",
+            "scope": "three finite lane graphs, loopless skeletons, 3 heading modes x 9 controller settings",
+            "cost_tolerance_mm": 1e-07,
+            "global_continuous_proven": false,
+            "global_time_proven": false,
+            "baseline": {
+              "skeleton_cost_mm": 1100.0,
+              "predicted_tracking_s": 4.82
+            },
+            "reason": "all cheaper and tied skeletons and controller settings checked"
+          },
+          "search": {
+            "refined": true,
+            "extended": true,
+            "skeleton_cost_mm": 1036.5564437074636,
+            "turn_penalty_mm": 120,
+            "expanded": 15,
+            "candidates": 4,
+            "replay_tested": 60,
+            "replay_safe": 30,
+            "phases": [
+              {
+                "refined": false,
+                "extended": false,
+                "expanded": 7,
+                "candidates": 2,
+                "graph_lower_bound_mm": 1100.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": false,
+                "extended": true,
+                "expanded": 3,
+                "candidates": 1,
+                "graph_lower_bound_mm": 1056.3014581273465,
+                "remaining_lower_bound_mm": 1100.0,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": true,
+                "extended": true,
+                "expanded": 5,
+                "candidates": 1,
+                "graph_lower_bound_mm": 1036.5564437074636,
+                "remaining_lower_bound_mm": 1037.4188140489387,
+                "complete": true,
+                "limit_hit": false
+              }
+            ]
+          }
+        },
+        {
+          "label": "第1批：前往原料区",
+          "cost_mm": 1930.0,
+          "predicted_s": 5.26,
+          "optimality": {
+            "proven": true,
+            "policy": "ORDERED_SAFE_SKELETON_THEN_REPLAY_TIME",
+            "objective": "lexicographic: skeleton length + 120mm per bend, modeled travel time, direction cost",
+            "scope": "three finite lane graphs, loopless skeletons, 3 heading modes x 9 controller settings",
+            "cost_tolerance_mm": 1e-07,
+            "global_continuous_proven": false,
+            "global_time_proven": false,
+            "baseline": {
+              "skeleton_cost_mm": 1930.0,
+              "predicted_tracking_s": 5.26
+            },
+            "reason": "all cheaper and tied skeletons and controller settings checked"
+          },
+          "search": {
+            "refined": false,
+            "extended": false,
+            "expanded": 20,
+            "candidates": 1,
+            "skeleton_cost_mm": 1930.0,
+            "turn_penalty_mm": 120,
+            "replay_tested": 27,
+            "replay_safe": 11,
+            "phases": [
+              {
+                "refined": false,
+                "extended": false,
+                "expanded": 4,
+                "candidates": 1,
+                "graph_lower_bound_mm": 1930.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": false,
+                "extended": true,
+                "expanded": 4,
+                "candidates": 1,
+                "graph_lower_bound_mm": 1930.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": true,
+                "extended": true,
+                "expanded": 12,
+                "candidates": 1,
+                "graph_lower_bound_mm": 1930.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              }
+            ]
+          }
+        },
+        {
+          "label": "第1批：前往粗加工区",
+          "cost_mm": 3816.154937259125,
+          "predicted_s": 8.76,
+          "optimality": {
+            "proven": true,
+            "policy": "ORDERED_SAFE_SKELETON_THEN_REPLAY_TIME",
+            "objective": "lexicographic: skeleton length + 120mm per bend, modeled travel time, direction cost",
+            "scope": "three finite lane graphs, loopless skeletons, 3 heading modes x 9 controller settings",
+            "cost_tolerance_mm": 1e-07,
+            "global_continuous_proven": false,
+            "global_time_proven": false,
+            "baseline": {
+              "skeleton_cost_mm": 3830.0,
+              "predicted_tracking_s": 8.9
+            },
+            "reason": "all cheaper and tied skeletons and controller settings checked"
+          },
+          "search": {
+            "refined": true,
+            "extended": true,
+            "skeleton_cost_mm": 3816.154937259125,
+            "turn_penalty_mm": 120,
+            "expanded": 47,
+            "candidates": 3,
+            "replay_tested": 81,
+            "replay_safe": 7,
+            "phases": [
+              {
+                "refined": false,
+                "extended": false,
+                "expanded": 10,
+                "candidates": 2,
+                "graph_lower_bound_mm": 3670.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": false,
+                "extended": true,
+                "expanded": 10,
+                "candidates": 2,
+                "graph_lower_bound_mm": 3670.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": true,
+                "extended": true,
+                "expanded": 27,
+                "candidates": 2,
+                "graph_lower_bound_mm": 3670.0,
+                "remaining_lower_bound_mm": 3816.1991577321796,
+                "complete": true,
+                "limit_hit": false
+              }
+            ]
+          }
+        },
+        {
+          "label": "第1批：前往暂存区",
+          "cost_mm": 5566.681547025944,
+          "predicted_s": 14.34,
+          "optimality": {
+            "proven": true,
+            "policy": "ORDERED_SAFE_SKELETON_THEN_REPLAY_TIME",
+            "objective": "lexicographic: skeleton length + 120mm per bend, modeled travel time, direction cost",
+            "scope": "three finite lane graphs, loopless skeletons, 3 heading modes x 9 controller settings",
+            "cost_tolerance_mm": 1e-07,
+            "global_continuous_proven": false,
+            "global_time_proven": false,
+            "baseline": {
+              "skeleton_cost_mm": 6000.0,
+              "predicted_tracking_s": 16.36
+            },
+            "reason": "all cheaper and tied skeletons and controller settings checked"
+          },
+          "search": {
+            "refined": true,
+            "extended": true,
+            "skeleton_cost_mm": 5566.681547025944,
+            "turn_penalty_mm": 120,
+            "expanded": 369,
+            "candidates": 23,
+            "replay_tested": 621,
+            "replay_safe": 3,
+            "phases": [
+              {
+                "refined": false,
+                "extended": false,
+                "expanded": 92,
+                "candidates": 18,
+                "graph_lower_bound_mm": 5420.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": false,
+                "extended": true,
+                "expanded": 92,
+                "candidates": 18,
+                "graph_lower_bound_mm": 5420.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": true,
+                "extended": true,
+                "expanded": 185,
+                "candidates": 7,
+                "graph_lower_bound_mm": 5420.0,
+                "remaining_lower_bound_mm": 5566.776695296637,
+                "complete": true,
+                "limit_hit": false
+              }
+            ]
+          }
+        },
+        {
+          "label": "第2批：前往原料区",
+          "cost_mm": 1750.0,
+          "predicted_s": 6.62,
+          "optimality": {
+            "proven": true,
+            "policy": "ORDERED_SAFE_SKELETON_THEN_REPLAY_TIME",
+            "objective": "lexicographic: skeleton length + 120mm per bend, modeled travel time, direction cost",
+            "scope": "three finite lane graphs, loopless skeletons, 3 heading modes x 9 controller settings",
+            "cost_tolerance_mm": 1e-07,
+            "global_continuous_proven": false,
+            "global_time_proven": false,
+            "baseline": {
+              "skeleton_cost_mm": 1750.0,
+              "predicted_tracking_s": 6.62
+            },
+            "reason": "all cheaper and tied skeletons and controller settings checked"
+          },
+          "search": {
+            "refined": false,
+            "extended": false,
+            "expanded": 20,
+            "candidates": 1,
+            "skeleton_cost_mm": 1750.0,
+            "turn_penalty_mm": 120,
+            "replay_tested": 27,
+            "replay_safe": 1,
+            "phases": [
+              {
+                "refined": false,
+                "extended": false,
+                "expanded": 3,
+                "candidates": 1,
+                "graph_lower_bound_mm": 1750.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": false,
+                "extended": true,
+                "expanded": 3,
+                "candidates": 1,
+                "graph_lower_bound_mm": 1750.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": true,
+                "extended": true,
+                "expanded": 14,
+                "candidates": 1,
+                "graph_lower_bound_mm": 1750.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              }
+            ]
+          }
+        },
+        {
+          "label": "第2批：前往粗加工区",
+          "cost_mm": 3670.0,
+          "predicted_s": 8.8,
+          "optimality": {
+            "proven": true,
+            "policy": "ORDERED_SAFE_SKELETON_THEN_REPLAY_TIME",
+            "objective": "lexicographic: skeleton length + 120mm per bend, modeled travel time, direction cost",
+            "scope": "three finite lane graphs, loopless skeletons, 3 heading modes x 9 controller settings",
+            "cost_tolerance_mm": 1e-07,
+            "global_continuous_proven": false,
+            "global_time_proven": false,
+            "baseline": {
+              "skeleton_cost_mm": 3670.0,
+              "predicted_tracking_s": 8.8
+            },
+            "reason": "all cheaper and tied skeletons and controller settings checked"
+          },
+          "search": {
+            "refined": false,
+            "extended": false,
+            "expanded": 34,
+            "candidates": 1,
+            "skeleton_cost_mm": 3670.0,
+            "turn_penalty_mm": 120,
+            "replay_tested": 18,
+            "replay_safe": 1,
+            "phases": [
+              {
+                "refined": false,
+                "extended": false,
+                "expanded": 5,
+                "candidates": 1,
+                "graph_lower_bound_mm": 3670.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": false,
+                "extended": true,
+                "expanded": 5,
+                "candidates": 1,
+                "graph_lower_bound_mm": 3670.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": true,
+                "extended": true,
+                "expanded": 24,
+                "candidates": 1,
+                "graph_lower_bound_mm": 3670.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              }
+            ]
+          }
+        },
+        {
+          "label": "第2批：前往暂存区",
+          "cost_mm": 5566.681547025944,
+          "predicted_s": 14.34,
+          "optimality": {
+            "proven": true,
+            "policy": "ORDERED_SAFE_SKELETON_THEN_REPLAY_TIME",
+            "objective": "lexicographic: skeleton length + 120mm per bend, modeled travel time, direction cost",
+            "scope": "three finite lane graphs, loopless skeletons, 3 heading modes x 9 controller settings",
+            "cost_tolerance_mm": 1e-07,
+            "global_continuous_proven": false,
+            "global_time_proven": false,
+            "baseline": {
+              "skeleton_cost_mm": 6000.0,
+              "predicted_tracking_s": 16.36
+            },
+            "reason": "all cheaper and tied skeletons and controller settings checked"
+          },
+          "search": {
+            "refined": true,
+            "extended": true,
+            "skeleton_cost_mm": 5566.681547025944,
+            "turn_penalty_mm": 120,
+            "expanded": 340,
+            "candidates": 27,
+            "replay_tested": 723,
+            "replay_safe": 5,
+            "phases": [
+              {
+                "refined": false,
+                "extended": false,
+                "expanded": 92,
+                "candidates": 18,
+                "graph_lower_bound_mm": 5420.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": false,
+                "extended": true,
+                "expanded": 63,
+                "candidates": 12,
+                "graph_lower_bound_mm": 5420.0,
+                "remaining_lower_bound_mm": 5900.0,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": true,
+                "extended": true,
+                "expanded": 185,
+                "candidates": 7,
+                "graph_lower_bound_mm": 5420.0,
+                "remaining_lower_bound_mm": 5566.776695296637,
+                "complete": true,
+                "limit_hit": false
+              }
+            ]
+          }
+        },
+        {
+          "label": "返回出发启停区前的停车区",
+          "cost_mm": 2720.0,
+          "predicted_s": 7.22,
+          "optimality": {
+            "proven": true,
+            "policy": "ORDERED_SAFE_SKELETON_THEN_REPLAY_TIME",
+            "objective": "lexicographic: skeleton length + 120mm per bend, modeled travel time, direction cost",
+            "scope": "three finite lane graphs, loopless skeletons, 3 heading modes x 9 controller settings",
+            "cost_tolerance_mm": 1e-07,
+            "global_continuous_proven": false,
+            "global_time_proven": false,
+            "baseline": {
+              "skeleton_cost_mm": 2720.0,
+              "predicted_tracking_s": 7.22
+            },
+            "reason": "all cheaper and tied skeletons and controller settings checked"
+          },
+          "search": {
+            "refined": false,
+            "extended": false,
+            "expanded": 32,
+            "candidates": 1,
+            "skeleton_cost_mm": 2720.0,
+            "turn_penalty_mm": 120,
+            "replay_tested": 27,
+            "replay_safe": 2,
+            "phases": [
+              {
+                "refined": false,
+                "extended": false,
+                "expanded": 5,
+                "candidates": 1,
+                "graph_lower_bound_mm": 2720.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": false,
+                "extended": true,
+                "expanded": 5,
+                "candidates": 1,
+                "graph_lower_bound_mm": 2720.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": true,
+                "extended": true,
+                "expanded": 22,
+                "candidates": 1,
+                "graph_lower_bound_mm": 2720.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "profile": "default",
+      "case": "two_obstacles",
+      "zone": 2,
+      "old_s": 94.9,
+      "new_s": 91.6,
+      "saving_s": 3.3,
+      "planning_wall_s": 34.98250479999115,
+      "point_count": 34,
+      "body_sweeps_safe": true,
+      "quantized_preflight_safe": true,
+      "legs": [
+        {
+          "label": "前往二维码板",
+          "cost_mm": 1036.5564437074636,
+          "predicted_s": 4.24,
+          "optimality": {
+            "proven": true,
+            "policy": "ORDERED_SAFE_SKELETON_THEN_REPLAY_TIME",
+            "objective": "lexicographic: skeleton length + 120mm per bend, modeled travel time, direction cost",
+            "scope": "three finite lane graphs, loopless skeletons, 3 heading modes x 9 controller settings",
+            "cost_tolerance_mm": 1e-07,
+            "global_continuous_proven": false,
+            "global_time_proven": false,
+            "baseline": {
+              "skeleton_cost_mm": 1100.0,
+              "predicted_tracking_s": 4.82
+            },
+            "reason": "all cheaper and tied skeletons and controller settings checked"
+          },
+          "search": {
+            "refined": true,
+            "extended": true,
+            "skeleton_cost_mm": 1036.5564437074636,
+            "turn_penalty_mm": 120,
+            "expanded": 19,
+            "candidates": 4,
+            "replay_tested": 60,
+            "replay_safe": 30,
+            "phases": [
+              {
+                "refined": false,
+                "extended": false,
+                "expanded": 7,
+                "candidates": 2,
+                "graph_lower_bound_mm": 1100.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": false,
+                "extended": true,
+                "expanded": 3,
+                "candidates": 1,
+                "graph_lower_bound_mm": 1048.062484748657,
+                "remaining_lower_bound_mm": 1100.0,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": true,
+                "extended": true,
+                "expanded": 9,
+                "candidates": 1,
+                "graph_lower_bound_mm": 1036.5564437074636,
+                "remaining_lower_bound_mm": 1037.0637651377735,
+                "complete": true,
+                "limit_hit": false
+              }
+            ]
+          }
+        },
+        {
+          "label": "第1批：前往原料区",
+          "cost_mm": 1930.0,
+          "predicted_s": 5.74,
+          "optimality": {
+            "proven": true,
+            "policy": "ORDERED_SAFE_SKELETON_THEN_REPLAY_TIME",
+            "objective": "lexicographic: skeleton length + 120mm per bend, modeled travel time, direction cost",
+            "scope": "three finite lane graphs, loopless skeletons, 3 heading modes x 9 controller settings",
+            "cost_tolerance_mm": 1e-07,
+            "global_continuous_proven": false,
+            "global_time_proven": false,
+            "baseline": {
+              "skeleton_cost_mm": 1930.0,
+              "predicted_tracking_s": 5.74
+            },
+            "reason": "all cheaper and tied skeletons and controller settings checked"
+          },
+          "search": {
+            "refined": false,
+            "extended": false,
+            "expanded": 20,
+            "candidates": 1,
+            "skeleton_cost_mm": 1930.0,
+            "turn_penalty_mm": 120,
+            "replay_tested": 18,
+            "replay_safe": 5,
+            "phases": [
+              {
+                "refined": false,
+                "extended": false,
+                "expanded": 4,
+                "candidates": 1,
+                "graph_lower_bound_mm": 1930.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": false,
+                "extended": true,
+                "expanded": 4,
+                "candidates": 1,
+                "graph_lower_bound_mm": 1930.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": true,
+                "extended": true,
+                "expanded": 12,
+                "candidates": 1,
+                "graph_lower_bound_mm": 1930.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              }
+            ]
+          }
+        },
+        {
+          "label": "第1批：前往粗加工区",
+          "cost_mm": 3816.154937259125,
+          "predicted_s": 8.76,
+          "optimality": {
+            "proven": true,
+            "policy": "ORDERED_SAFE_SKELETON_THEN_REPLAY_TIME",
+            "objective": "lexicographic: skeleton length + 120mm per bend, modeled travel time, direction cost",
+            "scope": "three finite lane graphs, loopless skeletons, 3 heading modes x 9 controller settings",
+            "cost_tolerance_mm": 1e-07,
+            "global_continuous_proven": false,
+            "global_time_proven": false,
+            "baseline": {
+              "skeleton_cost_mm": 3830.0,
+              "predicted_tracking_s": 8.9
+            },
+            "reason": "all cheaper and tied skeletons and controller settings checked"
+          },
+          "search": {
+            "refined": true,
+            "extended": true,
+            "skeleton_cost_mm": 3816.154937259125,
+            "turn_penalty_mm": 120,
+            "expanded": 47,
+            "candidates": 3,
+            "replay_tested": 81,
+            "replay_safe": 7,
+            "phases": [
+              {
+                "refined": false,
+                "extended": false,
+                "expanded": 10,
+                "candidates": 2,
+                "graph_lower_bound_mm": 3670.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": false,
+                "extended": true,
+                "expanded": 10,
+                "candidates": 2,
+                "graph_lower_bound_mm": 3670.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": true,
+                "extended": true,
+                "expanded": 27,
+                "candidates": 2,
+                "graph_lower_bound_mm": 3670.0,
+                "remaining_lower_bound_mm": 3816.1991577321796,
+                "complete": true,
+                "limit_hit": false
+              }
+            ]
+          }
+        },
+        {
+          "label": "第1批：前往暂存区",
+          "cost_mm": 5566.681547025944,
+          "predicted_s": 14.34,
+          "optimality": {
+            "proven": true,
+            "policy": "ORDERED_SAFE_SKELETON_THEN_REPLAY_TIME",
+            "objective": "lexicographic: skeleton length + 120mm per bend, modeled travel time, direction cost",
+            "scope": "three finite lane graphs, loopless skeletons, 3 heading modes x 9 controller settings",
+            "cost_tolerance_mm": 1e-07,
+            "global_continuous_proven": false,
+            "global_time_proven": false,
+            "baseline": {
+              "skeleton_cost_mm": 6000.0,
+              "predicted_tracking_s": 16.36
+            },
+            "reason": "all cheaper and tied skeletons and controller settings checked"
+          },
+          "search": {
+            "refined": true,
+            "extended": true,
+            "skeleton_cost_mm": 5566.681547025944,
+            "turn_penalty_mm": 120,
+            "expanded": 369,
+            "candidates": 23,
+            "replay_tested": 621,
+            "replay_safe": 3,
+            "phases": [
+              {
+                "refined": false,
+                "extended": false,
+                "expanded": 92,
+                "candidates": 18,
+                "graph_lower_bound_mm": 5420.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": false,
+                "extended": true,
+                "expanded": 92,
+                "candidates": 18,
+                "graph_lower_bound_mm": 5420.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": true,
+                "extended": true,
+                "expanded": 185,
+                "candidates": 7,
+                "graph_lower_bound_mm": 5420.0,
+                "remaining_lower_bound_mm": 5566.776695296637,
+                "complete": true,
+                "limit_hit": false
+              }
+            ]
+          }
+        },
+        {
+          "label": "第2批：前往原料区",
+          "cost_mm": 1750.0,
+          "predicted_s": 6.62,
+          "optimality": {
+            "proven": true,
+            "policy": "ORDERED_SAFE_SKELETON_THEN_REPLAY_TIME",
+            "objective": "lexicographic: skeleton length + 120mm per bend, modeled travel time, direction cost",
+            "scope": "three finite lane graphs, loopless skeletons, 3 heading modes x 9 controller settings",
+            "cost_tolerance_mm": 1e-07,
+            "global_continuous_proven": false,
+            "global_time_proven": false,
+            "baseline": {
+              "skeleton_cost_mm": 1750.0,
+              "predicted_tracking_s": 6.62
+            },
+            "reason": "all cheaper and tied skeletons and controller settings checked"
+          },
+          "search": {
+            "refined": false,
+            "extended": false,
+            "expanded": 20,
+            "candidates": 1,
+            "skeleton_cost_mm": 1750.0,
+            "turn_penalty_mm": 120,
+            "replay_tested": 27,
+            "replay_safe": 1,
+            "phases": [
+              {
+                "refined": false,
+                "extended": false,
+                "expanded": 3,
+                "candidates": 1,
+                "graph_lower_bound_mm": 1750.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": false,
+                "extended": true,
+                "expanded": 3,
+                "candidates": 1,
+                "graph_lower_bound_mm": 1750.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": true,
+                "extended": true,
+                "expanded": 14,
+                "candidates": 1,
+                "graph_lower_bound_mm": 1750.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              }
+            ]
+          }
+        },
+        {
+          "label": "第2批：前往粗加工区",
+          "cost_mm": 3670.0,
+          "predicted_s": 8.8,
+          "optimality": {
+            "proven": true,
+            "policy": "ORDERED_SAFE_SKELETON_THEN_REPLAY_TIME",
+            "objective": "lexicographic: skeleton length + 120mm per bend, modeled travel time, direction cost",
+            "scope": "three finite lane graphs, loopless skeletons, 3 heading modes x 9 controller settings",
+            "cost_tolerance_mm": 1e-07,
+            "global_continuous_proven": false,
+            "global_time_proven": false,
+            "baseline": {
+              "skeleton_cost_mm": 3670.0,
+              "predicted_tracking_s": 8.8
+            },
+            "reason": "all cheaper and tied skeletons and controller settings checked"
+          },
+          "search": {
+            "refined": false,
+            "extended": false,
+            "expanded": 34,
+            "candidates": 1,
+            "skeleton_cost_mm": 3670.0,
+            "turn_penalty_mm": 120,
+            "replay_tested": 18,
+            "replay_safe": 1,
+            "phases": [
+              {
+                "refined": false,
+                "extended": false,
+                "expanded": 5,
+                "candidates": 1,
+                "graph_lower_bound_mm": 3670.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": false,
+                "extended": true,
+                "expanded": 5,
+                "candidates": 1,
+                "graph_lower_bound_mm": 3670.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": true,
+                "extended": true,
+                "expanded": 24,
+                "candidates": 1,
+                "graph_lower_bound_mm": 3670.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              }
+            ]
+          }
+        },
+        {
+          "label": "第2批：前往暂存区",
+          "cost_mm": 5566.681547025944,
+          "predicted_s": 14.34,
+          "optimality": {
+            "proven": true,
+            "policy": "ORDERED_SAFE_SKELETON_THEN_REPLAY_TIME",
+            "objective": "lexicographic: skeleton length + 120mm per bend, modeled travel time, direction cost",
+            "scope": "three finite lane graphs, loopless skeletons, 3 heading modes x 9 controller settings",
+            "cost_tolerance_mm": 1e-07,
+            "global_continuous_proven": false,
+            "global_time_proven": false,
+            "baseline": {
+              "skeleton_cost_mm": 6000.0,
+              "predicted_tracking_s": 16.36
+            },
+            "reason": "all cheaper and tied skeletons and controller settings checked"
+          },
+          "search": {
+            "refined": true,
+            "extended": true,
+            "skeleton_cost_mm": 5566.681547025944,
+            "turn_penalty_mm": 120,
+            "expanded": 340,
+            "candidates": 27,
+            "replay_tested": 723,
+            "replay_safe": 5,
+            "phases": [
+              {
+                "refined": false,
+                "extended": false,
+                "expanded": 92,
+                "candidates": 18,
+                "graph_lower_bound_mm": 5420.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": false,
+                "extended": true,
+                "expanded": 63,
+                "candidates": 12,
+                "graph_lower_bound_mm": 5420.0,
+                "remaining_lower_bound_mm": 5900.0,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": true,
+                "extended": true,
+                "expanded": 185,
+                "candidates": 7,
+                "graph_lower_bound_mm": 5420.0,
+                "remaining_lower_bound_mm": 5566.776695296637,
+                "complete": true,
+                "limit_hit": false
+              }
+            ]
+          }
+        },
+        {
+          "label": "返回出发启停区前的停车区",
+          "cost_mm": 4500.0,
+          "predicted_s": 10.32,
+          "optimality": {
+            "proven": true,
+            "policy": "ORDERED_SAFE_SKELETON_THEN_REPLAY_TIME",
+            "objective": "lexicographic: skeleton length + 120mm per bend, modeled travel time, direction cost",
+            "scope": "three finite lane graphs, loopless skeletons, 3 heading modes x 9 controller settings",
+            "cost_tolerance_mm": 1e-07,
+            "global_continuous_proven": false,
+            "global_time_proven": false,
+            "baseline": {
+              "skeleton_cost_mm": 4500.0,
+              "predicted_tracking_s": 10.32
+            },
+            "reason": "all cheaper and tied skeletons and controller settings checked"
+          },
+          "search": {
+            "refined": false,
+            "extended": false,
+            "expanded": 48,
+            "candidates": 1,
+            "skeleton_cost_mm": 4500.0,
+            "turn_penalty_mm": 120,
+            "replay_tested": 27,
+            "replay_safe": 1,
+            "phases": [
+              {
+                "refined": false,
+                "extended": false,
+                "expanded": 7,
+                "candidates": 1,
+                "graph_lower_bound_mm": 4500.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": false,
+                "extended": true,
+                "expanded": 7,
+                "candidates": 1,
+                "graph_lower_bound_mm": 4500.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": true,
+                "extended": true,
+                "expanded": 34,
+                "candidates": 1,
+                "graph_lower_bound_mm": 4500.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "profile": "competition",
+      "case": "clear",
+      "zone": 1,
+      "old_s": 59.0,
+      "new_s": 57.36,
+      "saving_s": 1.64,
+      "planning_wall_s": 8.956794199999422,
+      "point_count": 19,
+      "body_sweeps_safe": true,
+      "quantized_preflight_safe": true,
+      "legs": [
+        {
+          "label": "前往二维码板",
+          "cost_mm": 1056.3014581273465,
+          "predicted_s": 4.2,
+          "optimality": {
+            "proven": true,
+            "policy": "ORDERED_SAFE_SKELETON_THEN_REPLAY_TIME",
+            "objective": "lexicographic: skeleton length + 120mm per bend, modeled travel time, direction cost",
+            "scope": "three finite lane graphs, loopless skeletons, 3 heading modes x 9 controller settings",
+            "cost_tolerance_mm": 1e-07,
+            "global_continuous_proven": false,
+            "global_time_proven": false,
+            "baseline": {
+              "skeleton_cost_mm": 1100.0,
+              "predicted_tracking_s": 4.82
+            },
+            "reason": "all cheaper and tied skeletons and controller settings checked"
+          },
+          "search": {
+            "refined": false,
+            "extended": true,
+            "skeleton_cost_mm": 1056.3014581273465,
+            "turn_penalty_mm": 120,
+            "expanded": 13,
+            "candidates": 3,
+            "replay_tested": 44,
+            "replay_safe": 22,
+            "phases": [
+              {
+                "refined": false,
+                "extended": false,
+                "expanded": 7,
+                "candidates": 2,
+                "graph_lower_bound_mm": 1100.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": false,
+                "extended": true,
+                "expanded": 3,
+                "candidates": 1,
+                "graph_lower_bound_mm": 1056.3014581273465,
+                "remaining_lower_bound_mm": 1100.0,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": true,
+                "extended": true,
+                "expanded": 3,
+                "candidates": 1,
+                "graph_lower_bound_mm": 1056.3014581273465,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              }
+            ]
+          }
+        },
+        {
+          "label": "第1批：前往原料区",
+          "cost_mm": 1930.0,
+          "predicted_s": 5.26,
+          "optimality": {
+            "proven": true,
+            "policy": "ORDERED_SAFE_SKELETON_THEN_REPLAY_TIME",
+            "objective": "lexicographic: skeleton length + 120mm per bend, modeled travel time, direction cost",
+            "scope": "three finite lane graphs, loopless skeletons, 3 heading modes x 9 controller settings",
+            "cost_tolerance_mm": 1e-07,
+            "global_continuous_proven": false,
+            "global_time_proven": false,
+            "baseline": {
+              "skeleton_cost_mm": 1930.0,
+              "predicted_tracking_s": 5.26
+            },
+            "reason": "all cheaper and tied skeletons and controller settings checked"
+          },
+          "search": {
+            "refined": false,
+            "extended": false,
+            "expanded": 27,
+            "candidates": 2,
+            "skeleton_cost_mm": 1930.0,
+            "turn_penalty_mm": 120,
+            "replay_tested": 45,
+            "replay_safe": 16,
+            "phases": [
+              {
+                "refined": false,
+                "extended": false,
+                "expanded": 7,
+                "candidates": 2,
+                "graph_lower_bound_mm": 1930.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": false,
+                "extended": true,
+                "expanded": 7,
+                "candidates": 2,
+                "graph_lower_bound_mm": 1930.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": true,
+                "extended": true,
+                "expanded": 13,
+                "candidates": 2,
+                "graph_lower_bound_mm": 1930.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              }
+            ]
+          }
+        },
+        {
+          "label": "第1批：前往粗加工区",
+          "cost_mm": 1630.0,
+          "predicted_s": 5.1,
+          "optimality": {
+            "proven": true,
+            "policy": "ORDERED_SAFE_SKELETON_THEN_REPLAY_TIME",
+            "objective": "lexicographic: skeleton length + 120mm per bend, modeled travel time, direction cost",
+            "scope": "three finite lane graphs, loopless skeletons, 3 heading modes x 9 controller settings",
+            "cost_tolerance_mm": 1e-07,
+            "global_continuous_proven": false,
+            "global_time_proven": false,
+            "baseline": {
+              "skeleton_cost_mm": 1630.0,
+              "predicted_tracking_s": 5.1
+            },
+            "reason": "all cheaper and tied skeletons and controller settings checked"
+          },
+          "search": {
+            "refined": false,
+            "extended": false,
+            "expanded": 9,
+            "candidates": 1,
+            "skeleton_cost_mm": 1630.0,
+            "turn_penalty_mm": 120,
+            "replay_tested": 12,
+            "replay_safe": 2,
+            "phases": [
+              {
+                "refined": false,
+                "extended": false,
+                "expanded": 3,
+                "candidates": 1,
+                "graph_lower_bound_mm": 1630.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": false,
+                "extended": true,
+                "expanded": 3,
+                "candidates": 1,
+                "graph_lower_bound_mm": 1630.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": true,
+                "extended": true,
+                "expanded": 3,
+                "candidates": 1,
+                "graph_lower_bound_mm": 1630.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              }
+            ]
+          }
+        },
+        {
+          "label": "第1批：前往暂存区",
+          "cost_mm": 1720.0,
+          "predicted_s": 5.14,
+          "optimality": {
+            "proven": true,
+            "policy": "ORDERED_SAFE_SKELETON_THEN_REPLAY_TIME",
+            "objective": "lexicographic: skeleton length + 120mm per bend, modeled travel time, direction cost",
+            "scope": "three finite lane graphs, loopless skeletons, 3 heading modes x 9 controller settings",
+            "cost_tolerance_mm": 1e-07,
+            "global_continuous_proven": false,
+            "global_time_proven": false,
+            "baseline": {
+              "skeleton_cost_mm": 1720.0,
+              "predicted_tracking_s": 5.14
+            },
+            "reason": "all cheaper and tied skeletons and controller settings checked"
+          },
+          "search": {
+            "refined": false,
+            "extended": false,
+            "expanded": 21,
+            "candidates": 2,
+            "skeleton_cost_mm": 1720.0,
+            "turn_penalty_mm": 120,
+            "replay_tested": 45,
+            "replay_safe": 10,
+            "phases": [
+              {
+                "refined": false,
+                "extended": false,
+                "expanded": 5,
+                "candidates": 2,
+                "graph_lower_bound_mm": 1720.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": false,
+                "extended": true,
+                "expanded": 5,
+                "candidates": 2,
+                "graph_lower_bound_mm": 1720.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": true,
+                "extended": true,
+                "expanded": 11,
+                "candidates": 2,
+                "graph_lower_bound_mm": 1720.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              }
+            ]
+          }
+        },
+        {
+          "label": "第2批：前往原料区",
+          "cost_mm": 1750.0,
+          "predicted_s": 5.16,
+          "optimality": {
+            "proven": true,
+            "policy": "ORDERED_SAFE_SKELETON_THEN_REPLAY_TIME",
+            "objective": "lexicographic: skeleton length + 120mm per bend, modeled travel time, direction cost",
+            "scope": "three finite lane graphs, loopless skeletons, 3 heading modes x 9 controller settings",
+            "cost_tolerance_mm": 1e-07,
+            "global_continuous_proven": false,
+            "global_time_proven": false,
+            "baseline": {
+              "skeleton_cost_mm": 1750.0,
+              "predicted_tracking_s": 5.16
+            },
+            "reason": "all cheaper and tied skeletons and controller settings checked"
+          },
+          "search": {
+            "refined": false,
+            "extended": false,
+            "expanded": 21,
+            "candidates": 2,
+            "skeleton_cost_mm": 1750.0,
+            "turn_penalty_mm": 120,
+            "replay_tested": 45,
+            "replay_safe": 10,
+            "phases": [
+              {
+                "refined": false,
+                "extended": false,
+                "expanded": 5,
+                "candidates": 2,
+                "graph_lower_bound_mm": 1750.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": false,
+                "extended": true,
+                "expanded": 5,
+                "candidates": 2,
+                "graph_lower_bound_mm": 1750.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": true,
+                "extended": true,
+                "expanded": 11,
+                "candidates": 2,
+                "graph_lower_bound_mm": 1750.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              }
+            ]
+          }
+        },
+        {
+          "label": "第2批：前往粗加工区",
+          "cost_mm": 1630.0,
+          "predicted_s": 3.56,
+          "optimality": {
+            "proven": true,
+            "policy": "ORDERED_SAFE_SKELETON_THEN_REPLAY_TIME",
+            "objective": "lexicographic: skeleton length + 120mm per bend, modeled travel time, direction cost",
+            "scope": "three finite lane graphs, loopless skeletons, 3 heading modes x 9 controller settings",
+            "cost_tolerance_mm": 1e-07,
+            "global_continuous_proven": false,
+            "global_time_proven": false,
+            "baseline": {
+              "skeleton_cost_mm": 1630.0,
+              "predicted_tracking_s": 3.56
+            },
+            "reason": "all cheaper and tied skeletons and controller settings checked"
+          },
+          "search": {
+            "refined": false,
+            "extended": false,
+            "expanded": 9,
+            "candidates": 1,
+            "skeleton_cost_mm": 1630.0,
+            "turn_penalty_mm": 120,
+            "replay_tested": 12,
+            "replay_safe": 8,
+            "phases": [
+              {
+                "refined": false,
+                "extended": false,
+                "expanded": 3,
+                "candidates": 1,
+                "graph_lower_bound_mm": 1630.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": false,
+                "extended": true,
+                "expanded": 3,
+                "candidates": 1,
+                "graph_lower_bound_mm": 1630.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": true,
+                "extended": true,
+                "expanded": 3,
+                "candidates": 1,
+                "graph_lower_bound_mm": 1630.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              }
+            ]
+          }
+        },
+        {
+          "label": "第2批：前往暂存区",
+          "cost_mm": 1720.0,
+          "predicted_s": 5.16,
+          "optimality": {
+            "proven": true,
+            "policy": "ORDERED_SAFE_SKELETON_THEN_REPLAY_TIME",
+            "objective": "lexicographic: skeleton length + 120mm per bend, modeled travel time, direction cost",
+            "scope": "three finite lane graphs, loopless skeletons, 3 heading modes x 9 controller settings",
+            "cost_tolerance_mm": 1e-07,
+            "global_continuous_proven": false,
+            "global_time_proven": false,
+            "baseline": {
+              "skeleton_cost_mm": 1720.0,
+              "predicted_tracking_s": 5.16
+            },
+            "reason": "all cheaper and tied skeletons and controller settings checked"
+          },
+          "search": {
+            "refined": false,
+            "extended": false,
+            "expanded": 21,
+            "candidates": 2,
+            "skeleton_cost_mm": 1720.0,
+            "turn_penalty_mm": 120,
+            "replay_tested": 36,
+            "replay_safe": 5,
+            "phases": [
+              {
+                "refined": false,
+                "extended": false,
+                "expanded": 5,
+                "candidates": 2,
+                "graph_lower_bound_mm": 1720.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": false,
+                "extended": true,
+                "expanded": 5,
+                "candidates": 2,
+                "graph_lower_bound_mm": 1720.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": true,
+                "extended": true,
+                "expanded": 11,
+                "candidates": 2,
+                "graph_lower_bound_mm": 1720.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              }
+            ]
+          }
+        },
+        {
+          "label": "返回出发启停区前的停车区",
+          "cost_mm": 2720.0,
+          "predicted_s": 5.34,
+          "optimality": {
+            "proven": true,
+            "policy": "ORDERED_SAFE_SKELETON_THEN_REPLAY_TIME",
+            "objective": "lexicographic: skeleton length + 120mm per bend, modeled travel time, direction cost",
+            "scope": "three finite lane graphs, loopless skeletons, 3 heading modes x 9 controller settings",
+            "cost_tolerance_mm": 1e-07,
+            "global_continuous_proven": false,
+            "global_time_proven": false,
+            "baseline": {
+              "skeleton_cost_mm": 2720.0,
+              "predicted_tracking_s": 5.34
+            },
+            "reason": "all cheaper and tied skeletons and controller settings checked"
+          },
+          "search": {
+            "refined": false,
+            "extended": false,
+            "expanded": 43,
+            "candidates": 2,
+            "skeleton_cost_mm": 2720.0,
+            "turn_penalty_mm": 120,
+            "replay_tested": 45,
+            "replay_safe": 10,
+            "phases": [
+              {
+                "refined": false,
+                "extended": false,
+                "expanded": 9,
+                "candidates": 2,
+                "graph_lower_bound_mm": 2720.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": false,
+                "extended": true,
+                "expanded": 9,
+                "candidates": 2,
+                "graph_lower_bound_mm": 2720.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": true,
+                "extended": true,
+                "expanded": 25,
+                "candidates": 2,
+                "graph_lower_bound_mm": 2720.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "profile": "competition",
+      "case": "clear",
+      "zone": 2,
+      "old_s": 59.0,
+      "new_s": 57.82,
+      "saving_s": 1.18,
+      "planning_wall_s": 8.315505299979122,
+      "point_count": 19,
+      "body_sweeps_safe": true,
+      "quantized_preflight_safe": true,
+      "legs": [
+        {
+          "label": "前往二维码板",
+          "cost_mm": 1048.062484748657,
+          "predicted_s": 4.18,
+          "optimality": {
+            "proven": true,
+            "policy": "ORDERED_SAFE_SKELETON_THEN_REPLAY_TIME",
+            "objective": "lexicographic: skeleton length + 120mm per bend, modeled travel time, direction cost",
+            "scope": "three finite lane graphs, loopless skeletons, 3 heading modes x 9 controller settings",
+            "cost_tolerance_mm": 1e-07,
+            "global_continuous_proven": false,
+            "global_time_proven": false,
+            "baseline": {
+              "skeleton_cost_mm": 1100.0,
+              "predicted_tracking_s": 4.82
+            },
+            "reason": "all cheaper and tied skeletons and controller settings checked"
+          },
+          "search": {
+            "refined": false,
+            "extended": true,
+            "skeleton_cost_mm": 1048.062484748657,
+            "turn_penalty_mm": 120,
+            "expanded": 13,
+            "candidates": 3,
+            "replay_tested": 44,
+            "replay_safe": 22,
+            "phases": [
+              {
+                "refined": false,
+                "extended": false,
+                "expanded": 7,
+                "candidates": 2,
+                "graph_lower_bound_mm": 1100.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": false,
+                "extended": true,
+                "expanded": 3,
+                "candidates": 1,
+                "graph_lower_bound_mm": 1048.062484748657,
+                "remaining_lower_bound_mm": 1100.0,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": true,
+                "extended": true,
+                "expanded": 3,
+                "candidates": 1,
+                "graph_lower_bound_mm": 1048.062484748657,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              }
+            ]
+          }
+        },
+        {
+          "label": "第1批：前往原料区",
+          "cost_mm": 1930.0,
+          "predicted_s": 5.74,
+          "optimality": {
+            "proven": true,
+            "policy": "ORDERED_SAFE_SKELETON_THEN_REPLAY_TIME",
+            "objective": "lexicographic: skeleton length + 120mm per bend, modeled travel time, direction cost",
+            "scope": "three finite lane graphs, loopless skeletons, 3 heading modes x 9 controller settings",
+            "cost_tolerance_mm": 1e-07,
+            "global_continuous_proven": false,
+            "global_time_proven": false,
+            "baseline": {
+              "skeleton_cost_mm": 1930.0,
+              "predicted_tracking_s": 5.74
+            },
+            "reason": "all cheaper and tied skeletons and controller settings checked"
+          },
+          "search": {
+            "refined": false,
+            "extended": false,
+            "expanded": 27,
+            "candidates": 2,
+            "skeleton_cost_mm": 1930.0,
+            "turn_penalty_mm": 120,
+            "replay_tested": 36,
+            "replay_safe": 10,
+            "phases": [
+              {
+                "refined": false,
+                "extended": false,
+                "expanded": 7,
+                "candidates": 2,
+                "graph_lower_bound_mm": 1930.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": false,
+                "extended": true,
+                "expanded": 7,
+                "candidates": 2,
+                "graph_lower_bound_mm": 1930.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": true,
+                "extended": true,
+                "expanded": 13,
+                "candidates": 2,
+                "graph_lower_bound_mm": 1930.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              }
+            ]
+          }
+        },
+        {
+          "label": "第1批：前往粗加工区",
+          "cost_mm": 1630.0,
+          "predicted_s": 5.1,
+          "optimality": {
+            "proven": true,
+            "policy": "ORDERED_SAFE_SKELETON_THEN_REPLAY_TIME",
+            "objective": "lexicographic: skeleton length + 120mm per bend, modeled travel time, direction cost",
+            "scope": "three finite lane graphs, loopless skeletons, 3 heading modes x 9 controller settings",
+            "cost_tolerance_mm": 1e-07,
+            "global_continuous_proven": false,
+            "global_time_proven": false,
+            "baseline": {
+              "skeleton_cost_mm": 1630.0,
+              "predicted_tracking_s": 5.1
+            },
+            "reason": "all cheaper and tied skeletons and controller settings checked"
+          },
+          "search": {
+            "refined": false,
+            "extended": false,
+            "expanded": 9,
+            "candidates": 1,
+            "skeleton_cost_mm": 1630.0,
+            "turn_penalty_mm": 120,
+            "replay_tested": 12,
+            "replay_safe": 2,
+            "phases": [
+              {
+                "refined": false,
+                "extended": false,
+                "expanded": 3,
+                "candidates": 1,
+                "graph_lower_bound_mm": 1630.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": false,
+                "extended": true,
+                "expanded": 3,
+                "candidates": 1,
+                "graph_lower_bound_mm": 1630.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": true,
+                "extended": true,
+                "expanded": 3,
+                "candidates": 1,
+                "graph_lower_bound_mm": 1630.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              }
+            ]
+          }
+        },
+        {
+          "label": "第1批：前往暂存区",
+          "cost_mm": 1720.0,
+          "predicted_s": 5.14,
+          "optimality": {
+            "proven": true,
+            "policy": "ORDERED_SAFE_SKELETON_THEN_REPLAY_TIME",
+            "objective": "lexicographic: skeleton length + 120mm per bend, modeled travel time, direction cost",
+            "scope": "three finite lane graphs, loopless skeletons, 3 heading modes x 9 controller settings",
+            "cost_tolerance_mm": 1e-07,
+            "global_continuous_proven": false,
+            "global_time_proven": false,
+            "baseline": {
+              "skeleton_cost_mm": 1720.0,
+              "predicted_tracking_s": 5.14
+            },
+            "reason": "all cheaper and tied skeletons and controller settings checked"
+          },
+          "search": {
+            "refined": false,
+            "extended": false,
+            "expanded": 21,
+            "candidates": 2,
+            "skeleton_cost_mm": 1720.0,
+            "turn_penalty_mm": 120,
+            "replay_tested": 45,
+            "replay_safe": 10,
+            "phases": [
+              {
+                "refined": false,
+                "extended": false,
+                "expanded": 5,
+                "candidates": 2,
+                "graph_lower_bound_mm": 1720.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": false,
+                "extended": true,
+                "expanded": 5,
+                "candidates": 2,
+                "graph_lower_bound_mm": 1720.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": true,
+                "extended": true,
+                "expanded": 11,
+                "candidates": 2,
+                "graph_lower_bound_mm": 1720.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              }
+            ]
+          }
+        },
+        {
+          "label": "第2批：前往原料区",
+          "cost_mm": 1750.0,
+          "predicted_s": 5.16,
+          "optimality": {
+            "proven": true,
+            "policy": "ORDERED_SAFE_SKELETON_THEN_REPLAY_TIME",
+            "objective": "lexicographic: skeleton length + 120mm per bend, modeled travel time, direction cost",
+            "scope": "three finite lane graphs, loopless skeletons, 3 heading modes x 9 controller settings",
+            "cost_tolerance_mm": 1e-07,
+            "global_continuous_proven": false,
+            "global_time_proven": false,
+            "baseline": {
+              "skeleton_cost_mm": 1750.0,
+              "predicted_tracking_s": 5.16
+            },
+            "reason": "all cheaper and tied skeletons and controller settings checked"
+          },
+          "search": {
+            "refined": false,
+            "extended": false,
+            "expanded": 21,
+            "candidates": 2,
+            "skeleton_cost_mm": 1750.0,
+            "turn_penalty_mm": 120,
+            "replay_tested": 45,
+            "replay_safe": 10,
+            "phases": [
+              {
+                "refined": false,
+                "extended": false,
+                "expanded": 5,
+                "candidates": 2,
+                "graph_lower_bound_mm": 1750.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": false,
+                "extended": true,
+                "expanded": 5,
+                "candidates": 2,
+                "graph_lower_bound_mm": 1750.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": true,
+                "extended": true,
+                "expanded": 11,
+                "candidates": 2,
+                "graph_lower_bound_mm": 1750.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              }
+            ]
+          }
+        },
+        {
+          "label": "第2批：前往粗加工区",
+          "cost_mm": 1630.0,
+          "predicted_s": 3.56,
+          "optimality": {
+            "proven": true,
+            "policy": "ORDERED_SAFE_SKELETON_THEN_REPLAY_TIME",
+            "objective": "lexicographic: skeleton length + 120mm per bend, modeled travel time, direction cost",
+            "scope": "three finite lane graphs, loopless skeletons, 3 heading modes x 9 controller settings",
+            "cost_tolerance_mm": 1e-07,
+            "global_continuous_proven": false,
+            "global_time_proven": false,
+            "baseline": {
+              "skeleton_cost_mm": 1630.0,
+              "predicted_tracking_s": 3.56
+            },
+            "reason": "all cheaper and tied skeletons and controller settings checked"
+          },
+          "search": {
+            "refined": false,
+            "extended": false,
+            "expanded": 9,
+            "candidates": 1,
+            "skeleton_cost_mm": 1630.0,
+            "turn_penalty_mm": 120,
+            "replay_tested": 12,
+            "replay_safe": 8,
+            "phases": [
+              {
+                "refined": false,
+                "extended": false,
+                "expanded": 3,
+                "candidates": 1,
+                "graph_lower_bound_mm": 1630.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": false,
+                "extended": true,
+                "expanded": 3,
+                "candidates": 1,
+                "graph_lower_bound_mm": 1630.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": true,
+                "extended": true,
+                "expanded": 3,
+                "candidates": 1,
+                "graph_lower_bound_mm": 1630.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              }
+            ]
+          }
+        },
+        {
+          "label": "第2批：前往暂存区",
+          "cost_mm": 1720.0,
+          "predicted_s": 5.16,
+          "optimality": {
+            "proven": true,
+            "policy": "ORDERED_SAFE_SKELETON_THEN_REPLAY_TIME",
+            "objective": "lexicographic: skeleton length + 120mm per bend, modeled travel time, direction cost",
+            "scope": "three finite lane graphs, loopless skeletons, 3 heading modes x 9 controller settings",
+            "cost_tolerance_mm": 1e-07,
+            "global_continuous_proven": false,
+            "global_time_proven": false,
+            "baseline": {
+              "skeleton_cost_mm": 1720.0,
+              "predicted_tracking_s": 5.16
+            },
+            "reason": "all cheaper and tied skeletons and controller settings checked"
+          },
+          "search": {
+            "refined": false,
+            "extended": false,
+            "expanded": 21,
+            "candidates": 2,
+            "skeleton_cost_mm": 1720.0,
+            "turn_penalty_mm": 120,
+            "replay_tested": 36,
+            "replay_safe": 5,
+            "phases": [
+              {
+                "refined": false,
+                "extended": false,
+                "expanded": 5,
+                "candidates": 2,
+                "graph_lower_bound_mm": 1720.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": false,
+                "extended": true,
+                "expanded": 5,
+                "candidates": 2,
+                "graph_lower_bound_mm": 1720.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": true,
+                "extended": true,
+                "expanded": 11,
+                "candidates": 2,
+                "graph_lower_bound_mm": 1720.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              }
+            ]
+          }
+        },
+        {
+          "label": "返回出发启停区前的停车区",
+          "cost_mm": 2720.0,
+          "predicted_s": 5.34,
+          "optimality": {
+            "proven": true,
+            "policy": "ORDERED_SAFE_SKELETON_THEN_REPLAY_TIME",
+            "objective": "lexicographic: skeleton length + 120mm per bend, modeled travel time, direction cost",
+            "scope": "three finite lane graphs, loopless skeletons, 3 heading modes x 9 controller settings",
+            "cost_tolerance_mm": 1e-07,
+            "global_continuous_proven": false,
+            "global_time_proven": false,
+            "baseline": {
+              "skeleton_cost_mm": 2720.0,
+              "predicted_tracking_s": 5.34
+            },
+            "reason": "all cheaper and tied skeletons and controller settings checked"
+          },
+          "search": {
+            "refined": false,
+            "extended": false,
+            "expanded": 39,
+            "candidates": 2,
+            "skeleton_cost_mm": 2720.0,
+            "turn_penalty_mm": 120,
+            "replay_tested": 45,
+            "replay_safe": 10,
+            "phases": [
+              {
+                "refined": false,
+                "extended": false,
+                "expanded": 9,
+                "candidates": 2,
+                "graph_lower_bound_mm": 2720.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": false,
+                "extended": true,
+                "expanded": 9,
+                "candidates": 2,
+                "graph_lower_bound_mm": 2720.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": true,
+                "extended": true,
+                "expanded": 21,
+                "candidates": 2,
+                "graph_lower_bound_mm": 2720.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "profile": "competition",
+      "case": "two_obstacles",
+      "zone": 1,
+      "old_s": 93.32,
+      "new_s": 89.18,
+      "saving_s": 4.14,
+      "planning_wall_s": 52.71401570001035,
+      "point_count": 34,
+      "body_sweeps_safe": true,
+      "quantized_preflight_safe": true,
+      "legs": [
+        {
+          "label": "前往二维码板",
+          "cost_mm": 1036.5564437074636,
+          "predicted_s": 4.24,
+          "optimality": {
+            "proven": true,
+            "policy": "ORDERED_SAFE_SKELETON_THEN_REPLAY_TIME",
+            "objective": "lexicographic: skeleton length + 120mm per bend, modeled travel time, direction cost",
+            "scope": "three finite lane graphs, loopless skeletons, 3 heading modes x 9 controller settings",
+            "cost_tolerance_mm": 1e-07,
+            "global_continuous_proven": false,
+            "global_time_proven": false,
+            "baseline": {
+              "skeleton_cost_mm": 1100.0,
+              "predicted_tracking_s": 4.82
+            },
+            "reason": "all cheaper and tied skeletons and controller settings checked"
+          },
+          "search": {
+            "refined": true,
+            "extended": true,
+            "skeleton_cost_mm": 1036.5564437074636,
+            "turn_penalty_mm": 120,
+            "expanded": 16,
+            "candidates": 4,
+            "replay_tested": 60,
+            "replay_safe": 30,
+            "phases": [
+              {
+                "refined": false,
+                "extended": false,
+                "expanded": 7,
+                "candidates": 2,
+                "graph_lower_bound_mm": 1100.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": false,
+                "extended": true,
+                "expanded": 3,
+                "candidates": 1,
+                "graph_lower_bound_mm": 1056.3014581273465,
+                "remaining_lower_bound_mm": 1100.0,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": true,
+                "extended": true,
+                "expanded": 6,
+                "candidates": 1,
+                "graph_lower_bound_mm": 1036.5564437074636,
+                "remaining_lower_bound_mm": 1037.4188140489387,
+                "complete": true,
+                "limit_hit": false
+              }
+            ]
+          }
+        },
+        {
+          "label": "第1批：前往原料区",
+          "cost_mm": 1930.0,
+          "predicted_s": 5.26,
+          "optimality": {
+            "proven": true,
+            "policy": "ORDERED_SAFE_SKELETON_THEN_REPLAY_TIME",
+            "objective": "lexicographic: skeleton length + 120mm per bend, modeled travel time, direction cost",
+            "scope": "three finite lane graphs, loopless skeletons, 3 heading modes x 9 controller settings",
+            "cost_tolerance_mm": 1e-07,
+            "global_continuous_proven": false,
+            "global_time_proven": false,
+            "baseline": {
+              "skeleton_cost_mm": 1930.0,
+              "predicted_tracking_s": 5.26
+            },
+            "reason": "all cheaper and tied skeletons and controller settings checked"
+          },
+          "search": {
+            "refined": false,
+            "extended": false,
+            "expanded": 20,
+            "candidates": 1,
+            "skeleton_cost_mm": 1930.0,
+            "turn_penalty_mm": 120,
+            "replay_tested": 27,
+            "replay_safe": 11,
+            "phases": [
+              {
+                "refined": false,
+                "extended": false,
+                "expanded": 4,
+                "candidates": 1,
+                "graph_lower_bound_mm": 1930.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": false,
+                "extended": true,
+                "expanded": 4,
+                "candidates": 1,
+                "graph_lower_bound_mm": 1930.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": true,
+                "extended": true,
+                "expanded": 12,
+                "candidates": 1,
+                "graph_lower_bound_mm": 1930.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              }
+            ]
+          }
+        },
+        {
+          "label": "第1批：前往粗加工区",
+          "cost_mm": 3816.00643080168,
+          "predicted_s": 8.78,
+          "optimality": {
+            "proven": true,
+            "policy": "ORDERED_SAFE_SKELETON_THEN_REPLAY_TIME",
+            "objective": "lexicographic: skeleton length + 120mm per bend, modeled travel time, direction cost",
+            "scope": "three finite lane graphs, loopless skeletons, 3 heading modes x 9 controller settings",
+            "cost_tolerance_mm": 1e-07,
+            "global_continuous_proven": false,
+            "global_time_proven": false,
+            "baseline": {
+              "skeleton_cost_mm": 3830.0,
+              "predicted_tracking_s": 8.9
+            },
+            "reason": "all cheaper and tied skeletons and controller settings checked"
+          },
+          "search": {
+            "refined": true,
+            "extended": true,
+            "skeleton_cost_mm": 3816.00643080168,
+            "turn_penalty_mm": 120,
+            "expanded": 47,
+            "candidates": 3,
+            "replay_tested": 81,
+            "replay_safe": 7,
+            "phases": [
+              {
+                "refined": false,
+                "extended": false,
+                "expanded": 10,
+                "candidates": 2,
+                "graph_lower_bound_mm": 3670.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": false,
+                "extended": true,
+                "expanded": 10,
+                "candidates": 2,
+                "graph_lower_bound_mm": 3670.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": true,
+                "extended": true,
+                "expanded": 27,
+                "candidates": 2,
+                "graph_lower_bound_mm": 3670.0,
+                "remaining_lower_bound_mm": 3816.0398644698075,
+                "complete": true,
+                "limit_hit": false
+              }
+            ]
+          }
+        },
+        {
+          "label": "第1批：前往暂存区",
+          "cost_mm": 5566.681547025944,
+          "predicted_s": 14.34,
+          "optimality": {
+            "proven": true,
+            "policy": "ORDERED_SAFE_SKELETON_THEN_REPLAY_TIME",
+            "objective": "lexicographic: skeleton length + 120mm per bend, modeled travel time, direction cost",
+            "scope": "three finite lane graphs, loopless skeletons, 3 heading modes x 9 controller settings",
+            "cost_tolerance_mm": 1e-07,
+            "global_continuous_proven": false,
+            "global_time_proven": false,
+            "baseline": {
+              "skeleton_cost_mm": 6000.0,
+              "predicted_tracking_s": 16.36
+            },
+            "reason": "all cheaper and tied skeletons and controller settings checked"
+          },
+          "search": {
+            "refined": true,
+            "extended": true,
+            "skeleton_cost_mm": 5566.681547025944,
+            "turn_penalty_mm": 120,
+            "expanded": 378,
+            "candidates": 24,
+            "replay_tested": 648,
+            "replay_safe": 3,
+            "phases": [
+              {
+                "refined": false,
+                "extended": false,
+                "expanded": 78,
+                "candidates": 14,
+                "graph_lower_bound_mm": 5420.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": false,
+                "extended": true,
+                "expanded": 92,
+                "candidates": 18,
+                "graph_lower_bound_mm": 5420.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": true,
+                "extended": true,
+                "expanded": 208,
+                "candidates": 8,
+                "graph_lower_bound_mm": 5420.0,
+                "remaining_lower_bound_mm": 5566.776695296637,
+                "complete": true,
+                "limit_hit": false
+              }
+            ]
+          }
+        },
+        {
+          "label": "第2批：前往原料区",
+          "cost_mm": 1750.0,
+          "predicted_s": 6.62,
+          "optimality": {
+            "proven": true,
+            "policy": "ORDERED_SAFE_SKELETON_THEN_REPLAY_TIME",
+            "objective": "lexicographic: skeleton length + 120mm per bend, modeled travel time, direction cost",
+            "scope": "three finite lane graphs, loopless skeletons, 3 heading modes x 9 controller settings",
+            "cost_tolerance_mm": 1e-07,
+            "global_continuous_proven": false,
+            "global_time_proven": false,
+            "baseline": {
+              "skeleton_cost_mm": 1750.0,
+              "predicted_tracking_s": 6.62
+            },
+            "reason": "all cheaper and tied skeletons and controller settings checked"
+          },
+          "search": {
+            "refined": false,
+            "extended": false,
+            "expanded": 20,
+            "candidates": 1,
+            "skeleton_cost_mm": 1750.0,
+            "turn_penalty_mm": 120,
+            "replay_tested": 27,
+            "replay_safe": 1,
+            "phases": [
+              {
+                "refined": false,
+                "extended": false,
+                "expanded": 3,
+                "candidates": 1,
+                "graph_lower_bound_mm": 1750.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": false,
+                "extended": true,
+                "expanded": 3,
+                "candidates": 1,
+                "graph_lower_bound_mm": 1750.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": true,
+                "extended": true,
+                "expanded": 14,
+                "candidates": 1,
+                "graph_lower_bound_mm": 1750.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              }
+            ]
+          }
+        },
+        {
+          "label": "第2批：前往粗加工区",
+          "cost_mm": 3670.0,
+          "predicted_s": 8.8,
+          "optimality": {
+            "proven": true,
+            "policy": "ORDERED_SAFE_SKELETON_THEN_REPLAY_TIME",
+            "objective": "lexicographic: skeleton length + 120mm per bend, modeled travel time, direction cost",
+            "scope": "three finite lane graphs, loopless skeletons, 3 heading modes x 9 controller settings",
+            "cost_tolerance_mm": 1e-07,
+            "global_continuous_proven": false,
+            "global_time_proven": false,
+            "baseline": {
+              "skeleton_cost_mm": 3670.0,
+              "predicted_tracking_s": 8.8
+            },
+            "reason": "all cheaper and tied skeletons and controller settings checked"
+          },
+          "search": {
+            "refined": false,
+            "extended": false,
+            "expanded": 34,
+            "candidates": 1,
+            "skeleton_cost_mm": 3670.0,
+            "turn_penalty_mm": 120,
+            "replay_tested": 18,
+            "replay_safe": 1,
+            "phases": [
+              {
+                "refined": false,
+                "extended": false,
+                "expanded": 5,
+                "candidates": 1,
+                "graph_lower_bound_mm": 3670.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": false,
+                "extended": true,
+                "expanded": 5,
+                "candidates": 1,
+                "graph_lower_bound_mm": 3670.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": true,
+                "extended": true,
+                "expanded": 24,
+                "candidates": 1,
+                "graph_lower_bound_mm": 3670.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              }
+            ]
+          }
+        },
+        {
+          "label": "第2批：前往暂存区",
+          "cost_mm": 5566.681547025944,
+          "predicted_s": 14.34,
+          "optimality": {
+            "proven": true,
+            "policy": "ORDERED_SAFE_SKELETON_THEN_REPLAY_TIME",
+            "objective": "lexicographic: skeleton length + 120mm per bend, modeled travel time, direction cost",
+            "scope": "three finite lane graphs, loopless skeletons, 3 heading modes x 9 controller settings",
+            "cost_tolerance_mm": 1e-07,
+            "global_continuous_proven": false,
+            "global_time_proven": false,
+            "baseline": {
+              "skeleton_cost_mm": 6000.0,
+              "predicted_tracking_s": 16.36
+            },
+            "reason": "all cheaper and tied skeletons and controller settings checked"
+          },
+          "search": {
+            "refined": true,
+            "extended": true,
+            "skeleton_cost_mm": 5566.681547025944,
+            "turn_penalty_mm": 120,
+            "expanded": 349,
+            "candidates": 26,
+            "replay_tested": 696,
+            "replay_safe": 5,
+            "phases": [
+              {
+                "refined": false,
+                "extended": false,
+                "expanded": 78,
+                "candidates": 14,
+                "graph_lower_bound_mm": 5420.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": false,
+                "extended": true,
+                "expanded": 63,
+                "candidates": 12,
+                "graph_lower_bound_mm": 5420.0,
+                "remaining_lower_bound_mm": 5900.0,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": true,
+                "extended": true,
+                "expanded": 208,
+                "candidates": 8,
+                "graph_lower_bound_mm": 5420.0,
+                "remaining_lower_bound_mm": 5566.776695296637,
+                "complete": true,
+                "limit_hit": false
+              }
+            ]
+          }
+        },
+        {
+          "label": "返回出发启停区前的停车区",
+          "cost_mm": 2840.0,
+          "predicted_s": 8.36,
+          "optimality": {
+            "proven": true,
+            "policy": "ORDERED_SAFE_SKELETON_THEN_REPLAY_TIME",
+            "objective": "lexicographic: skeleton length + 120mm per bend, modeled travel time, direction cost",
+            "scope": "three finite lane graphs, loopless skeletons, 3 heading modes x 9 controller settings",
+            "cost_tolerance_mm": 1e-07,
+            "global_continuous_proven": false,
+            "global_time_proven": false,
+            "baseline": {
+              "skeleton_cost_mm": 2840.0,
+              "predicted_tracking_s": 8.74
+            },
+            "reason": "all cheaper and tied skeletons and controller settings checked"
+          },
+          "search": {
+            "refined": true,
+            "extended": true,
+            "skeleton_cost_mm": 2840.0,
+            "turn_penalty_mm": 120,
+            "expanded": 90,
+            "candidates": 4,
+            "replay_tested": 108,
+            "replay_safe": 4,
+            "phases": [
+              {
+                "refined": false,
+                "extended": false,
+                "expanded": 8,
+                "candidates": 2,
+                "graph_lower_bound_mm": 2720.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": false,
+                "extended": true,
+                "expanded": 8,
+                "candidates": 2,
+                "graph_lower_bound_mm": 2720.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": true,
+                "extended": true,
+                "expanded": 74,
+                "candidates": 4,
+                "graph_lower_bound_mm": 2720.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "profile": "competition",
+      "case": "two_obstacles",
+      "zone": 2,
+      "old_s": 94.9,
+      "new_s": 91.62,
+      "saving_s": 3.28,
+      "planning_wall_s": 46.37612000000081,
+      "point_count": 34,
+      "body_sweeps_safe": true,
+      "quantized_preflight_safe": true,
+      "legs": [
+        {
+          "label": "前往二维码板",
+          "cost_mm": 1036.5564437074636,
+          "predicted_s": 4.24,
+          "optimality": {
+            "proven": true,
+            "policy": "ORDERED_SAFE_SKELETON_THEN_REPLAY_TIME",
+            "objective": "lexicographic: skeleton length + 120mm per bend, modeled travel time, direction cost",
+            "scope": "three finite lane graphs, loopless skeletons, 3 heading modes x 9 controller settings",
+            "cost_tolerance_mm": 1e-07,
+            "global_continuous_proven": false,
+            "global_time_proven": false,
+            "baseline": {
+              "skeleton_cost_mm": 1100.0,
+              "predicted_tracking_s": 4.82
+            },
+            "reason": "all cheaper and tied skeletons and controller settings checked"
+          },
+          "search": {
+            "refined": true,
+            "extended": true,
+            "skeleton_cost_mm": 1036.5564437074636,
+            "turn_penalty_mm": 120,
+            "expanded": 19,
+            "candidates": 4,
+            "replay_tested": 60,
+            "replay_safe": 30,
+            "phases": [
+              {
+                "refined": false,
+                "extended": false,
+                "expanded": 7,
+                "candidates": 2,
+                "graph_lower_bound_mm": 1100.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": false,
+                "extended": true,
+                "expanded": 3,
+                "candidates": 1,
+                "graph_lower_bound_mm": 1048.062484748657,
+                "remaining_lower_bound_mm": 1100.0,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": true,
+                "extended": true,
+                "expanded": 9,
+                "candidates": 1,
+                "graph_lower_bound_mm": 1036.5564437074636,
+                "remaining_lower_bound_mm": 1037.0637651377735,
+                "complete": true,
+                "limit_hit": false
+              }
+            ]
+          }
+        },
+        {
+          "label": "第1批：前往原料区",
+          "cost_mm": 1930.0,
+          "predicted_s": 5.74,
+          "optimality": {
+            "proven": true,
+            "policy": "ORDERED_SAFE_SKELETON_THEN_REPLAY_TIME",
+            "objective": "lexicographic: skeleton length + 120mm per bend, modeled travel time, direction cost",
+            "scope": "three finite lane graphs, loopless skeletons, 3 heading modes x 9 controller settings",
+            "cost_tolerance_mm": 1e-07,
+            "global_continuous_proven": false,
+            "global_time_proven": false,
+            "baseline": {
+              "skeleton_cost_mm": 1930.0,
+              "predicted_tracking_s": 5.74
+            },
+            "reason": "all cheaper and tied skeletons and controller settings checked"
+          },
+          "search": {
+            "refined": false,
+            "extended": false,
+            "expanded": 20,
+            "candidates": 1,
+            "skeleton_cost_mm": 1930.0,
+            "turn_penalty_mm": 120,
+            "replay_tested": 18,
+            "replay_safe": 5,
+            "phases": [
+              {
+                "refined": false,
+                "extended": false,
+                "expanded": 4,
+                "candidates": 1,
+                "graph_lower_bound_mm": 1930.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": false,
+                "extended": true,
+                "expanded": 4,
+                "candidates": 1,
+                "graph_lower_bound_mm": 1930.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": true,
+                "extended": true,
+                "expanded": 12,
+                "candidates": 1,
+                "graph_lower_bound_mm": 1930.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              }
+            ]
+          }
+        },
+        {
+          "label": "第1批：前往粗加工区",
+          "cost_mm": 3816.00643080168,
+          "predicted_s": 8.78,
+          "optimality": {
+            "proven": true,
+            "policy": "ORDERED_SAFE_SKELETON_THEN_REPLAY_TIME",
+            "objective": "lexicographic: skeleton length + 120mm per bend, modeled travel time, direction cost",
+            "scope": "three finite lane graphs, loopless skeletons, 3 heading modes x 9 controller settings",
+            "cost_tolerance_mm": 1e-07,
+            "global_continuous_proven": false,
+            "global_time_proven": false,
+            "baseline": {
+              "skeleton_cost_mm": 3830.0,
+              "predicted_tracking_s": 8.9
+            },
+            "reason": "all cheaper and tied skeletons and controller settings checked"
+          },
+          "search": {
+            "refined": true,
+            "extended": true,
+            "skeleton_cost_mm": 3816.00643080168,
+            "turn_penalty_mm": 120,
+            "expanded": 47,
+            "candidates": 3,
+            "replay_tested": 81,
+            "replay_safe": 7,
+            "phases": [
+              {
+                "refined": false,
+                "extended": false,
+                "expanded": 10,
+                "candidates": 2,
+                "graph_lower_bound_mm": 3670.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": false,
+                "extended": true,
+                "expanded": 10,
+                "candidates": 2,
+                "graph_lower_bound_mm": 3670.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": true,
+                "extended": true,
+                "expanded": 27,
+                "candidates": 2,
+                "graph_lower_bound_mm": 3670.0,
+                "remaining_lower_bound_mm": 3816.0398644698075,
+                "complete": true,
+                "limit_hit": false
+              }
+            ]
+          }
+        },
+        {
+          "label": "第1批：前往暂存区",
+          "cost_mm": 5566.681547025944,
+          "predicted_s": 14.34,
+          "optimality": {
+            "proven": true,
+            "policy": "ORDERED_SAFE_SKELETON_THEN_REPLAY_TIME",
+            "objective": "lexicographic: skeleton length + 120mm per bend, modeled travel time, direction cost",
+            "scope": "three finite lane graphs, loopless skeletons, 3 heading modes x 9 controller settings",
+            "cost_tolerance_mm": 1e-07,
+            "global_continuous_proven": false,
+            "global_time_proven": false,
+            "baseline": {
+              "skeleton_cost_mm": 6000.0,
+              "predicted_tracking_s": 16.36
+            },
+            "reason": "all cheaper and tied skeletons and controller settings checked"
+          },
+          "search": {
+            "refined": true,
+            "extended": true,
+            "skeleton_cost_mm": 5566.681547025944,
+            "turn_penalty_mm": 120,
+            "expanded": 378,
+            "candidates": 24,
+            "replay_tested": 648,
+            "replay_safe": 3,
+            "phases": [
+              {
+                "refined": false,
+                "extended": false,
+                "expanded": 78,
+                "candidates": 14,
+                "graph_lower_bound_mm": 5420.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": false,
+                "extended": true,
+                "expanded": 92,
+                "candidates": 18,
+                "graph_lower_bound_mm": 5420.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": true,
+                "extended": true,
+                "expanded": 208,
+                "candidates": 8,
+                "graph_lower_bound_mm": 5420.0,
+                "remaining_lower_bound_mm": 5566.776695296637,
+                "complete": true,
+                "limit_hit": false
+              }
+            ]
+          }
+        },
+        {
+          "label": "第2批：前往原料区",
+          "cost_mm": 1750.0,
+          "predicted_s": 6.62,
+          "optimality": {
+            "proven": true,
+            "policy": "ORDERED_SAFE_SKELETON_THEN_REPLAY_TIME",
+            "objective": "lexicographic: skeleton length + 120mm per bend, modeled travel time, direction cost",
+            "scope": "three finite lane graphs, loopless skeletons, 3 heading modes x 9 controller settings",
+            "cost_tolerance_mm": 1e-07,
+            "global_continuous_proven": false,
+            "global_time_proven": false,
+            "baseline": {
+              "skeleton_cost_mm": 1750.0,
+              "predicted_tracking_s": 6.62
+            },
+            "reason": "all cheaper and tied skeletons and controller settings checked"
+          },
+          "search": {
+            "refined": false,
+            "extended": false,
+            "expanded": 20,
+            "candidates": 1,
+            "skeleton_cost_mm": 1750.0,
+            "turn_penalty_mm": 120,
+            "replay_tested": 27,
+            "replay_safe": 1,
+            "phases": [
+              {
+                "refined": false,
+                "extended": false,
+                "expanded": 3,
+                "candidates": 1,
+                "graph_lower_bound_mm": 1750.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": false,
+                "extended": true,
+                "expanded": 3,
+                "candidates": 1,
+                "graph_lower_bound_mm": 1750.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": true,
+                "extended": true,
+                "expanded": 14,
+                "candidates": 1,
+                "graph_lower_bound_mm": 1750.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              }
+            ]
+          }
+        },
+        {
+          "label": "第2批：前往粗加工区",
+          "cost_mm": 3670.0,
+          "predicted_s": 8.8,
+          "optimality": {
+            "proven": true,
+            "policy": "ORDERED_SAFE_SKELETON_THEN_REPLAY_TIME",
+            "objective": "lexicographic: skeleton length + 120mm per bend, modeled travel time, direction cost",
+            "scope": "three finite lane graphs, loopless skeletons, 3 heading modes x 9 controller settings",
+            "cost_tolerance_mm": 1e-07,
+            "global_continuous_proven": false,
+            "global_time_proven": false,
+            "baseline": {
+              "skeleton_cost_mm": 3670.0,
+              "predicted_tracking_s": 8.8
+            },
+            "reason": "all cheaper and tied skeletons and controller settings checked"
+          },
+          "search": {
+            "refined": false,
+            "extended": false,
+            "expanded": 34,
+            "candidates": 1,
+            "skeleton_cost_mm": 3670.0,
+            "turn_penalty_mm": 120,
+            "replay_tested": 18,
+            "replay_safe": 1,
+            "phases": [
+              {
+                "refined": false,
+                "extended": false,
+                "expanded": 5,
+                "candidates": 1,
+                "graph_lower_bound_mm": 3670.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": false,
+                "extended": true,
+                "expanded": 5,
+                "candidates": 1,
+                "graph_lower_bound_mm": 3670.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": true,
+                "extended": true,
+                "expanded": 24,
+                "candidates": 1,
+                "graph_lower_bound_mm": 3670.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              }
+            ]
+          }
+        },
+        {
+          "label": "第2批：前往暂存区",
+          "cost_mm": 5566.681547025944,
+          "predicted_s": 14.34,
+          "optimality": {
+            "proven": true,
+            "policy": "ORDERED_SAFE_SKELETON_THEN_REPLAY_TIME",
+            "objective": "lexicographic: skeleton length + 120mm per bend, modeled travel time, direction cost",
+            "scope": "three finite lane graphs, loopless skeletons, 3 heading modes x 9 controller settings",
+            "cost_tolerance_mm": 1e-07,
+            "global_continuous_proven": false,
+            "global_time_proven": false,
+            "baseline": {
+              "skeleton_cost_mm": 6000.0,
+              "predicted_tracking_s": 16.36
+            },
+            "reason": "all cheaper and tied skeletons and controller settings checked"
+          },
+          "search": {
+            "refined": true,
+            "extended": true,
+            "skeleton_cost_mm": 5566.681547025944,
+            "turn_penalty_mm": 120,
+            "expanded": 349,
+            "candidates": 26,
+            "replay_tested": 696,
+            "replay_safe": 5,
+            "phases": [
+              {
+                "refined": false,
+                "extended": false,
+                "expanded": 78,
+                "candidates": 14,
+                "graph_lower_bound_mm": 5420.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": false,
+                "extended": true,
+                "expanded": 63,
+                "candidates": 12,
+                "graph_lower_bound_mm": 5420.0,
+                "remaining_lower_bound_mm": 5900.0,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": true,
+                "extended": true,
+                "expanded": 208,
+                "candidates": 8,
+                "graph_lower_bound_mm": 5420.0,
+                "remaining_lower_bound_mm": 5566.776695296637,
+                "complete": true,
+                "limit_hit": false
+              }
+            ]
+          }
+        },
+        {
+          "label": "返回出发启停区前的停车区",
+          "cost_mm": 4500.0,
+          "predicted_s": 10.32,
+          "optimality": {
+            "proven": true,
+            "policy": "ORDERED_SAFE_SKELETON_THEN_REPLAY_TIME",
+            "objective": "lexicographic: skeleton length + 120mm per bend, modeled travel time, direction cost",
+            "scope": "three finite lane graphs, loopless skeletons, 3 heading modes x 9 controller settings",
+            "cost_tolerance_mm": 1e-07,
+            "global_continuous_proven": false,
+            "global_time_proven": false,
+            "baseline": {
+              "skeleton_cost_mm": 4500.0,
+              "predicted_tracking_s": 10.32
+            },
+            "reason": "all cheaper and tied skeletons and controller settings checked"
+          },
+          "search": {
+            "refined": false,
+            "extended": false,
+            "expanded": 48,
+            "candidates": 1,
+            "skeleton_cost_mm": 4500.0,
+            "turn_penalty_mm": 120,
+            "replay_tested": 27,
+            "replay_safe": 1,
+            "phases": [
+              {
+                "refined": false,
+                "extended": false,
+                "expanded": 7,
+                "candidates": 1,
+                "graph_lower_bound_mm": 4500.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": false,
+                "extended": true,
+                "expanded": 7,
+                "candidates": 1,
+                "graph_lower_bound_mm": 4500.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              },
+              {
+                "refined": true,
+                "extended": true,
+                "expanded": 34,
+                "candidates": 1,
+                "graph_lower_bound_mm": 4500.0,
+                "remaining_lower_bound_mm": null,
+                "complete": true,
+                "limit_hit": false
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

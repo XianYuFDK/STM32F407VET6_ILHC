@@ -51,6 +51,7 @@ stm32f407vet6_ilhc\main.o: ../Core/Inc/usart.h
 stm32f407vet6_ilhc\main.o: ../Core/Inc/gpio.h
 stm32f407vet6_ilhc\main.o: ../Hardware/hcan.h
 stm32f407vet6_ilhc\main.o: ../Hardware/debug_usart.h
+stm32f407vet6_ilhc\main.o: ../Hardware/debug_param_store.h
 stm32f407vet6_ilhc\main.o: ../Hardware/zdt_x42s.h
 stm32f407vet6_ilhc\main.o: ../Hardware/mecanum_control.h
 stm32f407vet6_ilhc\main.o: ../Hardware/ops.h

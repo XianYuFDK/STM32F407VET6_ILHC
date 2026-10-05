@@ -1,0 +1,21 @@
+
+RUN test_debug_telemetry.py
+Real USART1 sender + PC parser passed: legacy 19 Hz reproduced; CRC1 50/50 frames + 31 GET + 5 TSTAT, all chunk sizes; DMA busy/failure/max reply/legacy/text verified.
+
+RUN test_param_readback.py
+Param readback reply format, queue and gate tests passed
+Firmware param readback (GET) format, queue, gate and wiring passed
+
+RUN test_parse_line_axes.py
+ParseLine unified X/Y protocol passed:
+  GOTO/GOTOHOLD/OPSOFFSET/MANUAL use X=left,Y=front directly
+  KPX->mKpx, KPY->mKpy
+
+RUN test_debug_rx_recovery.py
+USART1 RX recovery tests passed
+
+RUN test_trajectory_bridge.py
+整批桥接STOP/心跳/快照与四向世界速度换算通过
+
+RUN test_rtos_app.py
+PASS: task ownership, creation failure, ISR startup, queue faults, STOP deadline, overrun/wrap, RX budget, Flash unlock, 1Hz stats

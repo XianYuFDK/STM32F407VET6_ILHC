@@ -1,0 +1,27 @@
+{"receive_hz": 50.68230449135521, "render_interval_ms": 50, "event_loop_max_ms": 13.173199986340478, "map_rects": [[1, 1, 848, 395]]}
+         78650 function calls (78626 primitive calls) in 2.986 seconds
+
+   Ordered by: cumulative time
+   List reduced from 322 to 18 due to restriction <18>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+     1715    2.503    0.001    2.503    0.001 {built-in method time.sleep}
+     1715    0.418    0.000    0.473    0.000 {built-in method processEvents}
+       48    0.003    0.000    0.027    0.001 main.py:3198(_render_ui)
+      151    0.002    0.000    0.012    0.000 main.py:4735(_poll_competition)
+       48    0.001    0.000    0.010    0.000 main.py:3287(_update_map_trail)
+      151    0.003    0.000    0.009    0.000 main.py:3142(_process_frames)
+      5/2    0.000    0.000    0.009    0.005 <frozen importlib._bootstrap>:1349(_find_and_load)
+      5/2    0.000    0.000    0.009    0.005 <frozen importlib._bootstrap>:1304(_find_and_load_unlocked)
+      5/2    0.000    0.000    0.008    0.004 <frozen importlib._bootstrap>:911(_load_unlocked)
+      5/2    0.000    0.000    0.008    0.004 <frozen importlib._bootstrap_external>:1020(exec_module)
+       48    0.005    0.000    0.008    0.000 main.py:590(set_trail)
+     10/4    0.000    0.000    0.007    0.002 <frozen importlib._bootstrap>:480(_call_with_frames_removed)
+      6/2    0.001    0.000    0.007    0.003 {built-in method builtins.exec}
+        1    0.000    0.000    0.007    0.007 competition_simulation.py:1(<module>)
+       60    0.005    0.000    0.005    0.000 {method 'unpolish' of 'PySide6.QtWidgets.QCommonStyle' objects}
+      287    0.000    0.000    0.005    0.000 loader.py:68(feature_imported)
+      287    0.000    0.000    0.005    0.000 feature.py:135(feature_imported)
+        9    0.000    0.000    0.004    0.000 feature.py:151(_mod_uses_pyside)
+
+

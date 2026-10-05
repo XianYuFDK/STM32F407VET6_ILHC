@@ -1,0 +1,106 @@
+[
+  {
+    "name": "near",
+    "wall_s": 0.0669,
+    "ok": true,
+    "code": null,
+    "reason": "关键坐标闭环实际矩形扫掠通过",
+    "search": {
+      "refined": false,
+      "extended": false,
+      "skeleton_cost_mm": 70.0,
+      "turn_penalty_mm": 120,
+      "interactive": true,
+      "fast_attempts": 1,
+      "source": "DIRECT_OR_ONE_BEND"
+    }
+  },
+  {
+    "name": "qr",
+    "wall_s": 0.069,
+    "ok": true,
+    "code": null,
+    "reason": "关键坐标闭环实际矩形扫掠通过",
+    "search": {
+      "refined": false,
+      "extended": false,
+      "skeleton_cost_mm": 903.5485598461214,
+      "turn_penalty_mm": 120,
+      "interactive": true,
+      "fast_attempts": 1,
+      "source": "DIRECT_OR_ONE_BEND"
+    }
+  },
+  {
+    "name": "center",
+    "wall_s": 0.2841,
+    "ok": true,
+    "code": null,
+    "reason": "关键坐标闭环实际矩形扫掠通过",
+    "search": {
+      "refined": false,
+      "extended": false,
+      "skeleton_cost_mm": 1920.0,
+      "turn_penalty_mm": 120,
+      "interactive": true,
+      "fast_attempts": 19,
+      "source": "DIRECT_OR_ONE_BEND"
+    }
+  },
+  {
+    "name": "raw",
+    "wall_s": 0.1345,
+    "ok": true,
+    "code": null,
+    "reason": "关键坐标闭环实际矩形扫掠通过",
+    "search": {
+      "refined": false,
+      "extended": false,
+      "skeleton_cost_mm": 1930.0,
+      "turn_penalty_mm": 120,
+      "interactive": true,
+      "fast_attempts": 10,
+      "source": "DIRECT_OR_ONE_BEND"
+    }
+  },
+  {
+    "name": "rough",
+    "wall_s": 0.0488,
+    "ok": true,
+    "code": null,
+    "reason": "关键坐标闭环实际矩形扫掠通过",
+    "search": {
+      "refined": false,
+      "extended": false,
+      "skeleton_cost_mm": 1630.0,
+      "turn_penalty_mm": 120,
+      "interactive": true,
+      "fast_attempts": 1,
+      "source": "DIRECT_OR_ONE_BEND"
+    }
+  },
+  {
+    "name": "storage",
+    "wall_s": 0.2011,
+    "ok": true,
+    "code": null,
+    "reason": "关键坐标闭环实际矩形扫掠通过",
+    "search": {
+      "refined": false,
+      "extended": false,
+      "skeleton_cost_mm": 1720.0,
+      "turn_penalty_mm": 120,
+      "interactive": true,
+      "fast_attempts": 19,
+      "source": "DIRECT_OR_ONE_BEND"
+    }
+  },
+  {
+    "name": "blocked",
+    "wall_s": 0.0023,
+    "ok": false,
+    "code": "INVALID_GOAL",
+    "reason": "目标停靠无法容纳整车及安全裕量：车体/安全裕量越出合法行驶区域；请调整位置或目标车头",
+    "search": null
+  }
+]

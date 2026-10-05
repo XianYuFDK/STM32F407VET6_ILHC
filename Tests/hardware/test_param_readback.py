@@ -154,7 +154,8 @@ assert "s_ack_queue[s_ack_read] == DEBUG_ACK_PARAM_TEXT" in flat_send
 assert "s_ack_param[s_ack_read]" in flat_send
 assert flat_send.index("DEBUG_ACK_PARAM_TEXT") < flat_send.index("s_ack_text[s_ack_queue[s_ack_read]]")
 # 应答仍然优先于遥测，且忙时不改写正在发送的 s_tx。
-assert flat_send.index("s_ack_read != s_ack_write") < flat_send.index("if (s_zdt_text_mode) return;")
+assert flat_send.index("s_ack_read != s_ack_write") < flat_send.index("if (s_zdt_text_mode ||")
+assert flat_send.index("if (huart1.gState != HAL_UART_STATE_READY) return;") < flat_send.index("Traj_PeekReply")
 
 # 被测参数仍在固件参数表里，GET 才能查到；遥测保持 24 通道不变。
 assert re.search(r'\{"XVMIN",\s*&XYVmin,\s*0\.0f,\s*100\.0f\}', source)

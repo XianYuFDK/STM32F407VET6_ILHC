@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""ILHC Control Station v2.1.2 — PySide6 + PyQtGraph UI.
+"""ILHC Control Station v2.1.7 — PySide6 + PyQtGraph UI.
 
 保留 v1.1 的通信/安全核心，重做桌面 UI：
 - PySide6 Qt Widgets
@@ -389,6 +389,8 @@ class FieldView(QGraphicsView):
         return item
 
     def _build_field(self):
+        self._pose_key = None
+        self._target_key = object()
         self.scene_obj.clear()
         # 留白只够放刻度文字（绘图帧的 -80/-100 标注），让场地尽量占满视图
         self.scene_obj.setSceneRect(-150, -150, 2700, 2700)
@@ -575,6 +577,10 @@ class FieldView(QGraphicsView):
         """
         if not all(math.isfinite(v) for v in (cx, cy, nose[0], nose[1], left[0], left[1])):
             return
+        key = (cx,cy,*nose,*left)
+        if self._pose_key == key:
+            return
+        self._pose_key = key
         hl = self.CAR_LEN_MM / 2.0
         hw = self.CAR_WID_MM / 2.0
         nx, ny = float(nose[0]), float(nose[1])
@@ -591,9 +597,18 @@ class FieldView(QGraphicsView):
         if len(x) == 0:
             self.trail_item.setPath(QPainterPath())
             return
-        path = QPainterPath(QPointF(float(x[0]), self.sy(float(y[0]))))
-        for xx, yy in zip(x[1:], y[1:]):
-            path.lineTo(float(xx), self.sy(float(yy)))
+        path = QPainterPath()
+        previous = None
+        for xx, yy in zip(x, y):
+            xx, yy = float(xx), float(yy)
+            if not (math.isfinite(xx) and math.isfinite(yy)) or max(abs(xx),abs(yy)) > 1e6:
+                previous = None
+                continue
+            if previous is None or math.hypot(xx-previous[0],yy-previous[1]) > 500:
+                path.moveTo(xx, self.sy(yy))
+            else:
+                path.lineTo(xx, self.sy(yy))
+            previous = xx, yy
         self.trail_item.setPath(path)
 
     def set_path(self, points, waypoint_points=None):
@@ -683,6 +698,9 @@ class FieldView(QGraphicsView):
             self._obstacle_items.append(item)
 
     def set_target(self, fx: float | None, fy: float | None):
+        if self._target_key == (fx,fy):
+            return
+        self._target_key = (fx,fy)
         if fx is None or fy is None:
             self.target_h.setVisible(False)
             self.target_v.setVisible(False)
@@ -967,7 +985,7 @@ class MainWindow(QMainWindow):
     def __init__(self, args):
         super().__init__()
         self.args = args
-        self.setWindowTitle("ILHC Control Station v2.1.2 — 地图点击修复 / STM32F407VET6")
+        self.setWindowTitle("ILHC Control Station v2.1.7 — 快速点击规划 / CRC遥测 / STM32F407VET6")
         self.resize(1500, 930)
         self.setMinimumSize(1180, 760)
 
@@ -992,6 +1010,11 @@ class MainWindow(QMainWindow):
         self.window_s = 30.0
         self.ring = core.RingBuffer(int(self.window_s * core.SEND_HZ) + 100, core.FRAME_FLOATS)
         self.traj_ring = core.RingBuffer(int(self.window_s * core.SEND_HZ) + 100, 2)
+        self._map_trail_ring = core.RingBuffer(int(self.window_s * core.SEND_HZ) + 100, 2)
+        self._map_pose_filter = core.MapPoseFilter()
+        self._display_source = None
+        self._display_pose = None
+        self._display_pose_ok = True
         self.paused = False
         # 四轮锁轴状态：None未请求 / True已请求使能 / False已请求失能。
         # 固件无状态回读，这里只记录本机发出的最后一条请求。
@@ -1024,6 +1047,10 @@ class MainWindow(QMainWindow):
         self.fps_count = 0
         self.fps = 0.0
         self.fps_t = time.monotonic()
+        self.ui_refresh_count = 0
+        self.ui_refresh_hz = 0.0
+        self._rx_previous_bytes = 0
+        self._rx_bytes_per_second = 0.0
         self.send_count = 0
         self.cmd_history = []
         self.hist_idx = 0
@@ -1214,7 +1241,7 @@ class MainWindow(QMainWindow):
             self.nav_buttons.append(btn)
 
         lay.addStretch(1)
-        ver = QLabel("v2.0 Qt\nPySide6 + PyQtGraph")
+        ver = QLabel("v2.1.7 Qt\nFast click planning")
         ver.setObjectName("VersionLabel")
         lay.addWidget(ver)
         return side
@@ -1227,7 +1254,8 @@ class MainWindow(QMainWindow):
         lay.setContentsMargins(14, 0, 14, 0)
         lay.setSpacing(20)
         self.footer_link = QLabel("Telemetry —")
-        self.footer_fps = QLabel("0 fps")
+        self.footer_fps = QLabel("刷新 0 Hz · 遥测 0 Hz")
+        self.footer_fps.setMinimumWidth(190)
         self.footer_rx = QLabel("RX 0 B")
         self.footer_err = QLabel("Err 0")
         self.footer_dm = QLabel("DM —")
@@ -1437,6 +1465,8 @@ class MainWindow(QMainWindow):
         left = QVBoxLayout()
         left.setSpacing(6)
         self.map_position = QLabel("场地位置：等待遥测（启停区1中心为0点）")
+        self.map_position.setWordWrap(True)
+        self.map_position.setFixedHeight(44)
         left.addWidget(self.map_position)
         self.map_view = FieldView()
         self.map_view.set_navigation_map(self.nav_map)
@@ -1488,8 +1518,13 @@ class MainWindow(QMainWindow):
         tuning = QPushButton('轨迹速度调参')
         tuning.clicked.connect(lambda: self._select_page(self.trajectory_page_index))
         real_row.addWidget(tuning)
+        self.real_collision_check = QCheckBox('实际车体碰撞保护')
+        self.real_collision_check.setChecked(True)
+        self.real_collision_check.setToolTip('控制实机运行时的地图车体/扫掠碰撞停车；关闭后不因截图中的地图碰撞原因中止批次。')
+        self.real_collision_check.toggled.connect(self._real_collision_changed)
         real_row.addStretch(1)
         layout.addLayout(real_row)
+        layout.addWidget(self.real_collision_check)
         self.competition_status = QLabel('准备：点击地图放障碍或随机补齐；比赛沿用当前障碍。选择启停区和任务码后启动，每轮180秒。')
         self.competition_status.setWordWrap(True)
         self.competition_status.setObjectName('HintLabel')
@@ -1593,6 +1628,10 @@ class MainWindow(QMainWindow):
         self.strafe_limit_check.toggled.connect(self.strafe_limit_spin.setEnabled)
         params.setColumnStretch(1, 1)
         sv.addLayout(params)
+        self.plan_optimize_check=QCheckBox("充分优化点击路线（较慢）")
+        self.plan_optimize_check.setToolTip("默认快速寻找通过完整车体运动预演的路线。勾选后在8秒预算内比较更多绕行和车头方案；整场比赛仍充分优化。")
+        self.plan_optimize_check.toggled.connect(self._nav_parameters_changed)
+        sv.addWidget(self.plan_optimize_check)
 
         # 模拟障碍（φ50×100mm 圆柱，最多 4 个）：演示物体，只活在运行时，不进地图数据
         obs = QGridLayout()
@@ -1628,7 +1667,7 @@ class MainWindow(QMainWindow):
         self.follow_btn = QPushButton("执行规划路径")
         self.follow_btn.setObjectName("PrimaryButton")
         self.follow_btn.setToolTip(
-            "PC连续轨迹仿真；实机整批轨迹上传，STM32本地连续跟踪，前视距离默认100mm可调。\n"
+            "PC与实机关键坐标闭环；实机一次上传全部目标，PASS连续过点，站点停稳自动继续。\n"
             "中间点不停稳，只有最终STOP点要求位置+航向+停稳。\n"
             "实机按当前地图检查，需有效OPS及已使能底盘；STOP立即取消。")
         self.follow_btn.clicked.connect(self._toggle_follow)
@@ -1663,6 +1702,10 @@ class MainWindow(QMainWindow):
         export_trajectory.setToolTip("导出20mm连续采样、切线航向及累计弧长；完整整车复检通过才可导出。")
         export_trajectory.clicked.connect(self._export_trajectory)
         sv.addWidget(export_trajectory)
+        export_segments = QPushButton("导出PC路径 JSON")
+        export_segments.setToolTip("PC模拟关键坐标程序：位置、车头、PASS/STOP和闭环参数；不下发实机。")
+        export_segments.clicked.connect(self._export_segments)
+        sv.addWidget(export_segments)
         note = QLabel("默认地图仅演示，未核实比赛灰色车道。连续轨迹整车校验不代表实车放行。\n"
                       "原料区旧目标太近时会拒绝；可先点击布局(1200,2100)演示接近点。\n"
                       "取消规划勾选会进入原始直接GOTO调试，须人工检查。")
@@ -1862,7 +1905,7 @@ class MainWindow(QMainWindow):
         self.send_line(command)
 
     def _build_chassis_page(self):
-        page, lay = self._page_shell("底盘调参", "单点GOTO位置与航向参数 · 连续路径请使用轨迹调参页")
+        page, lay = self._page_shell("底盘调参", "PC与实机关键坐标、单点GOTO共用七项底盘参数")
 
         safe = QFrame()
         safe.setObjectName("Panel")
@@ -2009,6 +2052,9 @@ class MainWindow(QMainWindow):
             grid.addWidget(check, 8, i)
         bl.addWidget(panel)
         self.chassis_rows = {}
+        note = QLabel('编辑仅填输入；点击发送并确认回读后生效。新PC坐标路径按已生效参数预演，发送参数会取消旧模拟路径，请重新规划。')
+        note.setWordWrap(True)
+        bl.addWidget(note)
         for cmd, label, lo, hi, dflt, rb in core.CHASSIS_PARAMS:
             row = ParamRow(cmd, label, lo, hi, dflt, rb, False)
 
@@ -2033,7 +2079,7 @@ class MainWindow(QMainWindow):
         self.trajectory_status = QLabel("未回读。输入值是待发送设置，右侧回读才是STM32实际值。")
         self.trajectory_status.setWordWrap(True)
         note = QLabel("直线默认500mm/s、圆弧最高150mm/s，起步加速并提前制动；偏差增大自动降速。\n"
-                      "适用于实机连续轨迹；GOTO仍使用底盘调参页。X/Y增益作用于世界坐标。\n"
+                      "适用于旧密集轨迹协议；新实机关键坐标与GOTO使用底盘调参页。X/Y增益作用于世界坐标。\n"
                       "轨迹上传或运行期间拒绝修改。参数驻RAM，重启恢复默认；JSON保存在电脑。\n"
                       "TVMAX是速度上限，圆弧与停靠会自动减速。PC模拟使用自己的跟踪模型。")
         note.setWordWrap(True)
@@ -2821,6 +2867,9 @@ class MainWindow(QMainWindow):
             self.dm_position_panel.session_reset()
         self._clear_path()
         self.latest = None
+        self._map_pose_filter = core.MapPoseFilter()
+        self._display_source = self._display_pose = None
+        self._display_pose_ok = True
         self.latest_received_monotonic = 0.0
         self._home_after_stop = False
         self._drain_queue(self.frame_q)
@@ -2939,6 +2988,13 @@ class MainWindow(QMainWindow):
         if cmd in core.TRAJECTORY_NAMES and not self._trajectory_settings_available(True):
             self.log(self.trajectory_status.text(), 'warn')
             return
+        if self.worker is not None and cmd in core.CHASSIS_NAMES and '=' in text:
+            if self._real_future is not None or (self.real_match is not None and self.real_match.active):
+                self.log('实机坐标批次准备/运行中，请先STOP再修改底盘参数', 'warn')
+                return
+            self._clear_path('底盘参数修改，旧坐标预演失效')
+        if self.worker is None and self.sim is not None and cmd in core.CHASSIS_NAMES and '=' in text:
+            self._clear_path('底盘参数已发送，旧坐标预演失效；请重新规划')
         if hasattr(self, "dm_position_panel"):
             if self.dm_position_panel.observe_command(text) is False:
                 return
@@ -3006,12 +3062,14 @@ class MainWindow(QMainWindow):
     # ---------------- 数据刷新 ----------------
     def _start_timers(self):
         self.data_timer = QTimer(self)
+        self.data_timer.setTimerType(Qt.PreciseTimer)
         self.data_timer.timeout.connect(self._process_frames)
         self.data_timer.start(20)
 
         self.render_timer = QTimer(self)
+        self.render_timer.setTimerType(Qt.PreciseTimer)
         self.render_timer.timeout.connect(self._render_ui)
-        self.render_timer.start(50)
+        self.render_timer.start(20)
 
         self.status_timer = QTimer(self)
         self.status_timer.timeout.connect(self._status_tick)
@@ -3056,6 +3114,14 @@ class MainWindow(QMainWindow):
         再静默 return，`GET XXX` 就完全没有可见反馈，看起来像"板子没反应"——
         VDBMM 这类未注册到界面的参数曾经就是这样被整个吞掉的。
         """
+        pending = getattr(self, '_coordinate_read', None)
+        if pending is not None and str(name).upper() in pending['sent']:
+            try:
+                number = float(value)
+                if math.isfinite(number):
+                    pending['values'][core.SIM_PARAM_ATTRS[str(name).upper()]] = number
+            except (TypeError, ValueError):
+                pass
         row = self._param_rows().get(str(name).upper())
         if row is None:
             self.log("回读 %s=%s（界面无该参数行）" % (name, value), "info")
@@ -3103,12 +3169,16 @@ class MainWindow(QMainWindow):
                 self.latest = vals
                 self.latest_t = tr
                 self.latest_received_monotonic = t
+                self._display_pose, self._display_pose_ok = self._map_pose_filter.update(vals,t)
+                self._display_source = vals
                 self._poll_direct_home()
                 if not self.paused:
                     self.ring.append(tr, vals)
                     # 遥测为 cm，轨迹缓冲/地图几何仍统一使用 mm。
                     self.traj_ring.append(tr, (vals[0] * core.OPS_CM_TO_MM,
                                                vals[1] * core.OPS_CM_TO_MM))
+                    self._map_trail_ring.append(tr, (self._display_pose[0]*10,self._display_pose[1]*10)
+                                                if self._display_pose_ok else (math.nan,math.nan))
                 if self.recorder is not None:
                     self.recorder.write(t, vals)
         except queue.Empty:
@@ -3121,7 +3191,7 @@ class MainWindow(QMainWindow):
                 text = self.fw_text_q.get_nowait()
             except queue.Empty:
                 break
-            if text.removeprefix('固件文本: ').startswith(('TSTAT ', 'TCAPS ')):
+            if text.removeprefix('固件文本: ').startswith(('TSTAT ', 'TCAPS ', 'CCAPS ', 'CSTALL ')):
                 if self.real_match is not None:
                     self.real_match.handle_reply(text)
                 continue
@@ -3146,6 +3216,7 @@ class MainWindow(QMainWindow):
             self._apply_param_readback(name, value)
 
     def _render_ui(self):
+        self.ui_refresh_count += 1
         v = self.latest
         if v is not None:
             self.cards["x"].set_value("%.1f" % v[0])
@@ -3172,29 +3243,35 @@ class MainWindow(QMainWindow):
             status_label = "0x%02X" % status if status is not None else "无效"
             text, fault = core.DM_STATUS.get(status, ("未知/无效 %s" % status_label, True))
             self.dm_status_big.setText("DM 状态：%s  %s" % (status_label, text))
-            self.dm_status_big.setProperty("fault", fault)
-            self.dm_status_big.setProperty("enabled", status == 0x01)
-            self.dm_status_big.style().unpolish(self.dm_status_big)
-            self.dm_status_big.style().polish(self.dm_status_big)
+            if (self.dm_status_big.property("fault") != fault or
+                    self.dm_status_big.property("enabled") != (status == 0x01)):
+                self.dm_status_big.setProperty("fault", fault)
+                self.dm_status_big.setProperty("enabled", status == 0x01)
+                self.dm_status_big.style().unpolish(self.dm_status_big)
+                self.dm_status_big.style().polish(self.dm_status_big)
 
             self.health_dm.setText("● DM：%s" % text)
             self.footer_dm.setText("DM[%s] %s" % (dm_id, text))
 
             self.ops_drift.setText("中心位置：X 左右 %.1f / Y 前后 %.1f cm ｜距零点 %.1f cm ｜车体航向 %.1f°" % (v[0], v[1], math.hypot(v[0], v[1]), v[2]))
-            fx, fy = self._ops_to_field(v[0] * core.OPS_CM_TO_MM,
-                                        v[1] * core.OPS_CM_TO_MM)
-            # 车体图标与轨迹共用同一次映射：方向向量过 _ops_dir_to_map，不传角度。
-            nose_w, left_w = self._body_nose_left(v[2])
-            self.map_view.set_pose(fx, fy,
-                                   self._ops_dir_to_map(*nose_w),
-                                   self._ops_dir_to_map(*left_w))
-            ux, uy = core.layout_to_field(fx, fy)
-            # 先舍入再取模，避免 359.96° 显示成 "360.0"。
-            heading = round(self._field_heading(v[2]), 1) % 360.0
-            self.map_position.setText("场地 X(左)=%.1f cm   Y(前)=%.1f cm   航向=%.1f°（0°上 / 90°左）"
-                                      % (ux / core.OPS_CM_TO_MM,
-                                         uy / core.OPS_CM_TO_MM, heading))
+            pose=self._display_pose if self._display_source is v else v[:3]
+            if pose is not None:
+                fx, fy = self._ops_to_field(pose[0] * core.OPS_CM_TO_MM,
+                                            pose[1] * core.OPS_CM_TO_MM)
+                # 车体图标与轨迹共用同一次映射：方向向量过 _ops_dir_to_map，不传角度。
+                nose_w, left_w = self._body_nose_left(pose[2])
+                self.map_view.set_pose(fx, fy,
+                                       self._ops_dir_to_map(*nose_w),
+                                       self._ops_dir_to_map(*left_w))
+                ux, uy = core.layout_to_field(fx, fy)
+                # 先舍入再取模，避免 359.96° 显示成 "360.0"。
+                heading = round(self._field_heading(pose[2]), 1) % 360.0
+                self.map_position.setText("场地 X(左)=%.1f cm   Y(前)=%.1f cm   航向=%.1f°（0°上 / 90°左）"
+                                          % (ux / core.OPS_CM_TO_MM,
+                                             uy / core.OPS_CM_TO_MM, heading))
 
+                if self._display_source is v and not self._display_pose_ok:
+                    self.map_position.setText(self.map_position.text()+" · 异常跳点已隔离（显示上一有效位置）")
         # 只绘制可见页面：主窗口当前页 + 已拆到独立窗口的页面。
         active = {self.stack.currentIndex()} | set(self.detached)
         if 1 in active:
@@ -3231,15 +3308,27 @@ class MainWindow(QMainWindow):
             self.dash_dm_plot.setXRange(xmin, xmax, padding=0)
 
     def _update_map_trail(self):
-        view = self.traj_ring.view()
+        ring = (self._map_trail_ring if self._display_source is self.latest and self._display_source is not None
+                else self.traj_ring)
+        key = (id(ring), ring.revision, self.map_theta,self.map_ox,self.map_oy)
+        if getattr(self,'_drawn_trail_key',None) == key:
+            return
+        self._drawn_trail_key = key
+        view = ring.view()
         if view is None:
             return
         _t, d = view
         if len(d) == 0:
             return
         stride = max(1, len(d) // 700)
-        x = d[::stride, 0]
-        y = d[::stride, 1]
+        # Preserve gap markers while reducing points. A simple [::stride] can
+        # skip the sole NaN and reconnect old/new poses after ZERO or a jump.
+        valid = np.isfinite(d).all(axis=1)
+        breaks = np.flatnonzero(valid[1:] != valid[:-1])+1
+        indices = np.unique(np.r_[np.arange(0,len(d),stride),breaks,
+                                  np.maximum(0,breaks-1),len(d)-1])
+        x = d[indices, 0]
+        y = d[indices, 1]
         th = math.radians(self.map_theta)
         c, s = math.cos(th), math.sin(th)
         # 与 _ops_to_field 同一变换的向量化副本：协议 X=左右、Y=前后。
@@ -3256,9 +3345,14 @@ class MainWindow(QMainWindow):
         dt = now - self.fps_t
         if dt >= 1.0:
             self.fps = self.fps_count / dt
+            self.ui_refresh_hz = self.ui_refresh_count / dt
+            self.ui_refresh_count = 0
+            current_bytes = self.worker.parser.bytes_in if self.worker is not None else 0
+            self._rx_bytes_per_second = max(0,current_bytes-self._rx_previous_bytes)/dt
+            self._rx_previous_bytes = current_bytes
             self.fps_count = 0
             self.fps_t = now
-        self.footer_fps.setText("%.0f fps" % self.fps)
+        self.footer_fps.setText("刷新 %.0f Hz · 遥测 %.0f Hz" % (self.ui_refresh_hz,self.fps))
 
         if self.sim is not None:
             self._set_link_status("模拟模式 · 50 Hz", "sim")
@@ -3289,9 +3383,12 @@ class MainWindow(QMainWindow):
                         self._set_link_status("遥测超时 · %.1f s" % age, "error")
                         self.health_telemetry.setText("● 遥测：超时")
                 self.health_link.setText("● 通信链路：串口已打开")
-            self.footer_link.setText("Telemetry UART")
-            self.footer_rx.setText("RX %.1f KB" % (w.parser.bytes_in / 1024.0))
-            self.footer_err.setText("Err %d" % w.parser.err_bytes)
+            self.footer_link.setText("UART CRC1" if w.parser.crc_frames else "UART 旧帧(无校验)")
+            self.footer_rx.setText("RX %.1f KB/s" % (self._rx_bytes_per_second / 1024.0))
+            self.footer_err.setText(("CRC %d · 丢包 %d" % (w.parser.crc_errors,w.parser.lost_packets))
+                                   if w.parser.crc_frames else "失步 %d B" % w.parser.err_bytes)
+            self.footer_err.setToolTip("失步丢弃 %d 字节；无效定位 %d 帧；队列丢帧 %d；重复/乱序 %d" % (
+                w.parser.err_bytes,w.parser.invalid_pose_frames,getattr(w,'queue_drops',0),w.parser.duplicate_packets))
         else:
             self._set_link_status("未连接", "idle")
             self.footer_link.setText("Telemetry —")
@@ -3301,10 +3398,12 @@ class MainWindow(QMainWindow):
             self.health_telemetry.setText("● 遥测：—")
 
     def _set_link_status(self, text: str, state: str):
-        self.status_pill.setText("● " + text)
-        self.status_pill.setProperty("state", state)
-        self.status_pill.style().unpolish(self.status_pill)
-        self.status_pill.style().polish(self.status_pill)
+        if self.status_pill.text() != "● " + text:
+            self.status_pill.setText("● " + text)
+        if self.status_pill.property("state") != state:
+            self.status_pill.setProperty("state", state)
+            self.status_pill.style().unpolish(self.status_pill)
+            self.status_pill.style().polish(self.status_pill)
 
     # ---------------- 波形/记录 ----------------
     def _set_window(self, seconds: float):
@@ -3312,10 +3411,12 @@ class MainWindow(QMainWindow):
         cap = int(self.window_s * core.SEND_HZ) + 100
         self.ring.resize(cap)
         self.traj_ring.resize(cap)
+        self._map_trail_ring.resize(cap)
 
     def clear_data(self):
         self.ring.clear()
         self.traj_ring.clear()
+        self._map_trail_ring.clear()
         self.map_target = None
         self.map_view.set_target(None, None)
         self.map_view.set_trail(np.array([]), np.array([]))
@@ -3448,6 +3549,7 @@ class MainWindow(QMainWindow):
         self._apply_map_mapping()
         self.send_line("ZERO")
         self.traj_ring.clear()
+        self._map_trail_ring.clear()
         self.map_target = None
         self.map_status.setText("启停区%d校准：场地(%.1f, %.1f) cm，车头%.0f°；场地原点固定在启停区1"
                                 % (zone, ux / core.OPS_CM_TO_MM, uy / core.OPS_CM_TO_MM, 0))
@@ -3847,6 +3949,8 @@ class MainWindow(QMainWindow):
                 self.map_yaw_combo.currentData(), id(self.sim), id(self.worker),
                 bool(self.strafe_limit_check.isChecked()), self.strafe_limit_spin.value(),
                 self.turn_penalty_spin.value(),
+                self.plan_optimize_check.isChecked(),
+                tuple(sorted(self.sim.chassis_parameters().items())) if self.sim is not None and self.worker is None else None,
                 json.dumps(self.nav_map, sort_keys=True, ensure_ascii=False),
                 # 模拟障碍参与签名：放了/清了障碍，旧计划必须失效
                 tuple(round(v, 3) for pt in self.sim_obstacles for v in pt))
@@ -3867,6 +3971,8 @@ class MainWindow(QMainWindow):
         # Cancel first, even when the NEW target turns out to be invalid.
         self._clear_path()
         try:
+            if self.sim is not None and self.worker is None:
+                self.sim.chassis_parameters(flush=True)
             goal = nav.point2((fx, fy), "目标")
             start, yaw, mode = self._plan_preconditions()
             # 目标航向进入原规划台账；连续跟踪仍需通过切线与整车复检。
@@ -4004,8 +4110,12 @@ class MainWindow(QMainWindow):
         dx, dy = self._ops_dir_to_map(*nose)
         return math.degrees(math.atan2(dy, dx))
 
-    def _request_plan(self, fx, fy, *, execute_real=False, home_return=False):
+    def _request_plan(self, fx, fy, *, execute_real=False, home_return=False, coordinate_control=None):
         """UI entry: CPU/geometry work runs outside Qt; timer only applies results."""
+        if self.worker is not None and self.sim is None and coordinate_control is None:
+            self._read_coordinate_parameters(lambda values: self._request_plan(
+                fx, fy, execute_real=execute_real, home_return=home_return, coordinate_control=values))
+            return
         context = None
         try:
             if execute_real:
@@ -4021,8 +4131,16 @@ class MainWindow(QMainWindow):
             event = threading.Event()
             self._plan_cancel = event
             self._plan_context_pending = context
+            planner = core.plan_home_path if home_return else core.plan_path
+            if context['mode'] == 'SIMULATION' or coordinate_control is not None:
+                planner = core.plan_coordinate_home_path if home_return and coordinate_control is not None else core.plan_coordinate_path
+                if home_return and coordinate_control is not None:
+                    context['kwargs']['home_staging'] = self.nav_map.get('competition',{}).get('staging',{}).get(str(self.zone_combo.currentData()))
+                context['kwargs']['coordinate_nodes'] = copy.deepcopy(self.nav_map.get('competition', {}).get('lane_nodes'))
+                context['kwargs']['chassis_control'] = self.sim.chassis_parameters() if coordinate_control is None else coordinate_control
+                context['kwargs']['interactive'] = not self.plan_optimize_check.isChecked() and not home_return
             self._plan_future = self._planner_pool.submit(
-                core.plan_home_path if home_return else core.plan_path,
+                planner,
                 context["start"], context["goal"], cancel=event, **context["kwargs"])
             self._set_plan_info("正在规划（只计算，未下发）…", "idle")
             self.map_status.setText("正在规划；可取消或点击新目标")
@@ -4074,7 +4192,7 @@ class MainWindow(QMainWindow):
         if res.get("ok") and not res.get("axis_matched"):
             res.update(ok=False, execution_safe=False, code="INVALID_PATH",
                        reason="动作分段与台账不匹配，请重新规划")
-        if res.get("ok"):
+        if res.get("ok") and not res.get('waypoint_program'):
             # The legacy command quantizes to 1mm. Validate the exact same points
             # which would be encoded, rather than check one path and send another.
             rounded = []
@@ -4123,7 +4241,9 @@ class MainWindow(QMainWindow):
         self.planned_result = res
         self._planned_context = context
         self.planned_points = list(res["points"])
-        if res.get("arcs") and res.get("smoothing_model_safe"):
+        if res.get('waypoint_program'):
+            self.map_view.set_path(res['smoothed_points'], waypoint_points=res['points'])
+        elif res.get("arcs") and res.get("smoothing_model_safe"):
             preview = res["smoothed_points"]
             markers = [preview[0], preview[-1]]
             for arc in res["arcs"]:
@@ -4144,11 +4264,31 @@ class MainWindow(QMainWindow):
     def _waypoint_lines(self):
         yaw = (self.planned_result or {}).get("fixed_yaw_ops", 0.0)
         res = self.planned_result or {}
-        lines = ["规划台账；实机执行使用整批轨迹上传。起始OPS航向 %.2f°" % yaw]
-        for k, (px, py) in enumerate(self.planned_points[1:], 1):
+        program = res.get('waypoint_program')
+        lines = (["PC关键坐标闭环（无圆弧）；中间PASS不等待停稳，末点STOP停稳"] if program else
+                 ["规划台账；实机执行使用整批轨迹上传。起始OPS航向 %.2f°" % yaw])
+        if program:
+            lines.append('控制参数来自底盘调参：'+', '.join('%s=%g'%(name,program['control'][core.SIM_PARAM_ATTRS[name]]) for name in core.CHASSIS_NAMES))
+            optimality=res.get('optimality',{})
+            if optimality:
+                if optimality.get('policy')=='INTERACTIVE_FIRST_VERIFIED_SAFE':
+                    lines.append('快速点击规划：完整车体运动预演通过；未穷举最优路线')
+                else:
+                    lines.append('路线优化：安全骨架代价优先，同代价选择模型更快方案；'+
+                    ('有限候选范围内已证明最优' if optimality.get('proven') else '当前搜索预算内的最佳安全方案'))
+        display_rows=[]
+        if program:
+            for part in (res.get('coordinate_prefix'),program,res.get('coordinate_suffix')):
+                if part: display_rows.extend(part['waypoints'][1:])
+        targets=[(r['x_mm'],r['y_mm']) for r in display_rows] if program else self.planned_points[1:]
+        for k, (px, py) in enumerate(targets, 1):
             ox, oy = self._field_to_ops(px, py)
             ux, uy = core.layout_to_field(px, py)
-            if res.get("turn_count"):
+            if program:
+                row = display_rows[k-1]
+                lines.append("#%d %s 场地(%6.1f,%6.1f)cm 车头%.2f° 通过范围%.1fmm" %
+                             (k, row['kind'], ux/10, uy/10, (180+row['layout_yaw_deg']+180)%360-180, row['pass_mm']))
+            elif res.get("turn_count"):
                 lines.append("#%d 场地(%6.1f,%6.1f)cm（动作与转向见下方）" % (k, ux/10, uy/10))
             else:
                 lines.append("#%d 场地(%6.1f,%6.1f)cm → GOTO=%.1f,%.1f,%.2f"
@@ -4183,7 +4323,7 @@ class MainWindow(QMainWindow):
                     lines.append("      （该点 %s，共 %d×90°）" % (c.action, c.steps))
                 elif c.steps:
                     lines.append("      （该点转了 %d×90°，台账里无对应转向行）" % c.steps)
-        if res.get("smoothing_status") not in (None, "NOT_RUN", "DISABLED"):
+        if res.get("smoothing_status") not in (None, "NOT_RUN", "DISABLED", "COORDINATE_NO_ARC"):
             lines.append("圆弧平滑：%s，平滑轨迹长%.1fmm（布局mm坐标）" % (
                 res["smoothing_status"], res.get("smoothed_length", 0.0)))
             for arc in res.get("arcs", []):
@@ -4194,14 +4334,26 @@ class MainWindow(QMainWindow):
                 lines.append("  角%d fallback [%s]：%s" % (
                     fallback["corner_index"]+1, fallback["code"], fallback["reason"]))
         if res.get("trajectory_status"):
-            lines.append("Trajectory [%s]：%d点，长%.1fmm，场地坐标/切线航向/角度unwrap" % (
+            lines.append(("控制响应预演 [%s]：%d帧，长%.1fmm，场地坐标/实际车头/角度unwrap" if program else
+                          "Trajectory [%s]：%d点，长%.1fmm，场地坐标/切线航向/角度unwrap") % (
                 res["trajectory_status"], len(res.get("trajectory", [])), res.get("trajectory_length_mm", 0.0)))
             if res.get("trajectory_reason"):
                 lines.append("  Trajectory fallback：" + res["trajectory_reason"])
+        if res.get('segment_program'):
+            rows = res['segment_program']['segments']
+            lines.append('PC端点执行：%d段（直线%d / 圆弧%d），运行不保存采样点表；仅站点STOP停稳' %
+                         (len(rows), sum(p['kind']=='LINE' for p in rows), sum(p['kind']=='ARC' for p in rows)))
+        if res.get('waypoint_program'):
+            lines.append('PC坐标闭环：%d个目标，无圆弧；PASS接近即切换，STOP检查位置/航向/停稳' %
+                         (len(res['waypoint_program']['waypoints'])-1))
         return lines
 
     @staticmethod
     def _plan_summary(res):
+        if res.get('waypoint_program'):
+            c = res['waypoint_program']['control']
+            return '坐标闭环：%d个关键航点目标 · 无圆弧 · 预演%.2fs\n底盘参数 KPX/KPY/KPZ=%g/%g/%g，XVMAX=%g\n实际响应整车扫掠通过；实机上传关键坐标' % (
+                len(res['waypoint_program']['waypoints'])-1, res['predicted_tracking_s'],c['kpx'],c['kpy'],c['kpz'],c['xyvmax'])
         centre, body = res.get("min_clearance"), res.get("body_clearance")
         ctext = "无列出障碍" if centre is None or not math.isfinite(centre) else "%.1fmm" % centre
         btext = "未核算" if body is None else "%.1fmm" % body
@@ -4224,6 +4376,8 @@ class MainWindow(QMainWindow):
 
     @staticmethod
     def _plan_hint(res):
+        if res.get('waypoint_program'):
+            return 'PC坐标定位：位置误差转车体轴，与航向纠偏混合；途中点不等停稳'
         if not res.get("execution_safe"):
             return "仅参考，未通过整车执行检查"
         if res.get("trajectory_safe"):
@@ -4312,6 +4466,7 @@ class MainWindow(QMainWindow):
         self._manual_stop()
         try:
             parse_task_code(self.competition_code.text())
+            parameters = self.sim.chassis_parameters(flush=True)
             snap = self.sim.navigation_snapshot()
             if not snap['wheel_enabled'] or self.wheel_state is False:
                 raise ValueError('模拟轮已失能，请先使能')
@@ -4330,11 +4485,12 @@ class MainWindow(QMainWindow):
             event = threading.Event()
             self._competition_cancel = event
             self._competition_context = dict(sim=self.sim, mapping=(0, 0, 0), snapshot=copy.deepcopy(data),
+                                             chassis_control=parameters,
                                              signature=self._navigation_signature(), zone=zone,
                                              obstacles=tuple(tuple(p) for p in self.sim_obstacles))
             self._competition_future = self._planner_pool.submit(compile_match, data,
                 self.competition_code.text(), zone, self.plan_pad_spin.value()*core.OPS_CM_TO_MM, event.is_set,
-                self._competition_context['obstacles'])
+                self._competition_context['obstacles'], coordinate_mode=True, chassis_control=parameters)
             self.competition_start.setEnabled(False)
             self.competition_status.setText('启动前预检：包含%d个模拟障碍，生成整轮避障路线并预演真实控制器；尚未发车…' % len(self.sim_obstacles))
         except Exception as exc:
@@ -4343,7 +4499,7 @@ class MainWindow(QMainWindow):
 
     @staticmethod
     def _discard_trajectory_commands(q):
-        names=('TCAPS','TBEGIN','TPOINT','TCOMMIT','TRUN','TABORT','TSTATUS','TRESUME')
+        names=('CCAPS','CBEGIN','CPOINT','TCAPS','TBEGIN','TPOINT','TCOMMIT','TRUN','TABORT','TSTATUS','TRESUME')
         with q.mutex:
             kept=[line for line in q.queue if str(line).split('=',1)[0] not in names]
             q.queue.clear();q.queue.extend(kept)
@@ -4360,6 +4516,7 @@ class MainWindow(QMainWindow):
             self.line_q.put(line)
 
     def _cancel_real_match(self,reason):
+        self._coordinate_read = None
         event=getattr(self,'_real_cancel',None)
         future=getattr(self,'_real_future',None)
         if event is not None: event.set()
@@ -4377,20 +4534,30 @@ class MainWindow(QMainWindow):
         if hasattr(self,'follow_btn'):
             self.follow_btn.setText('执行规划路径')
 
-    def _start_real_match(self):
+    def _start_real_match(self, *, coordinate_control=None):
         if any(value is not None for _, value in getattr(self, '_trajectory_queue', [])) or getattr(self, '_trajectory_pending', {}):
             self.competition_status.setText('轨迹参数正在发送或回读，请完成后再启动。'); return
-        from competition_simulation import compile_match,collision_scene
+        from competition_simulation import compile_match,collision_scene,with_competition_defaults
         from hardware_trajectory import make_match_batch
         worker=self.worker
         if worker is None or self.sim is not None or not worker.opened.is_set():
             self.competition_status.setText('实机比赛需要已连接STM32；PC模拟仍使用一键比赛模拟。');return
         if self._real_future is not None or (self.real_match is not None and self.real_match.active):
             self.competition_status.setText('已有实机批次，请先停止。');return
-        if not self.nav_map.get('competition'):
-            self.competition_status.setText('请加载含competition配置的比赛地图。');return
+        try:
+            configured,added=with_competition_defaults(self.nav_map)
+            if added:
+                self.nav_map=configured
+                self.map_view.set_navigation_map(self.nav_map)
+                self.map_view.set_sim_obstacles(self.sim_obstacles)
+                self.log('实机运行已自动加载比赛启停区、站点及车道配置：'+', '.join(added),'info')
+        except (ValueError,OSError) as exc:
+            self.competition_status.setText('比赛配置自动加载失败：'+str(exc));return
         if self.wheel_state is False or self.latest is None or not all(math.isfinite(v) for v in self.latest[:3]) or time.monotonic()-worker.last_frame_monotonic>core.TELEMETRY_WARN_S:
             self.competition_status.setText('底盘失能或遥测过期，拒绝实机上传。');return
+        if coordinate_control is None:
+            self._read_coordinate_parameters(lambda values: self._start_real_match(coordinate_control=values))
+            return
         self._home_after_stop = False
         self._clear_path('准备实机整批比赛')
         self.real_match = None
@@ -4410,12 +4577,13 @@ class MainWindow(QMainWindow):
         self._real_context=ctx
         code=self.competition_code.text();margin=self.plan_pad_spin.value()*10
         def prepare():
-            match=compile_match(data,code,zone,margin,event.is_set,ctx['obstacles'])
+            match=compile_match(data,code,zone,margin,event.is_set,ctx['obstacles'],
+                                coordinate_mode=True,chassis_control=coordinate_control)
             scene=collision_scene(data,margin,ctx['obstacles'])
             return make_match_batch(match,mapping,scene,cancelled=event.is_set),scene
         self._real_future=self._planner_pool.submit(prepare)
         self.real_match_start.setEnabled(False)
-        self.competition_status.setText('实机整轮预检中：全部路段、停靠/转头、量化后整车检查；车辆停车等待。')
+        self.competition_status.setText('实机整轮优化及预检中：比较安全路线和控制候选，复检全部停靠/转头及量化扫掠；车辆停车等待，可停止取消。')
 
     def _real_valid(self,ctx):
         return (not ctx['event'].is_set() and self.worker is ctx['worker'] and self.sim is None and
@@ -4441,6 +4609,9 @@ class MainWindow(QMainWindow):
             actual=self._ops_to_field(self.latest[0]*10,self.latest[1]*10)
             if math.dist(actual,context['start'])>5 or abs((self.latest[2]-context['yaw']+180)%360-180)>3:
                 raise ValueError('实际起点/车头已改变，需重新规划（5mm/3°）')
+            if not route.get('waypoint_program'):
+                self._request_plan(*context['goal'],execute_real=True,home_return=context.get('home_return',False))
+                return
             self._home_after_stop = False
             self._cancel_real_match('新点击路径接管')
             self.real_match=None
@@ -4466,7 +4637,52 @@ class MainWindow(QMainWindow):
             self.map_status.setText('实机点击路径拒绝：'+str(exc))
             self.competition_status.setText('实机点击路径拒绝：'+str(exc))
 
+    def _read_coordinate_parameters(self, callback):
+        """每次实机预检独立GET快照；CBEGIN由MCU再次核对RAM参数。"""
+        self._clear_path('读取实机底盘参数，车辆停车等待')
+        self._manual_stop()
+        self._real_send('STOP')
+        if self.worker is None or self.sim is not None or not self.worker.opened.is_set():
+            self.map_status.setText('请先连接STM32')
+            return
+        now = time.monotonic()
+        self._coordinate_read = dict(worker=self.worker, signature=self._navigation_signature(),
+                                     callback=callback, values={}, sent=set(), next=now, deadline=now+4)
+        self.map_status.setText('正在回读七项底盘参数，完成后预演关键坐标')
+        self.competition_status.setText('正在回读七项底盘参数；尚未上传或发车')
+
+    def _poll_coordinate_parameters(self):
+        pending = getattr(self, '_coordinate_read', None)
+        if pending is None:
+            return
+        now = time.monotonic()
+        if (self.worker is not pending['worker'] or self.sim is not None or
+                not self.worker.opened.is_set() or pending['signature'] != self._navigation_signature() or
+                now > pending['deadline']):
+            self._coordinate_read = None
+            self.map_status.setText('实机底盘参数回读超时或会话改变，请重新规划')
+            self.competition_status.setText(self.map_status.text())
+            return
+        if len(pending['values']) == len(core.CHASSIS_NAMES):
+            self._coordinate_read = None
+            pending['callback'](dict(pending['values']))
+            return
+        unsent = [name for name in core.CHASSIS_NAMES if name not in pending['sent']]
+        if unsent and now >= pending['next']:
+            name = unsent[0]
+            pending['sent'].add(name)
+            self._request_param_readback(name)
+            pending['next'] = now + .15
+
+    def _real_collision_changed(self, enabled):
+        self._real_previous_pose = None
+        job=getattr(self,'real_match',None)
+        if job is not None:
+            job.batch['runtime_collision_protection']=bool(enabled)
+        self.log('实机运行地图碰撞保护：'+('开启' if enabled else '关闭'),'info')
+
     def _poll_real_match(self):
+        self._poll_coordinate_parameters()
         from hardware_trajectory import BatchUploader
         from competition_simulation import collision_scene
         future=getattr(self,'_real_future',None)
@@ -4480,6 +4696,7 @@ class MainWindow(QMainWindow):
                     if (math.dist(self._ops_to_field(self.latest[0]*10,self.latest[1]*10),plan['start'])>5 or
                             abs((self.latest[2]-plan['yaw']+180)%360-180)>3):
                         raise ValueError('预检期间实际起点/车头改变，请重新规划')
+                batch['runtime_collision_protection']=self.real_collision_check.isChecked()
                 self.real_match=BatchUploader(batch,self._real_send,valid=lambda:self._real_valid(ctx))
                 # 规划裕量供跟踪误差消耗；本地预算保留1mm，实际车体再检查该剩余裕量。
                 if 'navigation_context' in ctx:
@@ -4489,15 +4706,19 @@ class MainWindow(QMainWindow):
                 else:
                     self._real_scene=collision_scene(batch['match']['map_snapshot'],1,ctx['obstacles'])
                 self.traj_ring.clear()
+                self._map_trail_ring.clear()
                 self.traj_ring.resize(int(300*core.SEND_HZ)+100)
+                self._map_trail_ring.resize(int(300*core.SEND_HZ)+100)
                 self.map_view.set_trail([], [])
-                self.map_view.set_path([core.field_to_layout(p['x_mm'],p['y_mm']) for p in batch['field_points']])
+                self._real_previous_pose = None
+                display = batch.get('display_points', batch['field_points'])
+                self.map_view.set_path([core.field_to_layout(p['x_mm'],p['y_mm']) for p in display])
                 skeleton=[batch['match']['home']]
                 for stage in batch['match']['stages']:
                     if stage['kind']=='MANEUVER': skeleton.append(stage['target'])
                     elif stage['kind']=='TRAVEL': skeleton.extend(stage['route']['points'][1:])
                 self.map_view.set_skeleton(skeleton)
-                self.map_view.set_trajectory(batch['field_points'])
+                self.map_view.set_trajectory(display)
                 self.plan_text.setPlainText('\n'.join('%02d %s'%(i+1,s['label']) for i,s in enumerate(batch['match']['stages'])))
                 self.real_match.start()
                 self.follow_btn.setText('停止跟踪')
@@ -4516,14 +4737,33 @@ class MainWindow(QMainWindow):
         was_active=job.active
         if job.active:
             job.tick()
-            if job.active and job.state in ('RUNNING','WAITING','RESUMING') and self.latest is not None:
+            if (job.active and job.state in ('RUNNING','WAITING','RESUMING') and self.latest is not None
+                    and self.real_collision_check.isChecked()):
                 v=self.latest;lx,ly=self._ops_to_field(v[0]*10,v[1]*10)
                 why=self._real_scene.pose_reason(lx,ly,self._field_heading(v[2])-180)
-                if why: job.cancel('实际车体碰撞保护：'+why)
+                pose=(lx,ly,self._field_heading(v[2])-180)
+                previous=getattr(self, '_real_previous_pose', None)
+                collision_kind='当前车体'
+                if previous is not None and not why:
+                    why=self._real_scene.moving_pose_reason(previous,pose)
+                    collision_kind='相邻帧扫掠'
+                self._real_previous_pose=pose
+                if why:
+                    fx,fy=core.layout_to_field(lx,ly)
+                    job.batch['collision_trigger']=dict(reason=why,check=collision_kind,field_x_mm=fx,field_y_mm=fy,
+                        heading_deg=self._field_heading(v[2]),previous_layout_pose=previous,
+                        layout_pose=pose,telemetry_time=self.latest_received_monotonic)
+                    detail='触发位置X=%.1fcm Y=%.1fcm，航向%.1f°'%(fx/10,fy/10,self._field_heading(v[2]))
+                    if collision_kind=='相邻帧扫掠':
+                        prev_x,prev_y=core.layout_to_field(*previous[:2])
+                        detail='前帧X=%.1fcm Y=%.1fcm → '%(prev_x/10,prev_y/10)+detail
+                    job.cancel('实际车体碰撞保护：%s · %s（%s）'%(why,collision_kind,detail))
             if job.active and job.state in ('RUNNING','WAITING','RESUMING'):
                 i=job.cursor;target=min(job.batch['length_mm'],job.progress+100)
                 while i+1<len(job.batch['points']) and job.batch['points'][i][2]/10<target and not job.batch['points'][i][4]&1:
                     i+=1
+                if job.batch.get('coordinate'):
+                    i=min(job.cursor+1,len(job.batch['field_points'])-1)
                 self.map_view.set_reference(job.batch['field_points'][i])
         labels='；'.join(job.batch['stations'].get(job.cursor,[]))
         title='实机点击路径' if job.batch['kind']=='STM32_POINT_PATH' else '实机自动跑图'
@@ -4531,6 +4771,8 @@ class MainWindow(QMainWindow):
             title+='（停转回退）'
         status='%s %s · %d/%d点已缓存 · 进度%.0fmm%s%s'%(title,job.state,job.received,
             len(job.batch['points']),job.progress,(' · 站点自动启停：'+labels) if labels else '',(' · '+job.reason) if job.reason else '')
+        if job.active and getattr(job,'warning',''):status+=' · '+job.warning
+        if not self.real_collision_check.isChecked(): status+=' · 地图碰撞保护关闭'
         self.competition_status.setText(status)
         if job.batch['kind']=='STM32_POINT_PATH': self.map_status.setText(status)
         if not job.active:
@@ -4571,9 +4813,11 @@ class MainWindow(QMainWindow):
                     sim.zval = 180+match['start_yaw']
                     sim.make_frame(sim._t)
                 self.traj_ring.clear()
+                self._map_trail_ring.clear()
                 self.traj_ring.resize(int(190*core.SEND_HZ)+100)
+                self._map_trail_ring.resize(int(190*core.SEND_HZ)+100)
                 self.map_view.set_trail([], [])
-                skeleton, smooth, arrows, station = [match['home']], [match['home']], [], 0.0
+                skeleton, smooth, arrows, markers, station = [match['home']], [match['home']], [], [match['home']], 0.0
                 for stage in match['stages']:
                     if stage['kind'] == 'MANEUVER':
                         if math.dist(smooth[-1], stage['target']) > nav.EPS:
@@ -4583,17 +4827,26 @@ class MainWindow(QMainWindow):
                         r = stage['route']
                         skeleton.extend(r['points'][1:]); smooth.extend(r['smoothed_points'][1:])
                         arrows.extend(dict(p, s_mm=p['s_mm']+station) for p in r['trajectory'])
+                        if r.get('waypoint_program'):
+                            markers.extend(r['points'][1:])
+                        else:
+                            markers.extend(p.get('end', p.get('exit')) for p in r['segment_program']['segments'])
                         station += r['trajectory_length_mm']
-                self.map_view.set_path(smooth)
+                self.map_view.set_path(smooth, waypoint_points=markers)
                 self.map_view.set_skeleton(skeleton)
                 self.map_view.set_trajectory(arrows)
-                self.plan_text.setPlainText('\n'.join('%02d %s' % (i+1, s['label']) for i, s in enumerate(match['stages'])))
-                self._set_plan_info('麦轮比赛预检通过：%d个障碍，直车道优先，比较前进/倒退/横移与转向代价' % len(match['sim_obstacles']), 'warn')
+                self.plan_text.setPlainText('\n'.join('%02d %s%s' % (i+1, s['label'],
+                    (' · 坐标目标%d个' % (len(s['route']['waypoint_program']['waypoints'])-1)
+                     if s['route'].get('waypoint_program') else ' · 端点/圆弧%d段' % len(s['route']['segment_program']['segments']))
+                    if s['kind']=='TRAVEL' else '')
+                    for i, s in enumerate(match['stages'])))
+                self._set_plan_info('坐标闭环比赛预检通过：%d个障碍；无圆弧，平移/转头同时控制，实际响应扫掠复检' % len(match['sim_obstacles']), 'warn')
                 self.map_status.setText('完整初赛自动模拟：扫码→两批搬运→同色码垛→返回')
                 def valid():
                     return (self.sim is sim and self.worker is None and self.nav_map == ctx['snapshot'] and
                             tuple(tuple(p) for p in self.sim_obstacles) == ctx['obstacles'] and
                             (self.map_ox, self.map_oy, self.map_theta) == ctx['mapping'] and
+                            sim.chassis_parameters() == ctx['chassis_control'] and
                             not event.is_set())
                 self.competition = CompetitionRunner(sim, match, ctx['mapping'], valid)
                 self.competition.start()
@@ -4685,8 +4938,9 @@ class MainWindow(QMainWindow):
             return
         try:
             epoch = sim.begin_navigation()
-            goal_id = sim.submit_navigation_trajectory(epoch, res["trajectory"], res["smoothed_primitives"],
-                                                        mapping, scene, validity=valid)
+            program = res.get('waypoint_program', res.get('segment_program'))
+            submit = sim.submit_navigation_coordinates if res.get('waypoint_program') else sim.submit_navigation_segments
+            goal_id = submit(epoch, program, mapping, scene, validity=valid)
         except (ValueError, TypeError, RuntimeError) as exc:
             sim.cancel_navigation()
             self._clear_path("连续跟踪启动拒绝："+str(exc))
@@ -4695,13 +4949,16 @@ class MainWindow(QMainWindow):
         now = time.monotonic()
         self._home_after_stop = False
         self.follow = dict(sim=sim, epoch=epoch, goal_id=goal_id, scene=scene, signature=ctx["signature"],
-                           mapping=mapping, final=dict(res["trajectory"][-1]), t0=now,
+                           mapping=mapping, final=dict(program['goal']), t0=now,
                            timeout=max(25.0, res["trajectory_length_mm"]/max(1.0, sim._nav_speed_mm_s)*3+5),
                            frame_seq=-1, settled=0, progress_s_mm=0.0)
+        if res.get('waypoint_program'):
+            self.follow['timeout'] = max(25.0,res['predicted_tracking_s']*3+5)
         self.follow_btn.setText("停止跟踪")
         self.follow_timer.start()
         self.map_view.set_reference(sim.navigation_snapshot()["reference"])
-        self.log("SIM ONLY 整条Trajectory已接受（id=%d），100mm lookahead，中间点不停车" % goal_id, "info")
+        self.log("SIM ONLY %s程序已接受（id=%d），途中目标不等待停稳" %
+                 ('关键坐标' if res.get('waypoint_program') else '端点/圆弧', goal_id), "info")
 
     def _stop_follow(self, msg=None):
         f = getattr(self, 'follow', None)
@@ -4777,8 +5034,10 @@ class MainWindow(QMainWindow):
         self.map_view.set_reference(snap["reference"])
         ref = snap["reference"]
         if ref:
-            self.map_status.setText("SIM 连续跟踪 s=%.1fmm · 参考s=%.1fmm X/Y=(%.1f,%.1f)mm Yaw=%.1f° · %s" % (
-                snap["progress_s_mm"], ref["s_mm"], ref["x_mm"], ref["y_mm"], (90-ref["field_yaw_deg"]) % 360, snap["tracking_status"]))
+            self.map_status.setText("SIM %s %d/%d段 %s · s=%.1fmm · 参考X/Y=(%.1f,%.1f)mm Yaw=%.1f° · %s" % (
+                '坐标闭环' if snap['execution_representation']=='COORDINATES' else '端点执行',
+                ref.get('segment_index', 1), ref.get('segment_count', 1), ref['segment_type'], snap["progress_s_mm"],
+                ref["x_mm"], ref["y_mm"], (90-ref["field_yaw_deg"]) % 360, snap["tracking_status"]))
 
     def _load_navigation_map(self):
         path, _ = QFileDialog.getOpenFileName(self, "加载合法行驶区域与障碍", "", "JSON (*.json)")
@@ -4828,6 +5087,19 @@ class MainWindow(QMainWindow):
         if not res.get("trajectory_safe") or not res.get("trajectory_continuous"):
             self.log("Trajectory不可导出："+res.get("trajectory_reason", "未通过完整整车检查"), "warn")
             return
+        if res.get('waypoint_program'):
+            try:
+                from coordinate_navigation import replay
+                samples, elapsed = replay(res['waypoint_program'], self._scene_for_context(ctx))
+                path, _ = QFileDialog.getSaveFileName(self, '导出坐标控制预演轨迹', 'ilhc-coordinate-replay.json', 'JSON (*.json)')
+                if path:
+                    Path(path).write_text(json.dumps(dict(kind='PC_COORDINATE_REPLAY', hardware_ready=False,
+                        waypoint_program=res['waypoint_program'], trajectory=samples, elapsed_s=elapsed),
+                        ensure_ascii=False, indent=2, allow_nan=False), encoding='utf-8')
+                    self.log('坐标控制预演轨迹已导出；仅PC模拟', 'info')
+            except (OSError, ValueError, TypeError) as exc:
+                self.log('坐标预演导出失败：'+str(exc), 'warn')
+            return
         check = core.validate_trajectory(res["trajectory"], res["smoothed_primitives"],
                                          self._scene_for_context(ctx))
         if not check["ok"]:
@@ -4851,6 +5123,34 @@ class MainWindow(QMainWindow):
             self.log("已导出Trajectory：%d点，%.1fmm（未下发）" % (len(res["trajectory"]), res["trajectory_length_mm"]), "info")
         except (OSError, ValueError, TypeError) as exc:
             self.log("Trajectory导出失败："+str(exc), "warn")
+
+    def _export_segments(self):
+        from segment_route import export_segment_json, validate_segment_program
+        res, ctx = self.planned_result, self._planned_context
+        if not res or not ctx or not (res.get('segment_program') or res.get('waypoint_program')) or ctx['signature'] != self._navigation_signature():
+            self.log('没有当前版本的安全PC路径程序，请重新规划', 'warn')
+            return
+        try:
+            if res.get('waypoint_program'):
+                from coordinate_navigation import replay, export_json
+                replay(res['waypoint_program'], self._scene_for_context(ctx))
+                path, _ = QFileDialog.getSaveFileName(self, '导出PC关键坐标程序', 'ilhc-coordinates.json', 'JSON (*.json)')
+                if path:
+                    export_json(path, res['waypoint_program'])
+                    self.log('关键坐标程序已保存到电脑；未下发实机', 'info')
+                return
+            validate_segment_program(res['segment_program'], self._scene_for_context(ctx))
+            path, _ = QFileDialog.getSaveFileName(self, '导出PC端点/圆弧程序', 'ilhc-segments.json', 'JSON (*.json)')
+            if not path:
+                return
+            export_segment_json(path, res['segment_program'], metadata=dict(
+                map_id=res['map_id'], map_version=res['map_version'],
+                collision_frame_id='LAYOUT_MM', collision_snapshot={key: copy.deepcopy(ctx['kwargs'].get(key)) for key in (
+                    'rects', 'circles', 'dynamic_rects', 'dynamic_circles', 'bounds', 'pad', 'footprint', 'drivable_polygons')}))
+            self.log('已导出端点/圆弧程序：%d段，无密集点表（仅PC，未下发）' %
+                     len(res['segment_program']['segments']), 'info')
+        except (OSError, ValueError, TypeError) as exc:
+            self.log('端点/圆弧导出失败：'+str(exc), 'warn')
 
     # ---------------- 控制台 ----------------
     def _send_console(self):
@@ -4901,7 +5201,7 @@ class MainWindow(QMainWindow):
 
 
 def parse_args():
-    ap = argparse.ArgumentParser(description="ILHC Control Station v2.0")
+    ap = argparse.ArgumentParser(description="ILHC Control Station v2.1.7")
     ap.add_argument("--port", help="启动时连接指定串口，如 COM6")
     ap.add_argument("--baud", type=int, default=core.DEFAULT_BAUD)
     ap.add_argument("--simulate", action="store_true", help="启动即进入模拟模式")

@@ -23,6 +23,7 @@ import random
 import struct
 import threading
 import time
+import zlib
 
 import numpy as np
 
@@ -118,7 +119,7 @@ try:
 except ImportError:
     serial = None
 
-APP_VERSION = "v2.1.2 Qt A* map click fix"
+APP_VERSION = "v2.1.7 Fast click planning / CRC telemetry / 50 Hz UI"
 FRAME_TAIL = b"\x00\x00\x80\x7F"
 FRAME_FLOATS = 24
 FRAME_DATA_LEN = 4 * FRAME_FLOATS
@@ -288,6 +289,8 @@ SIM_PARAM_ATTRS = {
     "VCONF": "vtrack_conf", "VKPMM": "vtrack_kpmm", "VDBMM": "vtrack_dbmm",
     "VDBPX": "vtrack_dbpx", "VMIN": "vtrack_min", "VMAX": "vtrack_max",
 }
+CHASSIS_NAMES = tuple(row[0] for row in CHASSIS_PARAMS)
+CHASSIS_DEFAULTS = {SIM_PARAM_ATTRS[row[0]]: row[4] for row in CHASSIS_PARAMS}
 
 # 曲线配色（24 色）
 COLORS = ["#4fc3f7", "#ffb74d", "#81c784", "#e57373", "#ba68c8", "#fff176",
@@ -417,8 +420,12 @@ def dm_register_feedback(text):
                 acc=values[0], dec=values[1], simulated=bool(simulated))
 
 
+CRC_FRAME_MAGIC = b'\xa5\x5a\x01\x18'
+CRC_FRAME_LEN = 112
+
+
 class FrameParser:
-    """标准 VOFA+ JustFloat 解析器。
+    """CRC1 verified telemetry, with legacy VOFA+ JustFloat compatibility.
 
     帧格式：24*float + 0x00 0x00 0x80 0x7F（100 字节）。
     首次以帧尾同步；同步后按固定 100 字节帧长解析。这样即使 payload 中
@@ -436,6 +443,16 @@ class FrameParser:
         self._text_lines = []
         self._seen_text = []
         self._param_lines = []
+        self.protocol = 'JustFloat'
+        self.crc_errors = 0
+        self.crc_frames = 0
+        self.lost_packets = 0
+        self.duplicate_packets = 0
+        self.invalid_pose_frames = 0
+        self.device_restarts = 0
+        self._sequence = None
+        self._device_tick = None
+        self.frame_metadata = []
 
     def _scan_text(self, data):
         """从字节流里拾取可读 ASCII 行（固件的文字应答/错误行）。
@@ -468,7 +485,7 @@ class FrameParser:
                 del self._param_lines[:-64]
                 continue
             repeat_stepper = (re.search(r"\bS(?:28|35)\s+", line) is not None or "DMREG " in line or
-                              line.startswith(('TSTAT ', 'TCAPS ')))
+                              line.startswith(('TSTAT ', 'TCAPS ', 'CCAPS ', 'CSTALL ')))
             if len(line) >= 6 and any(c.isalpha() for c in line) and (repeat_stepper or line not in self._seen_text):
                 self._seen_text.append(line)
                 del self._seen_text[:-32]
@@ -491,24 +508,112 @@ class FrameParser:
         self.frames_ok += 1
         return values
 
+    def _drop(self, count, scan_text=True):
+        if scan_text:
+            self._scan_text(self.buf[:count])
+        self.err_bytes += count
+        del self.buf[:count]
+
+    def _crc_frame(self):
+        packet = bytes(self.buf[:CRC_FRAME_LEN])
+        expected = struct.unpack_from('<I', packet, CRC_FRAME_LEN-4)[0]
+        if zlib.crc32(packet[:-4]) != expected:
+            self.crc_errors += 1
+            self._drop(1, False)
+            return None
+        del self.buf[:CRC_FRAME_LEN]
+        seq, tick = struct.unpack_from('<II', packet, 4)
+        self.crc_frames += 1
+        if self._sequence is not None:
+            delta = (seq-self._sequence) & 0xffffffff
+            if delta == 0:
+                self.duplicate_packets += 1
+                return None
+            if delta >= 0x80000000:
+                if seq < 8 and tick < self._device_tick:
+                    self.device_restarts += 1
+                else:
+                    self.duplicate_packets += 1
+                    return None
+            else:
+                self.lost_packets += delta-1
+        self._sequence, self._device_tick = seq, tick
+        values = struct.unpack_from('<24f', packet, 12)
+        if not all(math.isfinite(v) for v in values[:3]):
+            self.invalid_pose_frames += 1
+            return None
+        self.frames_ok += 1
+        self.frame_metadata.append((seq, tick))
+        return values
+
+    def _boundary_text_length(self):
+        """帧间完整ASCII行不是遥测；分片行保留到换行，不丢固定帧长同步。"""
+        end = self.buf.find(b'\n')
+        candidate = self.buf if end < 0 else self.buf[:end]
+        if not candidate or len(candidate) > FIRMWARE_TEXT_MAX:
+            return 0
+        if not all(32 <= b < 127 or b == 13 for b in candidate):
+            return 0
+        # 文字协议以字母开头；浮点payload出现可打印字节不等于文字应答。
+        if not (65 <= candidate[0] <= 90 or 97 <= candidate[0] <= 122):
+            return 0
+        return -1 if end < 0 else end + 1
+
     def feed(self, data):
         """输入任意长度字节流，返回解析出的 float 元组列表。"""
         self.buf += data
         self.bytes_in += len(data)
-        self._scan_text(data)
+        self.frame_metadata = []
         frames = []
 
         while True:
+            # Once CRC1 is observed, damaged binary must NEVER fall back to a
+            # footer inside its payload. Only verified packets reach position,
+            # runtime protection, recorder and GUI; binary is not scanned as GET.
+            if self.buf and CRC_FRAME_MAGIC.startswith(self.buf) and len(self.buf)<4:
+                break
+            if self.buf.startswith(CRC_FRAME_MAGIC):
+                self.protocol = 'CRC1'
+                self.synced = False
+                if len(self.buf) < CRC_FRAME_LEN:
+                    break
+                values = self._crc_frame()
+                if values is not None:
+                    frames.append(values)
+                continue
+            text_length = self._boundary_text_length()
+            if text_length < 0:
+                break
+            if text_length:
+                self._scan_text(self.buf[:text_length])
+                del self.buf[:text_length]
+                continue
+            if self.protocol == 'CRC1':
+                start = self.buf.find(CRC_FRAME_MAGIC)
+                if start >= 0:
+                    self._drop(start, False)
+                    continue
+                # Preserve split magic; do not let binary debris invent replies.
+                keep = len(CRC_FRAME_MAGIC)-1
+                if len(self.buf)>keep:
+                    self._drop(len(self.buf)-keep, False)
+                break
             # 已同步后严格按固定长度取帧，不再搜索 payload 内部的伪帧尾。
             if self.synced:
                 if len(self.buf) < FRAME_LEN:
                     break
                 if self.buf[FRAME_DATA_LEN:FRAME_LEN] == FRAME_TAIL:
                     frames.append(self._accept(self.buf[:FRAME_DATA_LEN]))
+                    self.frame_metadata.append(None)
                     del self.buf[:FRAME_LEN]
                     continue
                 # 固定位置帧尾不匹配：失步，转入重新同步。
                 self.synced = False
+
+            start_crc = self.buf.find(CRC_FRAME_MAGIC)
+            if start_crc >= 0:
+                self._drop(start_crc)
+                continue
 
             # 未同步：跳过不足 96 字节之前出现的帧尾（它可能位于 payload 内）。
             search_from = 0
@@ -526,14 +631,15 @@ class FrameParser:
                 # 保留最多 96 字节数据 + 3 字节可能被截断的帧尾。
                 keep = FRAME_DATA_LEN + len(FRAME_TAIL) - 1
                 if len(self.buf) > keep:
-                    self.err_bytes += len(self.buf) - keep
-                    del self.buf[:-keep]
+                    self._drop(len(self.buf)-keep)
                 break
 
             start = found - FRAME_DATA_LEN
             if start > 0:
-                self.err_bytes += start
-            frames.append(self._accept(self.buf[start:found]))
+                self._drop(start)
+                found -= start
+            frames.append(self._accept(self.buf[:found]))
+            self.frame_metadata.append(None)
             del self.buf[:found + len(FRAME_TAIL)]
             self.synced = True
 
@@ -544,18 +650,48 @@ class FrameParser:
 # numpy 环形缓冲：col0 = 相对时间，col1..N = 通道值
 # 写入 O(1)；读取直接切片成 numpy 数组，绘制路径无 Python 级循环
 # ======================================================================
+class MapPoseFilter:
+    """只隔离显示中的单帧跳点；原始定位与运行保护不经过此过滤器。"""
+    def __init__(self):
+        self.pose=None;self.tick=None;self.pending=None
+
+    @staticmethod
+    def close(a,b,elapsed):
+        distance=math.hypot(a[0]-b[0],a[1]-b[1])*OPS_CM_TO_MM
+        yaw=abs((a[2]-b[2]+180)%360-180)
+        elapsed=max(0,min(.2,elapsed))
+        return distance <= 50+3000*elapsed and yaw <= 15+180*elapsed
+
+    def update(self,values,tick):
+        pose=tuple(map(float,values[:3]))
+        if not all(math.isfinite(v) for v in pose) or max(abs(pose[0]),abs(pose[1]))>1000:
+            self.pending=None
+            return self.pose,False
+        if self.pose is None or self.close(self.pose,pose,tick-self.tick):
+            self.pose,self.tick,self.pending=pose,tick,None
+            return pose,True
+        if self.pending is not None and self.close(self.pending[0],pose,tick-self.pending[1]):
+            # 连续两帧支持真实ZERO/定位恢复，不永久锁在旧坐标。
+            self.pose,self.tick,self.pending=pose,tick,None
+            return pose,True
+        self.pending=pose,tick
+        return self.pose,False
+
+
 class RingBuffer:
     def __init__(self, cap, cols):
         self.cols = cols
         self._alloc(cap)
 
     def _alloc(self, cap):
+        self.revision = getattr(self,'revision',0)+1
         self.cap = max(8, int(cap))
         self.buf = np.zeros((self.cap, self.cols + 1))
         self.head = 0
         self.count = 0
 
     def append(self, t, values):
+        self.revision += 1
         self.buf[self.head, 0] = t
         self.buf[self.head, 1:] = values
         self.head = (self.head + 1) % self.cap
@@ -575,6 +711,7 @@ class RingBuffer:
             self.count = len(t)
 
     def clear(self):
+        self.revision += 1
         self.head = 0
         self.count = 0
 
@@ -616,6 +753,10 @@ class SerialWorker(threading.Thread):
         self.last_stop_write_monotonic = 0.0
         self._vofa_last = 0.0
         self._vofa_tries = 0
+        self._crc_request_time = 0.0
+        self._crc_requests = 0
+        self._crc_confirmed_frames = 0
+        self.queue_drops = 0
 
     def _write_line(self, line):
         if not self.ser or not self.ser.is_open:
@@ -689,8 +830,40 @@ class SerialWorker(threading.Thread):
         self._vofa_tries += 1
         if not self._write_line("VOFA"):
             return
+        self._crc_request_time = 0.0
+        self._crc_requests = 0
+        self._crc_confirmed_frames = self.parser.crc_frames
         self._note("上位机: %.1fs 未收到遥测，已补发 VOFA 恢复波形（第 %d/%d 次）"
                    % (now - last, self._vofa_tries, VOFA_MAX_RETRIES))
+
+    def _maybe_negotiate_telemetry(self):
+        # Allow old firmware to keep JustFloat. A new firmware only changes
+        # transport; this command cannot move/enable motors or alter parameters.
+        now = time.monotonic()
+        if self.parser.crc_frames > self._crc_confirmed_frames or self._crc_requests >= 6:
+            return
+        if now-self.opened_monotonic < .1 or now-self._crc_request_time < 1.5:
+            return
+        self._crc_request_time = now
+        self._crc_requests += 1
+        self._write_line('TELEM=1')
+
+    def _receive(self, data, now):
+        frames = self.parser.feed(data)
+        metadata = self.parser.frame_metadata
+        newest = next((m[1] for m in reversed(metadata) if m is not None), None)
+        for values, meta in zip(frames, metadata):
+            if meta is None and self.parser.protocol == 'CRC1':
+                continue
+            stamp = now
+            if meta is not None and newest is not None:
+                age_ms = (newest-meta[1]) & 0xffffffff
+                if age_ms < 0x80000000:
+                    stamp -= age_ms*.001
+            self.last_frame_monotonic = stamp
+            self._vofa_tries = 0
+            self._push((stamp, values))
+        self._flush_firmware_text()
 
     def request_stop(self, safe=True):
         """请求工作线程退出；真实串口断开前 best-effort 主动停车/失能。"""
@@ -731,14 +904,11 @@ class SerialWorker(threading.Thread):
                 data = self.ser.read(min(2048, self.ser.in_waiting) or 1)
                 if data:
                     now = time.monotonic()
-                    for f in self.parser.feed(data):
-                        self.last_frame_monotonic = now
-                        self._vofa_tries = 0        # 收到遥测即重置补发预算
-                        self._push((now, f))
-                    self._flush_firmware_text()
+                    self._receive(data, now)
 
                 # 文字模式或板子复位后自动补发 VOFA，避免永久收不到遥测。
                 self._maybe_resend_vofa()
+                self._maybe_negotiate_telemetry()
 
                 # 读完后再次检查急停，读取引入的额外等待最多约10ms。
                 while not self.stop_flag:
@@ -781,6 +951,7 @@ class SerialWorker(threading.Thread):
         except queue.Full:
             try:
                 self.frame_q.get_nowait()   # 丢弃最旧帧，保持实时性
+                self.queue_drops += 1
                 self.frame_q.put_nowait(item)
             except queue.Empty:
                 pass
@@ -889,6 +1060,8 @@ class Simulator(threading.Thread):
         self._nav_omega = 0.0
         self._nav_settled = 0
         self._nav_status = 'IDLE'
+        self._nav_representation = 'NONE'
+        self._nav_segment_count = 0
         self._nav_elapsed = self._nav_last_progress_time = 0.0
         self._nav_best_error = math.inf
         self._nav_last_pose = None
@@ -900,9 +1073,8 @@ class Simulator(threading.Thread):
         self.dm_acc, self.dm_dec = 2.0, -2.0
         self.stop_flag = False
         # 底盘参数（与固件默认值一致）
-        self.kpx, self.kpy, self.kpz = 2.3, 2.3, 9.0
-        self.xyvmax, self.zvmax = 1600.0, 750.0
-        self.xyvmin, self.zvmin = 5.0, 5.0
+        for name, value in CHASSIS_DEFAULTS.items():
+            setattr(self, name, value)
         # 视觉跟踪参数（与固件 vision_track.c 的编译期默认值一致）与当前跟踪颜色。
         self.vtrack_conf, self.vtrack_kpmm = 50.0, 0.5
         self.vtrack_dbmm, self.vtrack_dbpx = 2.0, 12.0
@@ -930,6 +1102,18 @@ class Simulator(threading.Thread):
         self._t = 0.0
         # 仅记录调试目标，不伪造28/35硬件位置或到位反馈。
         self.stepper_commands = {28: None, 35: None}
+
+    @_sim_atomic
+    def chassis_parameters(self, flush=False):
+        """已生效的底盘参数快照；规划入口先按原队列顺序处理待发命令。"""
+        if flush:
+            for _ in range(4):
+                self._service_commands()
+                if self.urgent_q.empty() and self.line_q.empty():
+                    break
+            if not self.urgent_q.empty() or not self.line_q.empty():
+                raise ValueError('模拟参数命令仍在排队，请处理完后再规划')
+        return {name: float(getattr(self, name)) for name in CHASSIS_DEFAULTS}
 
     @_sim_atomic
     def cancel_navigation(self):
@@ -992,6 +1176,38 @@ class Simulator(threading.Thread):
         if not check['ok']:
             raise ValueError('Trajectory复检失败：'+check['reason'])
         tracker = TrajectoryTracker(frozen_samples, frozen_primitives)
+        return self._accept_navigation_tracker(epoch, tracker, mapping, scene, validity)
+
+    def submit_navigation_segments(self, epoch, program, mapping, scene, validity=None):
+        """PC只接受直线端点和圆弧参数；临时密集采样复检后不保存点表。"""
+        from segment_route import validate_segment_program
+        from trajectory_tracking import SegmentTracker
+        def cancelled():
+            with self._state_lock:
+                return (epoch != self._nav_epoch or not self._nav_active or not self.wheel_enabled or
+                        validity is not None and not validity())
+        rows = validate_segment_program(copy.deepcopy(program), scene, interrupted=cancelled)
+        return self._accept_navigation_tracker(epoch, SegmentTracker(rows), mapping, scene, validity,
+                                               representation='SEGMENTS')
+
+    def submit_navigation_coordinates(self, epoch, program, mapping, scene, validity=None):
+        from coordinate_navigation import CoordinateTracker, replay
+        frozen = copy.deepcopy(program)
+        tracker = CoordinateTracker(frozen)
+        expected = {name: tracker.control[name] for name in CHASSIS_DEFAULTS}
+        def cancelled():
+            with self._state_lock:
+                return (epoch != self._nav_epoch or not self._nav_active or not self.wheel_enabled or
+                        self.chassis_parameters() != expected or validity is not None and not validity())
+        with self._state_lock:
+            if self.chassis_parameters() != expected:
+                raise ValueError('底盘参数与坐标预演不一致，请重新规划')
+        _samples, elapsed = replay(frozen, scene, cancelled)
+        return self._accept_navigation_tracker(epoch, tracker, mapping, scene, validity,
+                                               representation='COORDINATES', expected_elapsed=elapsed)
+
+    def _accept_navigation_tracker(self, epoch, tracker, mapping, scene, validity, representation='TRAJECTORY', expected_elapsed=None):
+        from trajectory_tracking import LOOKAHEAD_MM
         mx, my, angle = (float(value) for value in mapping)
         if not all(math.isfinite(v) for v in (mx, my, angle)):
             raise ValueError('模拟坐标标定非有限值')
@@ -1007,6 +1223,8 @@ class Simulator(threading.Thread):
                 raise ValueError('模拟导航会话已失效')
             if validity is not None and not validity():
                 raise ValueError('地图版本或模拟会话已变化')
+            if representation == 'COORDINATES' and self.chassis_parameters() != {k:tracker.control[k] for k in CHASSIS_DEFAULTS}:
+                raise ValueError('接受期间底盘参数变化，请重新规划')
             if self.hold is None or self.goto is not None or self.manual is not None:
                 raise ValueError('模拟器已有运动或缺少实际定位')
             x, y = self.hold
@@ -1028,6 +1246,8 @@ class Simulator(threading.Thread):
                 raise ValueError('接受检查期间地图版本或模拟会话已变化')
             self._nav_goal_id += 1
             self._nav_tracker, self._nav_pose_guard = tracker, guard
+            self._nav_representation = representation
+            self._nav_segment_count = len(tracker.pieces)
             self._nav_mapping, self._nav_validity = (mx, my, angle), validity
             self._nav_reference = tracker.reference_at(LOOKAHEAD_MM)
             self._nav_progress = self._nav_cross_track = 0.0
@@ -1037,6 +1257,8 @@ class Simulator(threading.Thread):
             self._nav_best_progress = 0.0
             self._nav_last_pose = (x, y, yaw)
             self._nav_timeout = max(25.0, tracker.length/max(1.0, self._nav_speed_mm_s)*3+5)
+            if expected_elapsed is not None:
+                self._nav_timeout = max(25.0, expected_elapsed*3+5)
             self._nav_status = 'TRACKING'
             return self._nav_goal_id
 
@@ -1081,6 +1303,7 @@ class Simulator(threading.Thread):
                                   dict(x_mm=fx, y_mm=fy, field_yaw_deg=-90-target_yaw))
             self._nav_goal_id += 1
             self._nav_tracker, self._nav_pose_guard = tracker, guard
+            self._nav_representation, self._nav_segment_count = 'MANEUVER', 1
             self._nav_mapping, self._nav_validity = (mx, my, angle), validity
             self._nav_reference = tracker.reference_at(0)
             self._nav_progress = self._nav_cross_track = 0.0
@@ -1103,6 +1326,9 @@ class Simulator(threading.Thread):
                 raise ValueError('模拟控制权或四轮使能失效')
             if self._nav_validity is not None and not self._nav_validity():
                 raise ValueError('地图版本/标定/会话变化')
+            if self._nav_representation == 'COORDINATES' and self.chassis_parameters() != {
+                    k:tracker.control[k] for k in CHASSIS_DEFAULTS}:
+                raise ValueError('底盘参数变化，坐标预演已失效')
             if epoch != self._nav_epoch or tracker is not self._nav_tracker:
                 return
             if self.hold is None or self.manual is not None or self.goto is not None:
@@ -1138,7 +1364,7 @@ class Simulator(threading.Thread):
             self._nav_reference, self._nav_progress = ref, tracker.progress
             self._nav_cross_track = tracker.cross_track
             self._nav_velocity, self._nav_omega = (vx, vy), omega
-            final = tracker.reference_at(tracker.length)
+            final = tracker.final_reference() if hasattr(tracker, 'final_reference') else tracker.reference_at(tracker.length)
             new_field = (mx+c*candidate[0]+s*candidate[1], my-s*candidate[0]+c*candidate[1])
             distance = math.dist(new_field, (final['x_mm'], final['y_mm']))
             yaw_error = abs((90-angle-candidate[2]-final['field_yaw_deg']+180) % 360-180)
@@ -1148,16 +1374,23 @@ class Simulator(threading.Thread):
                 self._nav_last_progress_time = self._nav_elapsed
             settled = (ref['segment_type'] == 'STOP' and distance < 1 and yaw_error < 1 and
                        math.hypot(vx, vy) <= 1 and abs(omega) <= 1)
-            self._nav_settled = self._nav_settled+1 if settled else 0
+            if self._nav_representation == 'COORDINATES':
+                pose=(new_field[0],new_field[1],90-angle-candidate[2])
+                self._nav_settled=tracker.stop_window.update(pose,settled,dt)//20
+            else:
+                self._nav_settled = self._nav_settled+1 if settled else 0
             self._nav_status = 'FINAL_STOP' if ref['segment_type'] == 'STOP' else 'TRACKING'
             if self._nav_settled >= 10:
                 self._nav_completed_id = self._nav_goal_id
                 self._nav_active, self._nav_tracker = False, None
                 self._nav_status = 'COMPLETE'
-            elif self._nav_elapsed-self._nav_last_progress_time > 3:
-                raise ValueError('连续跟踪持续3秒无进展')
             elif self._nav_elapsed > self._nav_timeout:
                 raise ValueError('连续跟踪总超时')
+            elif self._nav_elapsed-self._nav_last_progress_time > 3:
+                if self._nav_representation == 'COORDINATES':
+                    self._nav_status='RECOVERING'
+                else:
+                    raise ValueError('连续跟踪持续3秒无进展')
         except Exception as exc:
             self.cancel_navigation()
             self._nav_fault, self._nav_status = str(exc), 'FAULT'
@@ -1201,6 +1434,8 @@ class Simulator(threading.Thread):
                 "reference": None if self._nav_reference is None else dict(self._nav_reference),
                 "progress_s_mm": self._nav_progress, "cross_track_mm": self._nav_cross_track,
                 "speed_mm_s": math.hypot(*self._nav_velocity), "yaw_rate_deg_s": self._nav_omega,
+                "execution_representation": self._nav_representation, "segment_count": self._nav_segment_count,
+                "wheel_velocity_mm_s": getattr(self._nav_tracker, 'wheel_velocity_mm_s', None),
                 "settled_frames": self._nav_settled, "tracking_elapsed_s": self._nav_elapsed}
 
     # ---------- 命令解析（镜像 Debug_ParseLine / Debug_SetDmValue） ----------
@@ -1379,13 +1614,16 @@ class Simulator(threading.Thread):
             v = float(val)
         except ValueError:
             return
-        if name == "KPX":    self.kpx = self._clamp(v, 0, 50)
-        elif name == "KPY":  self.kpy = self._clamp(v, 0, 50)
-        elif name == "KPZ":  self.kpz = self._clamp(v, 0, 50)
-        elif name == "XVMAX": self.xyvmax = self._clamp(v, 0, 3000)
-        elif name == "ZVMAX": self.zvmax = self._clamp(v, 0, 3000)
-        elif name == "XVMIN": self.xyvmin = self._clamp(v, 0, 100)
-        elif name == "ZVMIN": self.zvmin = self._clamp(v, 0, 100)
+        if name in CHASSIS_NAMES:
+            if not math.isfinite(v):
+                return
+            attr = SIM_PARAM_ATTRS[name]
+            upper = 50 if name.startswith('KP') else 100 if name.endswith('MIN') else 3000
+            value = self._clamp(v, 0, upper)
+            if value != getattr(self, attr):
+                if self._nav_active:
+                    self.cancel_navigation()
+                setattr(self, attr, value)
         elif name == "VCONF": self.vtrack_conf = self._clamp(v, 0, 100)
         elif name == "VKPMM": self.vtrack_kpmm = self._clamp(v, 0, 5)
         elif name == "VDBMM": self.vtrack_dbmm = self._clamp(v, 0, 100)
@@ -1843,6 +2081,91 @@ def plan_path(start, goal, grid=GRID_MM, pad=CAR_INFLATE_MM,
                 cost_lateral=cost_lateral, turn_penalty_mm=turn_penalty_mm,
                 smooth_arcs=smooth_arcs, sim_rects=sim_rects, sim_circles=sim_circles,
                 dynamic_rects=dynamic_rects, dynamic_circles=dynamic_circles)
+
+
+def plan_coordinate_path(start, goal, *, coordinate_nodes=None, **kwargs):
+    """PC关键坐标规划；主控/旧路径API不受影响。"""
+    from coordinate_navigation import plan_route
+    from navigation_planner import CollisionScene, finite_number, point2
+    started = time.monotonic()
+    event = kwargs.get('cancel')
+    limit = float(kwargs.get('time_limit_s', 8.0))
+    def cancelled():
+        return event is not None and event.is_set()
+    try:
+        start, goal = point2(start, '起点'), point2(goal, '终点')
+        fp = kwargs.get('footprint')
+        if fp is None:
+            raise ValueError('坐标执行需要真实矩形车体')
+        yaw = finite_number(kwargs.get('start_heading_deg', fp[2]), '实际起始车头')
+        scene = CollisionScene(kwargs.get('rects', FIELD_FORBIDDEN_RECTS), kwargs.get('circles', FIELD_FORBIDDEN_CIRCLES),
+            kwargs.get('bounds', (0,0,FIELD_SIZE,FIELD_SIZE)), kwargs.get('pad', CAR_INFLATE_MM), fp,
+            kwargs.get('drivable_polygons'), sim_rects=kwargs.get('sim_rects'), sim_circles=kwargs.get('sim_circles'),
+            dynamic_rects=kwargs.get('dynamic_rects'), dynamic_circles=kwargs.get('dynamic_circles'))
+        if cancelled():
+            raise ValueError('关键坐标规划已取消')
+        if time.monotonic()-started>=limit:
+            raise ValueError('规划时间预算耗尽，尚未获得安全路线')
+        for label,code,point,heading in (('起点','INVALID_START',start,yaw),
+                ('目标停靠点','INVALID_GOAL',goal,kwargs.get('goal_heading_deg') if kwargs.get('goal_heading_deg') is not None else yaw)):
+            why=scene.pose_reason(*point,heading)
+            if why:
+                return dict(ok=False,execution_safe=False,points=[],steps=[],code=code,
+                    reason=label+'无法容纳整车及安全裕量：'+why+'；请调整位置或目标车头')
+        if coordinate_nodes is None:
+            inset = max(fp[:2])/2+scene.pad+30
+            xs, ys = {start[0],goal[0],scene.bounds[0]+inset,scene.bounds[2]-inset}, \
+                     {start[1],goal[1],scene.bounds[1]+inset,scene.bounds[3]-inset}
+            for x1,y1,x2,y2,_name in scene.rects:
+                xs.update((x1-inset,x2+inset));ys.update((y1-inset,y2+inset))
+            coordinate_nodes = [(x,start[1]) for x in sorted(xs)]+[(start[0],y) for y in sorted(ys)]
+        result = plan_route(start, goal, scene, coordinate_nodes, yaw,
+                            goal_yaw=kwargs.get('goal_heading_deg'), cancelled=cancelled,
+                            deadline=started+limit,
+                            interactive=kwargs.get('interactive',False),
+                            chassis_control=kwargs.get('chassis_control'),
+                            constraints={key: kwargs.get(key) for key in ('allow_strafe','strafe_run_limit_mm','strafe_polygons')})
+        result.update(grid=kwargs.get('grid', GRID_MM), pad=scene.pad, expanded=0,
+                      footprint=dict(length_mm=fp[0],width_mm=fp[1],yaw_deg=yaw))
+        return result
+    except (ValueError, TypeError, KeyError, IndexError) as exc:
+        return dict(ok=False, execution_safe=False, points=[], steps=[], reason=str(exc),
+                    code='CANCELLED' if cancelled() else 'TIME_LIMIT' if time.monotonic()-started>=limit else 'COORDINATE_NO_SAFE_ROUTE')
+
+
+def plan_coordinate_home_path(start, goal, **kwargs):
+    """正常回库先在安全起点真实对齐，再运行坐标程序；不取整OPS姿态。"""
+    from coordinate_navigation import build_program, replay, wrap
+    from navigation_planner import CollisionScene
+    actual=kwargs['start_heading_deg'];target=kwargs['goal_heading_deg'];fp=kwargs['footprint']
+    aligned=min((target+90*k for k in range(4)),key=lambda h:abs(wrap(h-actual)))
+    scene=CollisionScene(kwargs['rects'],kwargs['circles'],kwargs['bounds'],kwargs['pad'],fp,
+                         kwargs['drivable_polygons'],sim_rects=kwargs.get('sim_rects'),sim_circles=kwargs.get('sim_circles'),
+                         dynamic_rects=kwargs.get('dynamic_rects'),dynamic_circles=kwargs.get('dynamic_circles'))
+    event=kwargs.get('cancel');cancelled=lambda:event is not None and event.is_set()
+    try:
+        prefix=build_program([start,start],actual,goal_yaw=aligned,mode='FIXED',control=kwargs['chassis_control'])
+        samples,elapsed=replay(prefix,scene,cancelled)
+        staging=kwargs.get('home_staging') or goal
+        result=plan_coordinate_path(start,staging,**dict(kwargs,start_heading_deg=aligned,footprint=(fp[0],fp[1],aligned)))
+        if result.get('ok'):
+            result['coordinate_prefix']=prefix
+            result['start_heading_deg']=actual
+            result['trajectory']=samples+result['trajectory']
+            result['predicted_tracking_s']+=elapsed
+            if math.dist(staging,goal)>1e-8:
+                suffix=build_program([staging,goal],target,goal_yaw=target,mode='FIXED',control=kwargs['chassis_control'])
+                dock,dock_elapsed=replay(suffix,scene,cancelled)
+                result['coordinate_suffix']=suffix
+                result['points'].append(tuple(goal))
+                result['smoothed_points'].extend(field_to_layout(p['x_mm'],p['y_mm']) for p in dock)
+                offset=result['trajectory_length_mm']
+                result['trajectory'].extend(dict(p,s_mm=p['s_mm']+offset) for p in dock)
+                result['trajectory_length_mm']+=dock[-1]['s_mm']
+                result['predicted_tracking_s']+=dock_elapsed
+        return result
+    except ValueError as exc:
+        return dict(ok=False,execution_safe=False,reason=str(exc),points=[],steps=[])
 
 
 def plan_home_path(start, goal, **kwargs):

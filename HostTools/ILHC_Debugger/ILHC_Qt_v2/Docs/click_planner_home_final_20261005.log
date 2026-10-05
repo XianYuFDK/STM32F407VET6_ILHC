@@ -1,0 +1,10 @@
+test_both_zones_home_restores_zero_and_preserves_actual_alignment (tests.test_home_return.HomeReturnTests.test_both_zones_home_restores_zero_and_preserves_actual_alignment) ... ok
+test_cancelled_home_cannot_produce_executable_path (tests.test_home_return.HomeReturnTests.test_cancelled_home_cannot_produce_executable_path) ... ok
+test_home_does_not_reduce_margin_or_ignore_obstacles (tests.test_home_return.HomeReturnTests.test_home_does_not_reduce_margin_or_ignore_obstacles) ... ok
+test_screenshot_negative_zero_reproduces_old_target_failure (tests.test_home_return.HomeReturnTests.test_screenshot_negative_zero_reproduces_old_target_failure) ... ok
+test_unsafe_actual_alignment_is_rejected_without_rounding_pose (tests.test_home_return.HomeReturnTests.test_unsafe_actual_alignment_is_rejected_without_rounding_pose) ... ok
+
+----------------------------------------------------------------------
+Ran 5 tests in 1.103s
+
+OK

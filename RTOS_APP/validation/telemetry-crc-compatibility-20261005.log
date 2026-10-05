@@ -1,0 +1,40 @@
+
+RUN test_debug_telemetry.py
+Real USART1 sender + PC parser passed: legacy 19 Hz reproduced; CRC1 50/50 frames + 31 GET + 5 TSTAT, all chunk sizes; DMA busy/failure/max reply/legacy/text verified.
+
+RUN test_param_readback.py
+Param readback reply format, queue and gate tests passed
+Firmware param readback (GET) format, queue, gate and wiring passed
+
+RUN test_parse_line_axes.py
+C:\Users\Yuzi\AppData\Local\Temp\ilhc_parse_axis_tzll7k2e\test.c:83:14: error: 'traj_control_params' undeclared here (not in a function)
+   83 |   {"TVMAX", &traj_control_params.speed_mm_s,       20.0f,1000.0f},
+      |              ^~~~~~~~~~~~~~~~~~~
+C:\Users\Yuzi\AppData\Local\Temp\ilhc_parse_axis_tzll7k2e\test.c: In function 'Debug_SetParam':
+C:\Users\Yuzi\AppData\Local\Temp\ilhc_parse_axis_tzll7k2e\test.c:285:10: error: implicit declaration of function 'Traj_Busy' [-Werror=implicit-function-declaration]
+  285 |       if(Traj_Busy() && (s_params[i].value==&mKpx || s_params[i].value==&mKpy ||
+      |          ^~~~~~~~~
+C:\Users\Yuzi\AppData\Local\Temp\ilhc_parse_axis_tzll7k2e\test.c:288:22: error: 'DEBUG_ACK_TRAJ_BUSY' undeclared (first use in this function); did you mean 'DEBUG_ACK_VTRACK_BUSY'?
+  288 |         Debug_ZdtAck(DEBUG_ACK_TRAJ_BUSY);return;
+      |                      ^~~~~~~~~~~~~~~~~~~
+      |                      DEBUG_ACK_VTRACK_BUSY
+C:\Users\Yuzi\AppData\Local\Temp\ilhc_parse_axis_tzll7k2e\test.c:288:22: note: each undeclared identifier is reported only once for each function it appears in
+C:\Users\Yuzi\AppData\Local\Temp\ilhc_parse_axis_tzll7k2e\test.c:292:24: error: implicit declaration of function 'Traj_SetControlParam' [-Werror=implicit-function-declaration]
+  292 |         uint8_t result=Traj_SetControlParam(s_params[i].value,value,s_params[i].min,s_params[i].max);
+      |                        ^~~~~~~~~~~~~~~~~~~~
+C:\Users\Yuzi\AppData\Local\Temp\ilhc_parse_axis_tzll7k2e\test.c:293:68: error: 'DEBUG_ACK_TRAJ_RANGE' undeclared (first use in this function)
+  293 |         if(result!=1U) Debug_ZdtAck(result==2U?DEBUG_ACK_TRAJ_BUSY:DEBUG_ACK_TRAJ_RANGE);
+      |                                                                    ^~~~~~~~~~~~~~~~~~~~
+C:\Users\Yuzi\AppData\Local\Temp\ilhc_parse_axis_tzll7k2e\test.c: In function 'Debug_ParseLine':
+C:\Users\Yuzi\AppData\Local\Temp\ilhc_parse_axis_tzll7k2e\test.c:581:54: error: 'DEBUG_ACK_TRAJ_RANGE' undeclared (first use in this function)
+  581 |   else if(line[0]=='T' || line[0]=='t') Debug_ZdtAck(DEBUG_ACK_TRAJ_RANGE);
+      |                                                      ^~~~~~~~~~~~~~~~~~~~
+cc1.exe: all warnings being treated as errors
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\Tests\hardware\test_parse_line_axes.py", line 252, in <module>
+    subprocess.run(["gcc", "-std=c99", "-Wall", "-Wextra", "-Werror", str(src), "-o", str(exe)], check=True)
+    ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yuzi\AppData\Local\Programs\Python\Python313\Lib\subprocess.py", line 579, in run
+    raise CalledProcessError(retcode, process.args,
+                             output=stdout, stderr=stderr)
+subprocess.CalledProcessError: Command '['gcc', '-std=c99', '-Wall', '-Wextra', '-Werror', 'C:\\Users\\Yuzi\\AppData\\Local\\Temp\\ilhc_parse_axis_tzll7k2e\\test.c', '-o', 'C:\\Users\\Yuzi\\AppData\\Local\\Temp\\ilhc_parse_axis_tzll7k2e\\test.exe']' returned non-zero exit status 1.

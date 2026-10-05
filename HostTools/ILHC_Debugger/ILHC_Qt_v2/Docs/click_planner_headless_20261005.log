@@ -1,0 +1,22 @@
+
+RUN: C:\Users\Yuzi\AppData\Local\Programs\Python\Python313\python.exe main.py --selftest
+[1] FrameParser �������� ...
+    ok
+[2] payload ��Ƕ֡β (+inf) ...
+    ok
+[3] Simulator ����/DM/�Ӿ� ...
+    ok
+[4] ���ؽ��� ...
+    ok
+[5] ����ʹ��/ʧ��բ�� ...
+    ok
+[6] A* ·���滮 ...
+    ok
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 40, in <module>
+    core.selftest()
+    ~~~~~~~~~~~~~^^
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\core.py", line 2303, in selftest
+    print('ȫ�������Լ�ͨ�� \u2714')
+    ~~~~~^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'gbk' codec can't encode character '\u2714' in position 9: illegal multibyte sequence

@@ -7,6 +7,7 @@ import sys
 import tempfile
 import unittest
 import zlib
+from position_test_support import write_position_kernel
 
 ROOT=Path(__file__).resolve().parents[2]
 QT=ROOT/'HostTools/ILHC_Debugger/ILHC_Qt_v2'
@@ -75,7 +76,8 @@ class TrajectoryFirmwareTests(unittest.TestCase):
             'static inline void __disable_irq(void){}\nstatic inline void __enable_irq(void){}\n',encoding='utf-8')
         cls.binary=folder/'trajectory.dll'
         subprocess.run(['gcc','-shared','-std=c99','-Wall','-Wextra','-Werror','-O2','-I',str(folder),
-            str(ROOT/'Hardware/trajectory_buffer.c'),'-o',str(cls.binary),'-lm'],check=True)
+            '-I',str(ROOT/'Hardware'),str(ROOT/'Hardware/trajectory_buffer.c'),
+            str(write_position_kernel(folder)),'-o',str(cls.binary),'-lm'],check=True)
         cls.dll=ctypes.CDLL(str(cls.binary))
         cls.dll.Traj_ParseLine.argtypes=[ctypes.c_char_p,ctypes.c_uint32,ctypes.c_uint8]
         cls.dll.Traj_Step.argtypes=[ctypes.c_uint32,ctypes.POINTER(Pose),ctypes.c_uint8,ctypes.POINTER(ctypes.c_float)]

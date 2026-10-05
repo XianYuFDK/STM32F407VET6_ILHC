@@ -1,0 +1,8 @@
+test_stationary_ops_noise_can_finish_initial_stop (__main__.CoordinateFirmwareTests.test_stationary_ops_noise_can_finish_initial_stop) ... ok
+test_real_drift_cannot_finish_initial_stop (__main__.CoordinateFirmwareTests.test_real_drift_cannot_finish_initial_stop) ... ok
+test_exit_staging_and_next_stop_complete_through_integer_motors (__main__.CoordinateFirmwareTests.test_exit_staging_and_next_stop_complete_through_integer_motors) ... ok
+
+----------------------------------------------------------------------
+Ran 3 tests in 1.466s
+
+OK

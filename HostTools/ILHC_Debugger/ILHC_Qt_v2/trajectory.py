@@ -266,6 +266,7 @@ def generate_trajectory(primitives, scene, *, spacing_mm=SAMPLE_SPACING_MM,
             if not EPS < max_arc_angle_deg <= 5:
                 raise TrajectoryError('INVALID_INPUT', '圆弧角步长须在0..5°内')
         result['trajectory_spacing_mm'] = spacing
+        primitives = list(primitives)
         pieces = _normalize(primitives)
         if not pieces:
             raise TrajectoryError('EMPTY', '没有可采样的LineSegment/ArcSegment，切线航向未定义')
@@ -292,8 +293,10 @@ def generate_trajectory(primitives, scene, *, spacing_mm=SAMPLE_SPACING_MM,
         if any(p['explicit_heading'] for p in pieces):
             result['trajectory_yaw_convention'] = BODY_YAW_CONVENTION
         _validate(samples, pieces, scene, spacing, interrupted)
+        from segment_route import build_segment_program
+        program = build_segment_program(primitives)
         result.update(trajectory=samples, trajectory_status='READY', trajectory_safe=True,
-                      trajectory_continuous=True, trajectory_length_mm=ends[-1])
+                      trajectory_continuous=True, trajectory_length_mm=ends[-1], segment_program=program)
     except (ValueError, TypeError, KeyError, IndexError, OverflowError) as exc:
         result.update(trajectory_status=getattr(exc, 'code', 'INVALID_INPUT'), trajectory_reason=str(exc))
     return result

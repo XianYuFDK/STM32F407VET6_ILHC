@@ -6,6 +6,7 @@ axis limiting, minimum-speed compensation, and sign symmetry.
 from pathlib import Path
 import subprocess
 import tempfile
+from position_test_support import position_source
 
 
 source = (Path(__file__).resolve().parents[2] /
@@ -41,6 +42,9 @@ int SpeedTarget[4], last_Speed[4];
 uint8_t in_pos, near_pos, delay_pos;
 static uint32_t s_control_dt_ms=20U, s_settle_ms;
 void chassis_move(int x, int y, int z);
+static void SpeedTarget_stop(void) {
+  for(unsigned i=0;i<4;i++) SpeedTarget[i]=last_Speed[i]=0;
+}
 
 static float sim_x_m, sim_y_m, sim_yaw_rad;
 static uint8_t OPS_GetPosition(float *x, float *y, float *z)
@@ -312,7 +316,7 @@ implementation = "\n".join(
         "chassis_move",
     )
 )
-code = prelude + implementation + checks
+code = prelude + position_source() + implementation + checks
 
 with tempfile.TemporaryDirectory(prefix="ilhc_chassis_move_") as directory:
     folder = Path(directory)

@@ -37,3 +37,4 @@ stm32f407vet6_ilhc\dm_j4310.o: ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal
 stm32f407vet6_ilhc\dm_j4310.o: ../Hardware/hcan.h
 stm32f407vet6_ilhc\dm_j4310.o: ../Core/Inc/can.h
 stm32f407vet6_ilhc\dm_j4310.o: D:\keil51\ARM\ARMCC\Bin\..\include\string.h
+stm32f407vet6_ilhc\dm_j4310.o: D:\keil51\ARM\ARMCC\Bin\..\include\math.h

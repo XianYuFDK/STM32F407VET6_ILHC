@@ -1,0 +1,13 @@
+test_body_error_and_four_wheel_mixing_translate_and_turn_together (tests.test_coordinate_navigation.CoordinateTests.test_body_error_and_four_wheel_mixing_translate_and_turn_together) ... ok
+test_both_start_zones_complete_without_arc_generator_or_dense_execution (tests.test_coordinate_navigation.CoordinateTests.test_both_start_zones_complete_without_arc_generator_or_dense_execution) ... ok
+test_cancel_during_acceptance_cannot_restore_old_control (tests.test_coordinate_navigation.CoordinateTests.test_cancel_during_acceptance_cannot_restore_old_control) ... ok
+test_invalid_program_and_control_are_rejected (tests.test_coordinate_navigation.CoordinateTests.test_invalid_program_and_control_are_rejected) ... ok
+test_mid_path_obstacle_rejected_even_if_waypoints_safe (tests.test_coordinate_navigation.CoordinateTests.test_mid_path_obstacle_rejected_even_if_waypoints_safe) ... ok
+test_pass_switches_while_moving_and_final_stop_settles (tests.test_coordinate_navigation.CoordinateTests.test_pass_switches_while_moving_and_final_stop_settles) ... ok
+test_shortest_angle_both_directions_across_180 (tests.test_coordinate_navigation.CoordinateTests.test_shortest_angle_both_directions_across_180) ... ok
+test_stop_and_map_change_cancel_without_residual_motion (tests.test_coordinate_navigation.CoordinateTests.test_stop_and_map_change_cancel_without_residual_motion) ... ok
+
+----------------------------------------------------------------------
+Ran 8 tests in 4.635s
+
+OK

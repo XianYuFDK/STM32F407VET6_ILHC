@@ -29,6 +29,7 @@ extern "C" {
 #endif
 
 #include "main.h"
+#include "chassis_position.h"
 
 /* ------------------------- 参考代码全局变量 ------------------------ */
 

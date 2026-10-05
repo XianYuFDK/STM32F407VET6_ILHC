@@ -1,0 +1,16 @@
+test_stationary_ops_noise_can_finish_initial_stop (__main__.CoordinateFirmwareTests.test_stationary_ops_noise_can_finish_initial_stop) ... FAIL
+test_real_drift_cannot_finish_initial_stop (__main__.CoordinateFirmwareTests.test_real_drift_cannot_finish_initial_stop) ... ok
+
+======================================================================
+FAIL: test_stationary_ops_noise_can_finish_initial_stop (__main__.CoordinateFirmwareTests.test_stationary_ops_noise_can_finish_initial_stop)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\Tests\hardware\test_coordinate_batch.py", line 200, in test_stationary_ops_noise_can_finish_initial_stop
+    self.assertTrue(started,self.e.status())
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true : (17, 8, 2, 0, 0, 14)
+
+----------------------------------------------------------------------
+Ran 2 tests in 1.799s
+
+FAILED (failures=1)

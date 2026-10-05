@@ -3,6 +3,7 @@ from pathlib import Path
 import re
 import subprocess
 import tempfile
+from position_test_support import write_position_kernel
 
 ROOT=Path(__file__).resolve().parents[2]
 source=(ROOT/'Hardware/debug_usart.c').read_text(encoding='utf-8')
@@ -74,5 +75,6 @@ with tempfile.TemporaryDirectory(prefix='ilhc_traj_param_') as directory:
     path.write_text(prelude+table+function('Debug_StrCaseCmp')+function('Debug_ParseFloat')+
                     function('Debug_SetParam')+function('Debug_ReplyParam')+checks,encoding='utf-8')
     subprocess.run(['gcc','-std=c99','-Wall','-Wextra','-Werror','-I',str(folder),'-I',str(ROOT/'Hardware'),
-                    str(path),str(ROOT/'Hardware/trajectory_buffer.c'),'-o',str(exe),'-lm'],check=True)
+                    str(path),str(ROOT/'Hardware/trajectory_buffer.c'),str(write_position_kernel(folder)),
+                    '-o',str(exe),'-lm'],check=True)
     subprocess.run([str(exe)],check=True)

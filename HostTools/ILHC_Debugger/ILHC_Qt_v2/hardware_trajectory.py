@@ -17,7 +17,7 @@ ERRORS = {1:'上传头格式/容量错误',2:'点字段/范围错误',3:'点序�
           5:'底盘未就绪/心跳过期',6:'上传中断超过3秒',7:'轨迹间隔/停靠/转头定义非法',8:'OPS定位过期/非法',
           9:'实际起点或车头未对齐',10:'180秒运行超时或控制调度超期',11:'OPS位置/航向跳变',
           12:'等待作业期间车辆移动',13:'车体偏差超过规划裕量',14:'5秒无进展',15:'STOP/其他运动接管',
-          16:'上位机失联',17:'OPS会话变化',19:'调试串口接收异常'}
+          16:'上位机失联',17:'OPS会话变化',19:'调试串口接收异常',20:'底盘参数与规划快照不一致，请重新回读规划'}
 
 
 def wrap(angle):
@@ -27,6 +27,9 @@ def wrap(angle):
 def make_match_batch(match, mapping, scene, *, token=None, cancelled=lambda: False,
                      station_mode='AUTO_ROUTE'):
     """默认自动跑图：站点仅STOP，停稳后MCU继续；未来真实机构可显式使用WAIT。"""
+    if match.get('chassis_control') is not None:
+        from hardware_coordinates import make_coordinate_batch
+        return make_coordinate_batch(match,mapping,scene,token=token,cancelled=cancelled,station_mode=station_mode)
     if station_mode not in ('AUTO_ROUTE','WAIT_FOR_ACTION'):
         raise ValueError('未知站点执行模式')
     # 用户采用当前比赛地图；几何核实标志仅作元数据，不拦截上传。
@@ -143,6 +146,10 @@ def make_match_batch(match, mapping, scene, *, token=None, cancelled=lambda: Fal
 def make_path_batch(route, start, start_yaw, goal_yaw, mapping, scene, map_snapshot,
                     *, token=None, cancelled=lambda: False):
     """点击目标整批执行；航向均为布局角。连续路径优先，fallback显式停转。"""
+    if route.get('waypoint_program'):
+        from hardware_coordinates import make_coordinate_path_batch
+        return make_coordinate_path_batch(route,start,start_yaw,goal_yaw,mapping,scene,map_snapshot,
+                                           token=token,cancelled=cancelled)
     if not route.get('ok') or not route.get('axis_matched') or not route.get('execution_safe'):
         raise ValueError('点击路径未通过完整车体执行检查')
     stages=[]
@@ -180,7 +187,7 @@ class BatchUploader:
     """一次提交整批；分包ACK仅用于接收流控，所有点收到并校验后才发送TRUN。"""
     def __init__(self, batch, send, *, clock=time.monotonic, valid=lambda:True):
         self.batch,self.send,self.clock,self.valid=batch,send,clock,valid
-        self.state='IDLE';self.reason='';self.received=self.sent=self.cursor=0
+        self.state='IDLE';self.reason='';self.warning='';self.received=self.sent=self.cursor=0
         self.progress=0;self.window=0;self.last_reply=self.last_query=clock()
         self.active=False;self.commands=[]
 
@@ -192,7 +199,8 @@ class BatchUploader:
     def start(self):
         if self.state!='IDLE':
             raise ValueError('整批上传不能重复启动')
-        self.state='CAPS';self.active=True;self.last_reply=self.clock();self.emit('TCAPS')
+        self.state='CAPS';self.active=True;self.last_reply=self.clock()
+        self.emit('CCAPS' if self.batch.get('coordinate') else 'TCAPS')
 
     def cancel(self,reason='已取消'):
         if not self.active:
@@ -203,22 +211,40 @@ class BatchUploader:
 
     def _chunk(self):
         for i in range(self.sent,min(self.sent+self.window,len(self.batch['points']))):
-            x,y,station,yaw,flags=self.batch['points'][i]
-            self.emit('TPOINT=%d,%d,%d,%d,%d,%d,%d'%(self.batch['id'],i,x,y,yaw,station,flags))
+            q=self.batch['points'][i];x,y,station,yaw,flags=q[:5]
+            if self.batch.get('coordinate'):
+                self.emit('CPOINT='+','.join(map(str,(self.batch['id'],i,x,y,yaw,station,flags,*q[5:]))))
+            else:
+                self.emit('TPOINT=%d,%d,%d,%d,%d,%d,%d'%(self.batch['id'],i,x,y,yaw,station,flags))
             self.sent=i+1
 
     def handle_reply(self,text):
         if not self.active:
             return False
         text=text.removeprefix('固件文本: ').strip()
-        caps=re.fullmatch(r'TCAPS (\d+) (\d+) (\d+)',text)
+        stall=re.fullmatch(r'CSTALL (\d+) (\d+) (\d+) (-?\d+) (\d+) (\d+) (\d+) (\d+) (\d+)',text)
+        if stall and self.batch.get('coordinate') and self.state in ('STARTING','RUNNING','WAITING','RESUMING'):
+            job,target,gap,yaw,speed,rate,cmdspeed,cmdrate,settled=map(int,stall.groups())
+            if job!=self.batch['id'] or target>=len(self.batch['points']):return False
+            diagnostic=dict(target_index=target,gap_mm=gap/10,yaw_error_deg=yaw/100,
+                            measured_speed_mm_s=speed/10,measured_yaw_rate_deg_s=rate/100,
+                            command_speed_mm_s=cmdspeed/10,command_yaw_rate_deg_s=cmdrate/100,settled_ms=settled)
+            history=self.batch.setdefault('stall_diagnostics',[]);history.append(diagnostic);del history[:-32]
+            self.warning='暂时无进展，继续纠偏：第%d点，位置差%.1fmm/航向差%.2f°，停稳%dms'%(target+1,gap/10,yaw/100,settled)
+            self.last_reply=self.clock()
+            return True
+        caps=re.fullmatch(('CCAPS' if self.batch.get('coordinate') else 'TCAPS')+r' (\d+) (\d+) (\d+)',text)
         if caps and self.state=='CAPS':
             version,capacity,self.window=map(int,caps.groups())
             if version!=1 or capacity<len(self.batch['points']) or not 1<=self.window<=3:
                 self.cancel('STM32版本/容量/窗口不兼容');return True
             self.state='BEGIN';self.last_reply=self.clock()
             b=self.batch
-            self.emit('TBEGIN=%d,%d,%d,%08X,%d'%(b['id'],len(b['points']),b['map_version'],b['crc'],b['margin_mm']))
+            begin=('CBEGIN' if b.get('coordinate') else 'TBEGIN')+'=%d,%d,%d,%08X,%d'%(
+                b['id'],len(b['points']),b['map_version'],b['crc'],b['margin_mm'])
+            if b.get('coordinate'):
+                begin+=','+','.join(str(round(b['chassis_control'][core.SIM_PARAM_ATTRS[k]]*1000)) for k in core.CHASSIS_NAMES)
+            self.emit(begin)
             return True
         stat=re.fullmatch(r'TSTAT (\d+) (\d+) (\d+) (\d+) (\d+) (\d+)',text)
         if not stat:
@@ -236,9 +262,14 @@ class BatchUploader:
             self.cancel('未发送TRUN却报告车辆已运行');return True
         if progress/10>self.batch['length_mm']+0.2:
             self.cancel('STM32弧长进度超过批次');return True
+        if cursor>self.cursor or progress/10>self.progress+1:self.warning=''
         self.last_reply=self.clock();self.cursor=cursor;self.progress=progress/10
         if state in (7,8) or error:
             reason=ERRORS.get(error,str(error))
+            if error==14 and self.batch.get('coordinate'):
+                reason='3秒无进展（坐标位置/航向未收敛）'
+            if error==13 and self.batch.get('coordinate'):
+                reason='关键坐标偏离相邻路径超过75mm'
             if error==13 and cursor>0 and cursor+1<len(self.batch['points']) and self.batch['points'][cursor+1][4]&ROTATE:
                 reason='原地转头中心偏差超限（允许%.1fmm）'%(self.batch['margin_mm']-2)
             self.cancel('STM32 %s：%s'%(STATE_NAMES[state],reason));return True
@@ -280,4 +311,4 @@ class BatchUploader:
             self.cancel('3秒未收到轨迹状态；整批已停止');return
         if now-self.last_query>.75:
             self.last_query=now
-            self.emit('TCAPS' if self.state=='CAPS' else 'TSTATUS=%d'%self.batch['id'])
+            self.emit(('CCAPS' if self.batch.get('coordinate') else 'TCAPS') if self.state=='CAPS' else 'TSTATUS=%d'%self.batch['id'])

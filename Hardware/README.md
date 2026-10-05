@@ -260,3 +260,8 @@ WHEELEN/WHEELOFF）和视觉端报错才发，所以工控机侧看不到"固件
 `spi_flash.c/.h`与`debug_param_store.c/.h`。在线调参稳定2秒后自动保存，
 重启自动恢复；仅使用最后8KB，双扇区日志+CRC32+提交标记。
 详见[Flash参数保存说明](Flash参数保存说明.md)。
+
+
+## 2026-10-04 公共坐标位置闭环
+
+`chassis_position.h`声明浮点参考接口`chassis_move_reference`，实现在既有`mecanum_control.c`中，无新增编译单元。原`chassis_move`、轨迹起点保持、转头保持车心与行进纠偏共用该核心；轨迹使用同一OPS快照，保留单调进度、前馈与STOP停稳。单点底盘参数与轨迹参数的轴和航向单位保留各自范围。说明见[坐标控制说明](../HostTools/ILHC_Debugger/ILHC_Qt_v2/Docs/CHASSIS_POSITION_20261004.md)。

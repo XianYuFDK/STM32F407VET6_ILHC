@@ -42,7 +42,6 @@ stm32f407vet6_ilhc\freertos.o: ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal
 stm32f407vet6_ilhc\freertos.o: ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_tim.h
 stm32f407vet6_ilhc\freertos.o: ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_tim_ex.h
 stm32f407vet6_ilhc\freertos.o: ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_uart.h
-stm32f407vet6_ilhc\freertos.o: ../Hardware/debug_usart.h
-stm32f407vet6_ilhc\freertos.o: ../Hardware/vision.h
 stm32f407vet6_ilhc\freertos.o: ../Middlewares/Third_Party/FreeRTOS/Source/CMSIS_RTOS_V2/cmsis_os.h
 stm32f407vet6_ilhc\freertos.o: ../Middlewares/Third_Party/FreeRTOS/Source/CMSIS_RTOS_V2/cmsis_os2.h
+stm32f407vet6_ilhc\freertos.o: ../RTOS_APP/rtos_app.h

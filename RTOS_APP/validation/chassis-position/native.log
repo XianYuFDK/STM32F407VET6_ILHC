@@ -1,0 +1,77 @@
+RUN test_chassis_position.py
+test_body_gains_apply_after_coordinate_rotation (__main__.ChassisPositionTests.test_body_gains_apply_after_coordinate_rotation) ... ok
+test_feedforward_preserves_cruise_and_feedback_corrects_actual_pose (__main__.ChassisPositionTests.test_feedforward_preserves_cruise_and_feedback_corrects_actual_pose) ... ok
+test_fractional_target_coordinates_are_not_truncated (__main__.ChassisPositionTests.test_fractional_target_coordinates_are_not_truncated) ... ok
+test_heading_wrap_uses_shortest_turn (__main__.ChassisPositionTests.test_heading_wrap_uses_shortest_turn) ... ok
+test_nonfinite_inputs_clear_previous_output (__main__.ChassisPositionTests.test_nonfinite_inputs_clear_previous_output) ... ok
+test_world_feedback_independent_of_car_heading (__main__.ChassisPositionTests.test_world_feedback_independent_of_car_heading) ... ok
+
+----------------------------------------------------------------------
+Ran 6 tests in 0.182s
+
+OK
+RUN test_chassis_move.py
+chassis_move rotation, gain, limit, min and symmetry tests passed
+RUN test_coordinate_chain.py
+Unified coordinate guards passed:
+  GUI/protocol/internal/telemetry use X=left, Y=front, Z=CCW directly
+  OPS raw axes use fixed mapping X=-raw_x, Y=raw_y
+  OPS ZERO rebuilds XY axes from the saved yaw
+  mecanum mixer, 24-channel JustFloat frame and existing commands unchanged
+RUN test_trajectory_speed.py
+test_500_brakes_before_arc_and_arc_output_stays_capped (__main__.TrajectorySpeedTests.test_500_brakes_before_arc_and_arc_output_stays_capped) ... ok
+test_accel_setting_controls_startup_ramp (__main__.TrajectorySpeedTests.test_accel_setting_controls_startup_ramp) ... ok
+test_arc_cap_is_independent_of_body_yaw (__main__.TrajectorySpeedTests.test_arc_cap_is_independent_of_body_yaw) ... ok
+test_decel_setting_moves_braking_before_arc (__main__.TrajectorySpeedTests.test_decel_setting_moves_braking_before_arc) ... ok
+test_init_restores_defaults (__main__.TrajectorySpeedTests.test_init_restores_defaults) ... ok
+test_lower_speed_does_not_relax_pose_safety (__main__.TrajectorySpeedTests.test_lower_speed_does_not_relax_pose_safety) ... ok
+test_moving_heading_rate_cap_applies (__main__.TrajectorySpeedTests.test_moving_heading_rate_cap_applies) ... ok
+test_near_limit_deviation_slows_then_outside_margin_stops (__main__.TrajectorySpeedTests.test_near_limit_deviation_slows_then_outside_margin_stops) ... ok
+test_nonfinite_range_and_busy_writes_do_not_change_values (__main__.TrajectorySpeedTests.test_nonfinite_range_and_busy_writes_do_not_change_values) ... ok
+test_ready_and_waiting_batches_also_reject_mutation (__main__.TrajectorySpeedTests.test_ready_and_waiting_batches_also_reject_mutation) ... ok
+test_rotation_acceleration_speed_and_hold_limits (__main__.TrajectorySpeedTests.test_rotation_acceleration_speed_and_hold_limits) ... ok
+test_stop_cancels_at_500_and_new_batch_starts_from_zero (__main__.TrajectorySpeedTests.test_stop_cancels_at_500_and_new_batch_starts_from_zero) ... ok
+test_straight_500_reaches_cruise_and_finishes_faster_than_250 (__main__.TrajectorySpeedTests.test_straight_500_reaches_cruise_and_finishes_faster_than_250) ... ok
+test_translation_speed_changes_real_control_output (__main__.TrajectorySpeedTests.test_translation_speed_changes_real_control_output) ... ok
+test_x_y_and_heading_gains_are_independent (__main__.TrajectorySpeedTests.test_x_y_and_heading_gains_are_independent) ... ok
+
+----------------------------------------------------------------------
+Ran 15 tests in 0.459s
+
+OK
+2m straight real C (cruise,time,peak): [(250, 9.12, 250.0), (500, 5.48, 500.0)]
+RUN test_trajectory_param_protocol.py
+Trajectory parameter SET/GET, range and busy gates passed
+RUN test_trajectory_bridge.py
+整批桥接STOP/心跳/快照与四向世界速度换算通过
+RUN test_trajectory_buffer.py
+test_clicked_path_upload_once_initial_rotation_and_local_execution (__main__.TrajectoryFirmwareTests.test_clicked_path_upload_once_initial_rotation_and_local_execution) ... ok
+test_crc_count_sequence_and_shape_fail_closed (__main__.TrajectoryFirmwareTests.test_crc_count_sequence_and_shape_fail_closed) ... ok
+test_duplicates_cannot_change_content_or_replay_start (__main__.TrajectoryFirmwareTests.test_duplicates_cannot_change_content_or_replay_start) ... ok
+test_entire_competition_upload_then_local_execution_all_obstacle_cases (__main__.TrajectoryFirmwareTests.test_entire_competition_upload_then_local_execution_all_obstacle_cases) ... ok
+test_entire_run_deadline_includes_station_wait (__main__.TrajectoryFirmwareTests.test_entire_run_deadline_includes_station_wait) ... ok
+test_future_crane_completion_requires_current_wait_and_cannot_revive_cancelled_batch (__main__.TrajectoryFirmwareTests.test_future_crane_completion_requires_current_wait_and_cannot_revive_cancelled_batch) ... ok
+test_initial_stop_requires_fresh_settled_pose_before_rotation (__main__.TrajectoryFirmwareTests.test_initial_stop_requires_fresh_settled_pose_before_rotation) ... ok
+test_normal_home_negative_zero_batches_validate_and_execute_in_real_c (__main__.TrajectoryFirmwareTests.test_normal_home_negative_zero_batches_validate_and_execute_in_real_c) ... ok
+test_ready_does_not_move_until_run_and_no_stop_at_samples (__main__.TrajectoryFirmwareTests.test_ready_does_not_move_until_run_and_no_stop_at_samples) ... ok
+test_rotation_holds_center_with_wheel_lag_and_turn_induced_drift (__main__.TrajectoryFirmwareTests.test_rotation_holds_center_with_wheel_lag_and_turn_induced_drift) ... ok
+test_rotation_position_fault_still_stops_outside_margin (__main__.TrajectoryFirmwareTests.test_rotation_position_fault_still_stops_outside_margin) ... ok
+test_screenshot_click_fallback_completes_with_turn_drift_and_wheel_lag (__main__.TrajectoryFirmwareTests.test_screenshot_click_fallback_completes_with_turn_drift_and_wheel_lag) ... ok
+test_stop_disabled_stale_jump_and_wrong_start (__main__.TrajectoryFirmwareTests.test_stop_disabled_stale_jump_and_wrong_start) ... ok
+test_terminal_rotation_and_wrapped_heading (__main__.TrajectoryFirmwareTests.test_terminal_rotation_and_wrapped_heading) ... ok
+test_wait_resume_keeps_batch_and_wrong_gate_does_not_release (__main__.TrajectoryFirmwareTests.test_wait_resume_keeps_batch_and_wrong_gate_does_not_release) ... ok
+test_watchdogs_and_deviation (__main__.TrajectoryFirmwareTests.test_watchdogs_and_deviation) ... ok
+
+----------------------------------------------------------------------
+Ran 16 tests in 55.216s
+
+OK
+C整批回放(含离线上传时间/停稳，不是实车计时)： [('none', 1, 860, 69.9), ('none', 2, 857, 69.82), ('one', 1, 860, 69.9), ('one', 2, 856, 66.06), ('four', 1, 1132, 82.84), ('four', 2, 1128, 78.98), ('screenshot', 1, 1607, 96.28), ('screenshot', 2, 1717, 99.92)]
+RUN test_rtos_app.py
+PASS: task ownership, creation failure, ISR startup, queue faults, STOP deadline, overrun/wrap, RX budget, Flash unlock, 1Hz stats
+RUN test_debug_goto_hold.py
+GOTO one-shot and GOTOHOLD continuous position-loop tests passed
+RUN test_debug_wheel.py
+Wheel enable/disable service / ordering / gate tests passed
+Chassis stop gate test passed (no speed frame while disabled)
+Firmware wheel lock command, gate and driver wiring passed

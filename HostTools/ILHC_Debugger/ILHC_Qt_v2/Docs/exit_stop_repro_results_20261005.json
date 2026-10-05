@@ -1,0 +1,98 @@
+[
+  {
+    "model": "old_integer_truncation",
+    "status": [
+      17,
+      8,
+      3,
+      0,
+      2109,
+      14
+    ],
+    "path": "diagonal",
+    "pose_mm": [
+      149.1177520751953,
+      149.1177520751953,
+      0.0
+    ],
+    "rpm": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "seconds": 5.4
+  },
+  {
+    "model": "fractional_rpm",
+    "status": [
+      17,
+      6,
+      3,
+      2,
+      3621,
+      0
+    ],
+    "path": "diagonal",
+    "pose_mm": [
+      150.0001220703125,
+      299.5800476074219,
+      0.0
+    ],
+    "rpm": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "seconds": 5.2
+  },
+  {
+    "model": "old_integer_truncation",
+    "status": [
+      17,
+      8,
+      3,
+      0,
+      1482,
+      14
+    ],
+    "path": "single_y",
+    "pose_mm": [
+      150.0,
+      148.23526000976562,
+      0.0
+    ],
+    "rpm": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "seconds": 5.06
+  },
+  {
+    "model": "fractional_rpm",
+    "status": [
+      17,
+      6,
+      3,
+      2,
+      3000,
+      0
+    ],
+    "path": "single_y",
+    "pose_mm": [
+      150.0,
+      299.58001708984375,
+      0.0
+    ],
+    "rpm": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "seconds": 5.08
+  }
+]

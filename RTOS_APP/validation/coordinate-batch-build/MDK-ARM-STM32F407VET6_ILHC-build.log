@@ -1,0 +1,77 @@
+[ INFO ] start building at 2026-10-05 02:34:45
+
+[ TOOL ] Component: ARM Compiler 5.06 update 7 (build 960)
+
+[ INFO ] file statistics (incremental mode)
+
++---------+-----------+-----------+---------------+--------+
+| C Files | Cpp Files | Asm Files | Lib/Obj Files | Totals |
++---------+-----------+-----------+---------------+--------+
+| 3       | 0         | 0         | 0             | 3      |
++---------+-----------+-----------+---------------+--------+
+
+[ INFO ] start compiling ...
+
+>> [ 33%] CC '../Hardware/debug_usart.c'
+>> [ 66%] CC '../Hardware/trajectory_buffer.c'
+>> [100%] CC '../Hardware/vision_track.c'
+
+[ INFO ] start linking ...
+
+Program Size: Code=62052 RO-data=11696 RW-data=784 ZI-data=96032  
+
+Total RO  Size (Code + RO Data)                73748 (  72.02kB)
+Total RW  Size (RW Data + ZI Data)             96816 (  94.55kB)
+Total ROM Size (Code + RO Data + RW Data)      73848 (  72.12kB)
+
+Total Memory Usage:
+
+  RAM: [###############     ] 73.9%     94.5KB/128.0KB
+  ROM: [###                 ] 14.1%     72.1KB/512.0KB
+
+Section Memory Usage:
+
+  LR_IROM1 (0x08000000): [###                 ] 14.2%     72.8KB/512.0KB
+    - ER_IROM1 (0x08000000): [###                 ] 14.1%     72.0KB/512.0KB
+    - RW_IRAM1 (0x20000000): [###############     ] 73.9%     94.5KB/128.0KB
+
+[ INFO ] start outputting files ...
+
+>> output hex file		[done]
+
+file path: "build/STM32F407VET6_ILHC/STM32F407VET6_ILHC.hex"
+
+>> output s19 file		[done]
+
+file path: "build/STM32F407VET6_ILHC/STM32F407VET6_ILHC.s19"
+
+[ DONE ] build successfully !, elapsed time 0:0:2
+
+
+--- BUILD LOG: E:\STM32\STM32F407VET6_ILHC\MDK-ARM\build\STM32F407VET6_ILHC\compiler.log ---
+>>> info
+
+Compiler Full Name: Component: ARM Compiler 5.06 update 7 (build 960)
+Compiler Version: 5.06
+Builder Mode: Incremental
+The amount of C files: 3
+The amount of C++ files: 0
+The amount of Asm files: 0
+
+>>> prebuild
+
+
+
+>>> cc
+
+
+
+
+
+>>> ld
+
+Program Size: Code=62052 RO-data=11696 RW-data=784 ZI-data=96032  
+
+
+>>> postbuild
+

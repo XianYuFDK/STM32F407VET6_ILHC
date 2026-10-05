@@ -81,6 +81,95 @@ class DebuggerTests(unittest.TestCase):
             self.assertAlmostEqual(gx, 0.0)
             self.assertAlmostEqual(gy, 100.0)
 
+    def test_map_trail_does_not_join_telemetry_jumps_or_invalid_points(self):
+        view=self.window.map_view
+        view.set_trail([2250,2240,100,110,float('nan'),120,130,1e30,140],
+                       [2250]*9)
+        path=view.trail_item.path()
+        segments=[];last=None
+        for i in range(path.elementCount()):
+            e=path.elementAt(i)
+            self.assertTrue(math.isfinite(e.x) and math.isfinite(e.y))
+            if e.isLineTo():
+                segments.append(math.hypot(e.x-last[0],e.y-last[1]))
+            last=e.x,e.y
+        self.assertEqual(segments,[10.,10.,10.])
+        self.assertLess(view.trail_item.boundingRect().width(),3000)
+
+    def test_single_bad_pose_cannot_flash_icon_but_raw_frame_is_kept(self):
+        w=self.window
+        def feed(dt,pose):
+            values=tuple(pose)+(0.,)*21
+            w.frame_q.put((w.t0_monotonic+dt,values))
+            w._process_frames();w._render_ui();w._update_map_trail()
+            return self._icon_center_and_nose(w.map_view)[0]
+        first=feed(1,(22.4,100.8,11.8))
+        label_height=w.map_position.height()
+        rejected=feed(1.02,(0,0,0))
+        self.assertEqual(first,rejected)
+        self.assertEqual(w.map_position.height(),label_height)
+        self.assertEqual(w.latest[:3],(0,0,0))
+        self.assertIn('异常跳点已隔离',w.map_position.text())
+        self.assertEqual(tuple(w.traj_ring.view()[1][-1]),(0,0))
+        self.assertTrue(math.isnan(w._map_trail_ring.view()[1][-1][0]))
+        recovered=feed(1.04,(22.5,100.9,11.9))
+        self.assertLess(math.dist(first,recovered),2)
+        self.assertNotIn('异常跳点',w.map_position.text())
+        feed(1.06,(0,0,0))
+        new=feed(1.08,(0,0,0))
+        self.assertGreater(math.dist(new,first),500)
+        self.assertEqual(w._display_pose,(0.,0.,0.))
+        w._clear_command_queues()
+        self.assertIsNone(w._map_pose_filter.pose)
+
+    def test_map_decimation_keeps_a_single_gap_between_confirmed_pose_changes(self):
+        w=self.window
+        for i in range(1530):
+            w.traj_ring.append(i*.02,(math.nan,math.nan) if i==101
+                               else (100+i*.01+(120 if i>101 else 0),100))
+        w._update_map_trail()
+        path=w.map_view.trail_item.path()
+        self.assertEqual(sum(path.elementAt(i).isMoveTo() for i in range(path.elementCount())),2)
+        # Repeated render with identical telemetry must not rebuild geometry.
+        with patch.object(w.map_view,'set_trail') as setter:
+            w._update_map_trail();w._update_map_trail()
+        setter.assert_not_called()
+        w.traj_ring.clear();w.traj_ring.append(0,(300,300))
+        w._update_map_trail()
+        point=w.map_view.trail_item.path().elementAt(0)
+        x,y=w._ops_to_field(300,300)
+        self.assertEqual((point.x,point.y),(x,w.map_view.sy(y)))
+
+    def test_refresh_rate_and_telemetry_rate_have_separate_readouts(self):
+        w=self.window
+        from types import SimpleNamespace
+        import threading
+        opened=threading.Event();opened.set()
+        parser=core.FrameParser();parser.crc_frames=1;parser.bytes_in=5600
+        w.sim=None;w.worker=SimpleNamespace(opened=opened,parser=parser,last_frame_monotonic=101)
+        try:
+            w.fps_t=100;w.fps_count=19;w.ui_refresh_count=50
+            with patch.object(main.time,'monotonic',return_value=101):w._status_tick()
+            self.assertEqual(w.footer_fps.text(),'刷新 50 Hz · 遥测 19 Hz')
+            self.assertEqual(w.footer_link.text(),'UART CRC1')
+            self.assertEqual(w.render_timer.interval(),20)
+            self.assertEqual(w.render_timer.timerType(),main.Qt.PreciseTimer)
+            self.assertIn('KB/s',w.footer_rx.text())
+        finally:w.worker=None
+
+    def test_corrupt_crc_pose_never_reaches_map_or_raw_runtime_samples(self):
+        from tests.test_crc_telemetry import packet
+        w=self.window;worker=core.SerialWorker('TEST',115200,w.frame_q,w.line_q)
+        worker._receive(packet(0),w.t0_monotonic+1)
+        w._process_frames();w._render_ui()
+        before=self._icon_center_and_nose(w.map_view)[0]
+        broken=bytearray(packet(1));broken[12]^=0x80
+        worker._receive(broken,w.t0_monotonic+1.02)
+        w._process_frames();w._render_ui()
+        self.assertEqual(before,self._icon_center_and_nose(w.map_view)[0])
+        self.assertEqual(w.traj_ring.count,1)
+        self.assertEqual(worker.parser.crc_errors,1)
+
     def test_icon_and_trail_share_one_mapping(self):
         """图标与轨迹必须来自同一变换。
 
@@ -368,6 +457,9 @@ class DebuggerTests(unittest.TestCase):
 
     def test_quick_target_and_home_plan_when_enabled(self):
         w = self.window
+        # 此用例检查规划不发运动命令；禁用后台GET轮询避免依赖规划耗时。
+        # 参数回读按钮及轮询本身由单独用例覆盖。
+        w.param_timer.stop()
         w.latest = (0.0, 0.0, 0.0) + (0.0,) * 21
         self._clear_queues(w)
         # 旧写死坐标 (1200,2200) 离圆盘表面只有 90mm，280×260 车体停不下：必须仍被拒绝。
@@ -386,11 +478,13 @@ class DebuggerTests(unittest.TestCase):
         self.assertTrue(w.line_q.empty())
         w._clear_path()
         w.zone_combo.setCurrentIndex(0)
+        # 未启动的测试模拟器不自动供50Hz帧；多次规划后为新请求提供真实新帧。
+        w.sim.make_frame(0.0)
         w._goto_home()                                # 回启停区1
         self._wait_plan()
         self.assertIsNone(w.sim.goto)
-        self.assertTrue(w.line_q.empty())
-        self.assertTrue(w.planned_points)
+        self.assertTrue(w.line_q.empty(), list(w.line_q.queue))
+        self.assertTrue(w.planned_points, w.map_status.text())
         self.assertFalse(w._home_after_stop)
 
     def test_follow_is_simulation_only_and_stops_on_stop(self):

@@ -1,0 +1,28 @@
+compile_s 51.17452439999033
+         85947434 function calls (85714196 primitive calls) in 51.174 seconds
+
+   Ordered by: cumulative time
+   List reduced from 368 to 18 due to restriction <18>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        1    0.000    0.000   51.172   51.172 E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\competition_simulation.py:268(compile_match)
+        8    0.000    0.000   51.165    6.396 E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\competition_simulation.py:301(route_between)
+        7    0.018    0.003   51.035    7.291 E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\coordinate_navigation.py:213(plan_route)
+        7    0.000    0.000   50.920    7.274 E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\competition_simulation.py:383(travel)
+      313    1.286    0.004   50.835    0.162 E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\coordinate_navigation.py:161(replay)
+   188678    0.672    0.000   44.861    0.000 E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\navigation_planner.py:325(moving_pose_reason)
+  4985441    6.564    0.000   30.118    0.000 C:\Users\Yuzi\AppData\Local\Programs\Python\Python313\Lib\site-packages\shapely\decorators.py:73(wrapped)
+   378802    1.140    0.000   18.051    0.000 E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\navigation_planner.py:282(pose_polygon)
+1636613/1575872    0.941    0.000   17.473    0.000 C:\Users\Yuzi\AppData\Local\Programs\Python\Python313\Lib\site-packages\shapely\decorators.py:171(wrapper)
+   189676    0.812    0.000   15.944    0.000 E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\navigation_planner.py:270(geometry_reason)
+   378840    0.425    0.000    8.903    0.000 C:\Users\Yuzi\AppData\Local\Programs\Python\Python313\Lib\site-packages\shapely\geometry\polygon.py:227(__new__)
+   189144    0.086    0.000    6.569    0.000 C:\Users\Yuzi\AppData\Local\Programs\Python\Python313\Lib\site-packages\shapely\ops.py:111(unary_union)
+   189144    5.709    0.000    5.896    0.000 C:\Users\Yuzi\AppData\Local\Programs\Python\Python313\Lib\site-packages\shapely\set_operations.py:463(union_all)
+   568275    0.914    0.000    5.430    0.000 C:\Users\Yuzi\AppData\Local\Programs\Python\Python313\Lib\site-packages\shapely\geometry\point.py:54(__new__)
+  1326031    0.553    0.000    5.269    0.000 C:\Users\Yuzi\AppData\Local\Programs\Python\Python313\Lib\site-packages\shapely\geometry\base.py:817(intersects)
+   378852    0.994    0.000    5.134    0.000 C:\Users\Yuzi\AppData\Local\Programs\Python\Python313\Lib\site-packages\shapely\geometry\polygon.py:61(__new__)
+   378808    0.144    0.000    3.801    0.000 C:\Users\Yuzi\AppData\Local\Programs\Python\Python313\Lib\site-packages\shapely\geometry\base.py:749(is_valid)
+   188678    1.865    0.000    3.252    0.000 E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\coordinate_navigation.py:76(command)
+
+
+[('前往二维码板', 'COORDINATE_MIN_TURN', [(2100, 2100), (2100, 1200), (2180, 1200)]), ('第1批：前往原料区', 'COORDINATE_MIN_TURN', [(2180, 1200), (2180, 2030), (1200, 2030)]), ('第1批：前往粗加工区', 'COORDINATE_MIN_TURN', [(1200, 2030), (2100, 2030), (2100, 300), (2180, 300), (2180, 400), (1200, 400)]), ('第1批：前往暂存区', 'COORDINATE_MIN_TURN', [(1200, 400), (2100, 400), (2100, 2030), (300, 2030), (300, 2100), (400, 2100), (400, 1200)]), ('第2批：前往原料区', 'COORDINATE_MIN_TURN', [(400, 1200), (400, 2100), (300, 2100), (300, 2030), (1200, 2030)]), ('第2批：前往粗加工区', 'COORDINATE_MIN_TURN', [(1200, 2030), (2100, 2030), (2100, 300), (2180, 300), (2180, 400), (1200, 400)]), ('第2批：前往暂存区', 'COORDINATE_MIN_TURN', [(1200, 400), (2100, 400), (2100, 2030), (300, 2030), (300, 2100), (400, 2100), (400, 1200)]), ('返回出发启停区前的停车区', 'COORDINATE_MIN_TURN', [(400, 1200), (400, 2100), (2100, 2100)])]

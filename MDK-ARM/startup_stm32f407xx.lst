@@ -853,10 +853,11 @@ c\startup_stm32f407xx.o -I../Core/Inc -I../Drivers/STM32F4xx_HAL_Driver/Inc -I.
 ./Drivers/STM32F4xx_HAL_Driver/Inc/Legacy -I../Middlewares/Third_Party/FreeRTOS
 /Source/include -I../Middlewares/Third_Party/FreeRTOS/Source/CMSIS_RTOS_V2 -I..
 /Middlewares/Third_Party/FreeRTOS/Source/portable/RVDS/ARM_CM4F -I../Drivers/CM
-SIS/Device/ST/STM32F4xx/Include -I../Drivers/CMSIS/Include -I../Hardware -I.\RT
-E\_STM32F407VET6_ILHC -ID:\keil51\Arm\Pack\ARM\CMSIS\6.1.0\CMSIS\Core\Include -
--predefine="__UVISION_VERSION SETA 541" --predefine="STM32F407xx SETA 1" --pred
-efine="_RTE_ SETA 1" --list=startup_stm32f407xx.lst startup_stm32f407xx.s
+SIS/Device/ST/STM32F4xx/Include -I../Drivers/CMSIS/Include -I../Hardware -I../R
+TOS_APP -I.\RTE\_STM32F407VET6_ILHC -ID:\keil51\Arm\Pack\ARM\CMSIS\6.1.0\CMSIS\
+Core\Include --predefine="__UVISION_VERSION SETA 541" --predefine="STM32F407xx 
+SETA 1" --predefine="_RTE_ SETA 1" --list=startup_stm32f407xx.lst startup_stm32
+f407xx.s
 
 
 

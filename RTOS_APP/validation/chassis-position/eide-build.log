@@ -1,0 +1,51 @@
+[ INFO ] start building at 2026-10-04 20:40:43
+
+[ TOOL ] Component: ARM Compiler 5.06 update 7 (build 960)
+
+[ INFO ] file statistics (incremental mode)
+
++---------+-----------+-----------+---------------+--------+
+| C Files | Cpp Files | Asm Files | Lib/Obj Files | Totals |
++---------+-----------+-----------+---------------+--------+
+| 4       | 0         | 0         | 0             | 4      |
++---------+-----------+-----------+---------------+--------+
+
+[ INFO ] start compiling ...
+
+>> [ 25%] CC '../Core/Src/main.c'
+>> [ 50%] CC '../Hardware/debug_usart.c'
+>> [ 75%] CC '../Hardware/mecanum_control.c'
+>> [100%] CC '../Hardware/trajectory_buffer.c'
+
+[ INFO ] start linking ...
+
+Program Size: Code=58372 RO-data=11696 RW-data=752 ZI-data=96008  
+
+
+Total RO  Size (Code + RO Data)                70068 (  68.43kB)
+Total RW  Size (RW Data + ZI Data)             96760 (  94.49kB)
+Total ROM Size (Code + RO Data + RW Data)      70152 (  68.51kB)
+
+Total Memory Usage:
+
+  RAM: [###############     ] 73.8%     94.5KB/128.0KB
+  ROM: [###                 ] 13.4%     68.5KB/512.0KB
+
+Section Memory Usage:
+
+  LR_IROM1 (0x08000000): [###                 ] 13.5%     69.2KB/512.0KB
+    - ER_IROM1 (0x08000000): [###                 ] 13.4%     68.4KB/512.0KB
+    - RW_IRAM1 (0x20000000): [###############     ] 73.8%     94.5KB/128.0KB
+
+[ INFO ] start outputting files ...
+
+>> output hex file		[done]
+
+file path: "build/STM32F407VET6_ILHC/STM32F407VET6_ILHC.hex"
+
+>> output s19 file		[done]
+
+file path: "build/STM32F407VET6_ILHC/STM32F407VET6_ILHC.s19"
+
+[ DONE ] build successfully !, elapsed time 0:0:1
+

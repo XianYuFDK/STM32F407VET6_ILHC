@@ -1,0 +1,36 @@
+test_body_error_and_four_wheel_mixing_translate_and_turn_together (tests.test_coordinate_navigation.CoordinateTests.test_body_error_and_four_wheel_mixing_translate_and_turn_together) ... ok
+test_both_start_zones_complete_without_arc_generator_or_dense_execution (tests.test_coordinate_navigation.CoordinateTests.test_both_start_zones_complete_without_arc_generator_or_dense_execution) ... ok
+test_cancel_during_acceptance_cannot_restore_old_control (tests.test_coordinate_navigation.CoordinateTests.test_cancel_during_acceptance_cannot_restore_old_control) ... ok
+test_changed_parameters_reject_stale_program_and_cancel_active (tests.test_coordinate_navigation.CoordinateTests.test_changed_parameters_reject_stale_program_and_cancel_active) ... ERROR
+test_chassis_axis_gains_compensation_and_angular_units (tests.test_coordinate_navigation.CoordinateTests.test_chassis_axis_gains_compensation_and_angular_units) ... ok
+test_coordinate_speed_uses_chassis_limit_without_old_250_cap (tests.test_coordinate_navigation.CoordinateTests.test_coordinate_speed_uses_chassis_limit_without_old_250_cap) ... ok
+test_every_chassis_parameter_affects_coordinate_command (tests.test_coordinate_navigation.CoordinateTests.test_every_chassis_parameter_affects_coordinate_command) ... ok
+test_invalid_program_and_control_are_rejected (tests.test_coordinate_navigation.CoordinateTests.test_invalid_program_and_control_are_rejected) ... ok
+test_lateral_limit_is_checked_during_replay (tests.test_coordinate_navigation.CoordinateTests.test_lateral_limit_is_checked_during_replay) ... ok
+test_mid_path_obstacle_rejected_even_if_waypoints_safe (tests.test_coordinate_navigation.CoordinateTests.test_mid_path_obstacle_rejected_even_if_waypoints_safe) ... ok
+test_nondefault_chassis_snapshot_is_shared_by_entire_match (tests.test_coordinate_navigation.CoordinateTests.test_nondefault_chassis_snapshot_is_shared_by_entire_match) ... ok
+test_parameter_change_during_acceptance_cannot_install_stale_tracker (tests.test_coordinate_navigation.CoordinateTests.test_parameter_change_during_acceptance_cannot_install_stale_tracker) ... ok
+test_pass_switches_while_moving_and_final_stop_settles (tests.test_coordinate_navigation.CoordinateTests.test_pass_switches_while_moving_and_final_stop_settles) ... ok
+test_same_coordinate_hold_and_heading_alignment (tests.test_coordinate_navigation.CoordinateTests.test_same_coordinate_hold_and_heading_alignment) ... ok
+test_shortest_angle_both_directions_across_180 (tests.test_coordinate_navigation.CoordinateTests.test_shortest_angle_both_directions_across_180) ... ok
+test_stop_and_map_change_cancel_without_residual_motion (tests.test_coordinate_navigation.CoordinateTests.test_stop_and_map_change_cancel_without_residual_motion) ... ok
+test_zero_control_reports_no_progress_instead_of_hanging (tests.test_coordinate_navigation.CoordinateTests.test_zero_control_reports_no_progress_instead_of_hanging) ... ok
+
+======================================================================
+ERROR: test_changed_parameters_reject_stale_program_and_cancel_active (tests.test_coordinate_navigation.CoordinateTests.test_changed_parameters_reject_stale_program_and_cancel_active)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\tests\test_coordinate_navigation.py", line 85, in test_changed_parameters_reject_stale_program_and_cancel_active
+    sim.submit_navigation_coordinates(sim.begin_navigation(),current,(0,0,0),scene)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\core.py", line 1033, in submit_navigation_coordinates
+    _samples, elapsed = replay(frozen, scene, cancelled)
+                        ~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\coordinate_navigation.py", line 213, in replay
+    raise ValueError('关键坐标控制器实际扫掠：'+(why or '偏离骨架超过75mm'))
+ValueError: 关键坐标控制器实际扫掠：偏离骨架超过75mm
+
+----------------------------------------------------------------------
+Ran 17 tests in 4.983s
+
+FAILED (errors=1)

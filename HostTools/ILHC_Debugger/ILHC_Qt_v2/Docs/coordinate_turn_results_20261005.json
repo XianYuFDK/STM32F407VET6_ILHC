@@ -1,0 +1,178 @@
+[
+  {
+    "case": "无障碍",
+    "zone": 1,
+    "coordinate_target_count": 15,
+    "display_sample_count": 2028,
+    "elapsed_s": 59.0,
+    "chassis_parameters": {
+      "kpx": 2.3,
+      "kpy": 2.3,
+      "kpz": 9.0,
+      "xyvmax": 1600.0,
+      "zvmax": 750.0,
+      "xyvmin": 5.0,
+      "zvmin": 5.0
+    },
+    "status": "COMPLETE",
+    "grabs": 12,
+    "placements": 12,
+    "full_body_sweeps_safe": true,
+    "runtime_sample_table": false,
+    "hardware_ready": false
+  },
+  {
+    "case": "无障碍",
+    "zone": 2,
+    "coordinate_target_count": 15,
+    "display_sample_count": 2028,
+    "elapsed_s": 59.0,
+    "chassis_parameters": {
+      "kpx": 2.3,
+      "kpy": 2.3,
+      "kpz": 9.0,
+      "xyvmax": 1600.0,
+      "zvmax": 750.0,
+      "xyvmin": 5.0,
+      "zvmin": 5.0
+    },
+    "status": "COMPLETE",
+    "grabs": 12,
+    "placements": 12,
+    "full_body_sweeps_safe": true,
+    "runtime_sample_table": false,
+    "hardware_ready": false
+  },
+  {
+    "case": "单障碍",
+    "zone": 1,
+    "coordinate_target_count": 23,
+    "display_sample_count": 2937,
+    "elapsed_s": 77.18,
+    "chassis_parameters": {
+      "kpx": 2.3,
+      "kpy": 2.3,
+      "kpz": 9.0,
+      "xyvmax": 1600.0,
+      "zvmax": 750.0,
+      "xyvmin": 5.0,
+      "zvmin": 5.0
+    },
+    "status": "COMPLETE",
+    "grabs": 12,
+    "placements": 12,
+    "full_body_sweeps_safe": true,
+    "runtime_sample_table": false,
+    "hardware_ready": false
+  },
+  {
+    "case": "单障碍",
+    "zone": 2,
+    "coordinate_target_count": 22,
+    "display_sample_count": 2861,
+    "elapsed_s": 76.4,
+    "chassis_parameters": {
+      "kpx": 2.3,
+      "kpy": 2.3,
+      "kpz": 9.0,
+      "xyvmax": 1600.0,
+      "zvmax": 750.0,
+      "xyvmin": 5.0,
+      "zvmin": 5.0
+    },
+    "status": "COMPLETE",
+    "grabs": 12,
+    "placements": 12,
+    "full_body_sweeps_safe": true,
+    "runtime_sample_table": false,
+    "hardware_ready": false
+  },
+  {
+    "case": "四障碍",
+    "zone": 1,
+    "coordinate_target_count": 21,
+    "display_sample_count": 2717,
+    "elapsed_s": 72.78,
+    "chassis_parameters": {
+      "kpx": 2.3,
+      "kpy": 2.3,
+      "kpz": 9.0,
+      "xyvmax": 1600.0,
+      "zvmax": 750.0,
+      "xyvmin": 5.0,
+      "zvmin": 5.0
+    },
+    "status": "COMPLETE",
+    "grabs": 12,
+    "placements": 12,
+    "full_body_sweeps_safe": true,
+    "runtime_sample_table": false,
+    "hardware_ready": false
+  },
+  {
+    "case": "四障碍",
+    "zone": 2,
+    "coordinate_target_count": 21,
+    "display_sample_count": 2717,
+    "elapsed_s": 72.78,
+    "chassis_parameters": {
+      "kpx": 2.3,
+      "kpy": 2.3,
+      "kpz": 9.0,
+      "xyvmax": 1600.0,
+      "zvmax": 750.0,
+      "xyvmin": 5.0,
+      "zvmin": 5.0
+    },
+    "status": "COMPLETE",
+    "grabs": 12,
+    "placements": 12,
+    "full_body_sweeps_safe": true,
+    "runtime_sample_table": false,
+    "hardware_ready": false
+  },
+  {
+    "case": "两障碍",
+    "zone": 1,
+    "coordinate_target_count": 29,
+    "display_sample_count": 3744,
+    "elapsed_s": 93.32,
+    "chassis_parameters": {
+      "kpx": 2.3,
+      "kpy": 2.3,
+      "kpz": 9.0,
+      "xyvmax": 1600.0,
+      "zvmax": 750.0,
+      "xyvmin": 5.0,
+      "zvmin": 5.0
+    },
+    "status": "COMPLETE",
+    "grabs": 12,
+    "placements": 12,
+    "full_body_sweeps_safe": true,
+    "runtime_sample_table": false,
+    "hardware_ready": false
+  },
+  {
+    "case": "两障碍",
+    "zone": 2,
+    "coordinate_target_count": 29,
+    "display_sample_count": 3823,
+    "elapsed_s": 94.9,
+    "chassis_parameters": {
+      "kpx": 2.3,
+      "kpy": 2.3,
+      "kpz": 9.0,
+      "xyvmax": 1600.0,
+      "zvmax": 750.0,
+      "xyvmin": 5.0,
+      "zvmin": 5.0
+    },
+    "status": "COMPLETE",
+    "grabs": 12,
+    "placements": 12,
+    "full_body_sweeps_safe": true,
+    "runtime_sample_table": false,
+    "hardware_ready": false
+  }
+]

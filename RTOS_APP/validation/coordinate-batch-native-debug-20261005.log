@@ -1,0 +1,29 @@
+test_eight_matches_c_execute_all_coordinates_with_swept_body (__main__.CoordinateFirmwareTests.test_eight_matches_c_execute_all_coordinates_with_swept_body) ... FAIL
+test_protocol_crc_parameters_and_duplicate_record (__main__.CoordinateFirmwareTests.test_protocol_crc_parameters_and_duplicate_record) ... ok
+test_stop_parameter_change_pose_loss_and_deviation (__main__.CoordinateFirmwareTests.test_stop_parameter_change_pose_loss_and_deviation) ... FAIL
+
+======================================================================
+FAIL: test_eight_matches_c_execute_all_coordinates_with_swept_body (__main__.CoordinateFirmwareTests.test_eight_matches_c_execute_all_coordinates_with_swept_body)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\Tests\hardware\test_coordinate_batch.py", line 81, in test_eight_matches_c_execute_all_coordinates_with_swept_body
+    self.assertEqual(self.job.state,'DONE',(zone,obstacles,self.job.reason,self.e.status()))
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 'CANCELLED' != 'DONE'
+- CANCELLED
++ DONE
+ : (1, (), '3秒未收到轨迹状态；整批已停止', (17, 4, 19, 1, 2364, 0))
+
+======================================================================
+FAIL: test_stop_parameter_change_pose_loss_and_deviation (__main__.CoordinateFirmwareTests.test_stop_parameter_change_pose_loss_and_deviation)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\Tests\hardware\test_coordinate_batch.py", line 118, in test_stop_parameter_change_pose_loss_and_deviation
+    self.assertIn(self.e.status()[1],(7,8),cause)
+    ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 4 not found in (7, 8) : deviation
+
+----------------------------------------------------------------------
+Ran 3 tests in 1.605s
+
+FAILED (failures=2)

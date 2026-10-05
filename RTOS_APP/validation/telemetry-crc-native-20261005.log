@@ -1,0 +1,1 @@
+Real USART1 sender + PC parser passed: legacy 19 Hz reproduced; CRC1 50/50 frames + 31 GET + 5 TSTAT, all chunk sizes; DMA busy/failure/max reply/legacy/text verified.

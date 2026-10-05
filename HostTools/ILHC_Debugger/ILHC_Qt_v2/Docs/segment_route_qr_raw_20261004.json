@@ -1,0 +1,79 @@
+{
+  "schema_version": 1,
+  "kind": "PC_SEGMENT_PROGRAM",
+  "frame_id": "LAYOUT_MM",
+  "final_stop": true,
+  "segments": [
+    {
+      "kind": "LINE",
+      "start": [
+        2180.0,
+        1200.0
+      ],
+      "end": [
+        2180.0,
+        1910.0
+      ],
+      "heading_mode": "REVERSE_TANGENT"
+    },
+    {
+      "kind": "ARC",
+      "entry": [
+        2180.0,
+        1910.0
+      ],
+      "exit": [
+        2060.0,
+        2030.0
+      ],
+      "center": [
+        2060.0,
+        1910.0
+      ],
+      "radius_mm": 120.0,
+      "start_angle_deg": 0.0,
+      "sweep_deg": 90.0,
+      "direction": "CCW",
+      "heading_mode": "REVERSE_TANGENT"
+    },
+    {
+      "kind": "LINE",
+      "start": [
+        2060.0,
+        2030.0
+      ],
+      "end": [
+        1200.0,
+        2030.0
+      ],
+      "heading_mode": "REVERSE_TANGENT"
+    }
+  ],
+  "length_mm": 1758.4955592153876,
+  "start": {
+    "x_mm": 1050.0,
+    "y_mm": 70.0,
+    "field_yaw_deg": 0.0,
+    "s_mm": 0.0,
+    "segment_type": "LINE",
+    "segment_index": 1,
+    "segment_count": 3,
+    "tangent_yaw_deg": -180.0,
+    "motion_mode": "REVERSE"
+  },
+  "goal": {
+    "x_mm": 220.0,
+    "y_mm": 1050.0,
+    "field_yaw_deg": -90.0,
+    "s_mm": 1758.4955592153876,
+    "segment_type": "STOP",
+    "segment_index": 3,
+    "segment_count": 3,
+    "tangent_yaw_deg": -270.0,
+    "motion_mode": "REVERSE"
+  },
+  "hardware_ready": false,
+  "metadata": {
+    "map_id": "2027-preliminary-nominal-pc"
+  }
+}

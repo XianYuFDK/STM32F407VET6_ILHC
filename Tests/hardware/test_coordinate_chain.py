@@ -120,8 +120,11 @@ must_not(o, "s_ops.origin_x = -x;", "SetOrigin 不得绕过轴模式")
 must_not(o, "s_ops.origin_y = y;", "SetOrigin 不得绕过轴模式")
 
 # 位置环误差与 ops.c 坐标方向必须成对，否则是正反馈。
-must(m, "devx = (float)x - pos_x;", "chassis_move X 误差")
-must(m, "devy = (float)y - pos_y;", "chassis_move Y 误差")
+must(m, "error[0]=target[0]-actual[0];error[1]=target[1]-actual[1];", "公共位置闭环负反馈")
+must(m, "actual[0]=pos_x;actual[1]=pos_y;actual[2]=zangle;", "chassis_move OPS实际坐标")
+must(m, "target[0]=(float)x;target[1]=(float)y;target[2]=(float)z;", "chassis_move目标坐标")
+must(m, "chassis_move_reference(actual,target,gain,NULL,1U,error,command)", "chassis_move复用车体轴坐标闭环")
+must(m, "devx=error[0];devy=error[1];devz=error[2];", "世界误差遥测不交换轴")
 must_not(m, "devx = pos_x - (float)x;", "chassis_move X 误差反号")
 must_not(m, "devy = pos_y - (float)y;", "chassis_move Y 误差反号")
 must(m, "MecanumControl_UpdatePose();", "chassis_move 刷新位姿")

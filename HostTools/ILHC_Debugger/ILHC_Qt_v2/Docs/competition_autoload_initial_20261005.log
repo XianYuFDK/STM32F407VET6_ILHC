@@ -1,0 +1,12 @@
+test_add_defaults_without_replacing_map_or_modifying_input (tests.test_competition_profile.CompetitionProfileTests.test_add_defaults_without_replacing_map_or_modifying_input) ... ok
+test_complete_user_profile_needs_no_default_file_and_is_idempotent (tests.test_competition_profile.CompetitionProfileTests.test_complete_user_profile_needs_no_default_file_and_is_idempotent) ... ok
+test_invalid_explicit_coordinates_and_layout_are_not_overwritten (tests.test_competition_profile.CompetitionProfileTests.test_invalid_explicit_coordinates_and_layout_are_not_overwritten) ... ok
+test_partial_config_preserves_existing_station_and_fills_missing_fields (tests.test_competition_profile.CompetitionProfileTests.test_partial_config_preserves_existing_station_and_fills_missing_fields) ... ok
+test_missing_competition_config_is_loaded_before_parameter_snapshot (tests.test_hardware_trajectory_qt.HardwareQtTests.test_missing_competition_config_is_loaded_before_parameter_snapshot) ... ok
+test_missing_profile_at_zone_two_preserves_live_ops_and_obstacles (tests.test_hardware_trajectory_qt.HardwareQtTests.test_missing_profile_at_zone_two_preserves_live_ops_and_obstacles) ... ok
+test_invalid_explicit_profile_is_rejected_without_upload (tests.test_hardware_trajectory_qt.HardwareQtTests.test_invalid_explicit_profile_is_rejected_without_upload) ... ok
+
+----------------------------------------------------------------------
+Ran 7 tests in 0.535s
+
+OK

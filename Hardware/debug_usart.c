@@ -121,7 +121,14 @@ static uint8_t s_traj_reply_last;
 static volatile uint8_t s_rx_recover;
 static uint8_t s_rx_callbacks_ready;
 
-static uint8_t s_tx[(4U * DEBUG_VOFA_CHANNELS) + 4U];
+/* CRC1: A5 5A 01 18 + seq_u32 + tick_ms_u32 + 24 floats + CRC32/IEEE.
+ * One reply (<=100B) plus telemetry (112B) fits a 20ms slot at 115200 8N1.
+ * This buffer stays owned by DMA until gState becomes READY. */
+#define DEBUG_REPLY_MAX 100U
+#define DEBUG_CRC_FRAME_LEN (16U + 4U * DEBUG_VOFA_CHANNELS)
+static uint8_t s_tx[DEBUG_REPLY_MAX + DEBUG_CRC_FRAME_LEN];
+static uint8_t s_telemetry_crc;
+static uint32_t s_telemetry_seq;
 static uint8_t s_tx_busy_seen;
 static uint32_t s_tx_busy_tick;
 volatile uint32_t debug_tx_recoveries, debug_tx_errors;
@@ -681,6 +688,11 @@ static void Debug_SetParam(const char *name, float value)
   {
     if (Debug_StrCaseCmp(name, s_params[i].name) == 0U)
     {
+      if(Traj_Busy() && (s_params[i].value==&mKpx || s_params[i].value==&mKpy ||
+         s_params[i].value==&mKpz || s_params[i].value==&XYVmax || s_params[i].value==&ZVmax ||
+         s_params[i].value==&XYVmin || s_params[i].value==&ZVmin)) {
+        Debug_ZdtAck(DEBUG_ACK_TRAJ_BUSY);return;
+      }
       if (s_params[i].name[0]=='T')
       {
         uint8_t result=Traj_SetControlParam(s_params[i].value,value,s_params[i].min,s_params[i].max);
@@ -1516,6 +1528,13 @@ static void Debug_ParseLine(char *line)
   if (Debug_StrCaseCmp(line, "VOFA") == 0U)
   {
     s_zdt_text_mode = 0U;
+    s_telemetry_crc = 0U;
+    return;
+  }
+  if (Debug_StrCaseCmp(line, "TELEM=1") == 0U)
+  {
+    s_zdt_text_mode = 0U;
+    s_telemetry_crc = 1U;
     return;
   }
 
@@ -1868,11 +1887,17 @@ static void Debug_ServiceDm(void)
 
 /* --------------------------- 对外接口 ------------------------------ */
 
+static void Debug_SyncChassisParameters(void)
+{
+  float parameters[7]={mKpx,mKpy,mKpz,XYVmax,ZVmax,XYVmin,ZVmin};
+  Traj_UpdateChassisParameters(parameters);
+}
 static uint8_t Debug_TrajectoryRx(const char *line)
 {
   uint8_t allowed=(uint8_t)(Debug_WheelReady() && !s_stop_req && !s_zero_req && !s_offset_req &&
     !s_manual_active && !s_goto_active && !s_zdt_req && !s_zdt_active &&
     !VisionTrack_IsActive() && !(s_vision_req>=1U && s_vision_req<=6U));
+  Debug_SyncChassisParameters();
   if(Traj_ParseLine(line,HAL_GetTick(),allowed)) return 1U;
   /* 手动接管、原点变化和旧运动命令均撤销整批；PING/读参/机械动作不续发路径。 */
   if(Debug_StrCaseCmp(line,"STOP")==0U || Debug_StrCaseCmp(line,"ZERO")==0U ||
@@ -1890,6 +1915,7 @@ static void Debug_ServiceTrajectory(void)
   allowed=(uint8_t)(Debug_WheelReady() && !s_stop_req && !s_zero_req && !s_offset_req &&
     (uint32_t)(HAL_GetTick()-s_host_last_tick)<=DEBUG_HOST_TIMEOUT_MS);
   if(!Traj_Busy()) return;
+  Debug_SyncChassisParameters();
   MecanumControl_GetPose(&pose.x,&pose.y,&pose.yaw);
   pose.sequence=ops->valid_count;pose.pose_tick=ops->last_update_tick;
   if(!OPS_IsOnline(DEBUG_OPS_TIMEOUT_MS)) pose.pose_tick=HAL_GetTick()-201U;
@@ -2142,6 +2168,18 @@ void DebugUsart_CommunicationRecover(void)
   DebugUsart_ServiceTx();
 }
 
+static uint32_t Debug_TelemetryCrc(const uint8_t *data, uint32_t len)
+{
+  uint32_t crc = 0xFFFFFFFFUL, i;
+  uint8_t bit;
+  for (i = 0U; i < len; ++i) {
+    crc ^= data[i];
+    for (bit = 0U; bit < 8U; ++bit)
+      crc = (crc >> 1) ^ ((crc & 1U) ? 0xEDB88320UL : 0U);
+  }
+  return crc ^ 0xFFFFFFFFUL;
+}
+
 /* 只由通信任务调用；不产生轮速/CAN动作，也不访问Flash。 */
 void DebugUsart_Send(void)
 {
@@ -2149,27 +2187,25 @@ void DebugUsart_Send(void)
   float user_x, user_y, err_x, err_y;
   DmJ4310Feedback_t dmFb;
   uint32_t i, len, primask;
+  uint32_t payload_offset, tick, crc;
+  uint16_t reply_len = 0U;
+  uint8_t reply_kind = 0U, telemetry = 0U;
+  TrajReply_t token;
   /* DMA忙时不改写在途缓冲；底盘由独立任务照常运行。 */
   if (huart1.gState != HAL_UART_STATE_READY) return;
 
   /* 整批应答与遥测交替，避免连续上传占满TX导致PC误判定位失联。 */
-  if(!s_traj_reply_last) {
-    TrajReply_t token;
-    uint16_t n=Traj_PeekReply((char *)s_tx,sizeof(s_tx),&token);
-    if(n) {
-      if(HAL_UART_Transmit_DMA(&huart1,s_tx,n)==HAL_OK) {
-        Traj_ReplySent(&token);s_traj_reply_last=1U;
-      }
-      return;
-    }
+  if(!s_traj_reply_last || (s_telemetry_crc && s_ack_read==s_ack_write)) {
+    reply_len=Traj_PeekReply((char *)s_tx,DEBUG_REPLY_MAX,&token);
+    if(reply_len) reply_kind=1U;
   }
   s_traj_reply_last=0U;
 
   /* 发送缓冲区仅在DMA空闲时改写；成功提交才消费事件，忙/失败留待下次重试。
    * 应答优先于遥测；切换瞬间可能仍有上一帧遥测在途，不截断正在发送的DMA。 */
-  if (s_ack_read != s_ack_write)
+  if (!reply_len && s_ack_read != s_ack_write)
   {
-    uint16_t reply_len;
+    reply_kind=2U;
     if (s_ack_queue[s_ack_read] == 7U)
     {
       static const char hex[] = "0123456789ABCDEF";
@@ -2191,13 +2227,13 @@ void DebugUsart_Send(void)
       const DmJ4310ParamResult_t *r = &s_ack_dm_param[s_ack_read];
       uint32_t acc, dec;
       memcpy(&acc, &r->acc, sizeof(acc)); memcpy(&dec, &r->dec, sizeof(dec));
-      reply_len = (uint16_t)snprintf((char *)s_tx, sizeof(s_tx),
+      reply_len = (uint16_t)snprintf((char *)s_tx, DEBUG_REPLY_MAX,
         "DMREG %u %u %u %08lX %08lX\r\n", (unsigned int)r->seq,
         (unsigned int)r->id, (unsigned int)r->status, (unsigned long)acc, (unsigned long)dec);
     }
     else if (s_ack_queue[s_ack_read] == DEBUG_ACK_STEPPER)
     {
-      reply_len = Debug_FormatStepperEvent((char *)s_tx, sizeof(s_tx),
+      reply_len = Debug_FormatStepperEvent((char *)s_tx, DEBUG_REPLY_MAX,
                                            &s_ack_stepper[s_ack_read]);
       if (reply_len == 0U)
       {
@@ -2218,11 +2254,19 @@ void DebugUsart_Send(void)
       reply_len = (uint16_t)strlen(reply);
       memcpy(s_tx, reply, reply_len);
     }
-    if (HAL_UART_Transmit_DMA(&huart1, s_tx, reply_len) == HAL_OK)
-      s_ack_read = (uint8_t)((s_ack_read + 1U) % 16U);
-    return;
   }
-  if (s_zdt_text_mode) return;
+  len=reply_len;
+  if (s_zdt_text_mode || (!s_telemetry_crc && reply_len)) goto submit;
+  telemetry=1U;
+  payload_offset=(uint32_t)reply_len;
+  if (s_telemetry_crc) {
+    s_tx[payload_offset]=0xA5U; s_tx[payload_offset+1U]=0x5AU;
+    s_tx[payload_offset+2U]=1U; s_tx[payload_offset+3U]=DEBUG_VOFA_CHANNELS;
+    tick=HAL_GetTick();
+    memcpy(s_tx+payload_offset+4U,&s_telemetry_seq,4U);
+    memcpy(s_tx+payload_offset+8U,&tick,4U);
+    payload_offset+=12U;
+  }
 
   /* 读取 DM 反馈快照 */
   primask = __get_PRIMASK();
@@ -2271,19 +2315,27 @@ void DebugUsart_Send(void)
 
   for (i = 0U; i < DEBUG_VOFA_CHANNELS; ++i)
   {
-    memcpy(&s_tx[4U * i], &data[i], 4U);
+    memcpy(&s_tx[payload_offset + 4U * i], &data[i], 4U);
   }
-
-  s_tx[4U * DEBUG_VOFA_CHANNELS]       = DEBUG_VOFA_TAIL0;
-  s_tx[4U * DEBUG_VOFA_CHANNELS + 1U] = DEBUG_VOFA_TAIL1;
-  s_tx[4U * DEBUG_VOFA_CHANNELS + 2U] = DEBUG_VOFA_TAIL2;
-  s_tx[4U * DEBUG_VOFA_CHANNELS + 3U] = DEBUG_VOFA_TAIL3;
-  len = sizeof(s_tx);
-
-  if (huart1.gState == HAL_UART_STATE_READY)
-  {
-    if (HAL_UART_Transmit_DMA(&huart1, s_tx, (uint16_t)len) != HAL_OK)
-      ++debug_tx_errors;
+  len=payload_offset+4U*DEBUG_VOFA_CHANNELS;
+  if (s_telemetry_crc) {
+    crc=Debug_TelemetryCrc(s_tx+reply_len,len-reply_len);
+    memcpy(s_tx+len,&crc,4U);
+  } else {
+    s_tx[len]=DEBUG_VOFA_TAIL0; s_tx[len+1U]=DEBUG_VOFA_TAIL1;
+    s_tx[len+2U]=DEBUG_VOFA_TAIL2; s_tx[len+3U]=DEBUG_VOFA_TAIL3;
+  }
+  len+=4U;
+submit:
+  if (!len) return;
+  if (HAL_UART_Transmit_DMA(&huart1, s_tx, (uint16_t)len) == HAL_OK) {
+    if (reply_kind==1U) {
+      Traj_ReplySent(&token); s_traj_reply_last=1U;
+    } else if (reply_kind==2U)
+      s_ack_read=(uint8_t)((s_ack_read+1U)%16U);
+    if (telemetry && s_telemetry_crc) ++s_telemetry_seq;
+  } else {
+    ++debug_tx_errors;
   }
 }
 

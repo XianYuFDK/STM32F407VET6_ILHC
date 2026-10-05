@@ -1,0 +1,43 @@
+         18545254 function calls (18506987 primitive calls) in 12.577 seconds
+
+   Ordered by: cumulative time
+   List reduced from 321 to 35 due to restriction <35>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        1    0.001    0.001   12.577   12.577 E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\Docs\benchmark_click_planner_20261005.py:12(run)
+        7    0.008    0.001   12.573    1.796 E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\core.py:2086(plan_coordinate_path)
+        7    0.005    0.001   12.545    1.792 E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\coordinate_navigation.py:491(plan_route)
+      229    0.001    0.000    7.936    0.035 E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\coordinate_navigation.py:289(_cached_replay)
+      213    0.363    0.002    7.930    0.037 E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\coordinate_navigation.py:225(replay)
+   938635    1.441    0.000    7.107    0.000 C:\Users\Yuzi\AppData\Local\Programs\Python\Python313\Lib\site-packages\shapely\decorators.py:73(wrapped)
+    22293    0.100    0.000    6.171    0.000 E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\navigation_planner.py:325(moving_pose_reason)
+    86235    0.300    0.000    4.820    0.000 E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\navigation_planner.py:282(pose_polygon)
+       56    0.042    0.001    4.179    0.075 E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\competition_simulation.py:165(_lane_graph)
+280283/267589    0.194    0.000    4.123    0.000 C:\Users\Yuzi\AppData\Local\Programs\Python\Python313\Lib\site-packages\shapely\decorators.py:171(wrapper)
+       21    0.008    0.000    4.046    0.193 E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\coordinate_navigation.py:447(_coordinate_graph)
+    18851    0.055    0.000    3.756    0.000 E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\navigation_planner.py:303(translation_reason)
+    45091    0.131    0.000    2.683    0.000 E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\navigation_planner.py:270(geometry_reason)
+    12792    0.008    0.000    2.536    0.000 E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\mecanum_planner.py:24(translation_reason)
+    86315    0.110    0.000    2.417    0.000 C:\Users\Yuzi\AppData\Local\Programs\Python\Python313\Lib\site-packages\shapely\geometry\polygon.py:227(__new__)
+    41152    0.021    0.000    1.702    0.000 C:\Users\Yuzi\AppData\Local\Programs\Python\Python313\Lib\site-packages\shapely\ops.py:111(unary_union)
+    41152    1.481    0.000    1.528    0.000 C:\Users\Yuzi\AppData\Local\Programs\Python\Python313\Lib\site-packages\shapely\set_operations.py:463(union_all)
+    86347    0.251    0.000    1.414    0.000 C:\Users\Yuzi\AppData\Local\Programs\Python\Python313\Lib\site-packages\shapely\geometry\polygon.py:61(__new__)
+   284969    0.132    0.000    1.310    0.000 C:\Users\Yuzi\AppData\Local\Programs\Python\Python313\Lib\site-packages\shapely\geometry\base.py:817(intersects)
+    86251    0.037    0.000    0.991    0.000 C:\Users\Yuzi\AppData\Local\Programs\Python\Python313\Lib\site-packages\shapely\geometry\base.py:749(is_valid)
+    40554    0.583    0.000    0.986    0.000 E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\coordinate_navigation.py:122(command)
+    86251    0.477    0.000    0.828    0.000 C:\Users\Yuzi\AppData\Local\Programs\Python\Python313\Lib\site-packages\shapely\predicates.py:429(is_valid)
+        7    0.001    0.000    0.757    0.108 E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\coordinate_navigation.py:313(_seed_route)
+    86315    0.351    0.000    0.605    0.000 C:\Users\Yuzi\AppData\Local\Programs\Python\Python313\Lib\site-packages\shapely\creation.py:332(polygons)
+    12694    0.039    0.000    0.584    0.000 C:\Users\Yuzi\AppData\Local\Programs\Python\Python313\Lib\site-packages\shapely\geometry\base.py:462(buffer)
+    41017    0.087    0.000    0.557    0.000 C:\Users\Yuzi\AppData\Local\Programs\Python\Python313\Lib\site-packages\shapely\geometry\point.py:54(__new__)
+   284969    0.502    0.000    0.502    0.000 C:\Users\Yuzi\AppData\Local\Programs\Python\Python313\Lib\site-packages\shapely\predicates.py:844(intersects)
+    86347    0.408    0.000    0.427    0.000 C:\Users\Yuzi\AppData\Local\Programs\Python\Python313\Lib\site-packages\shapely\creation.py:234(linearrings)
+    45091    0.015    0.000    0.416    0.000 C:\Users\Yuzi\AppData\Local\Programs\Python\Python313\Lib\site-packages\shapely\prepared.py:39(covers)
+    12694    0.343    0.000    0.404    0.000 C:\Users\Yuzi\AppData\Local\Programs\Python\Python313\Lib\site-packages\shapely\constructive.py:136(buffer)
+    45099    0.027    0.000    0.401    0.000 C:\Users\Yuzi\AppData\Local\Programs\Python\Python313\Lib\site-packages\shapely\geometry\base.py:764(covers)
+   213751    0.180    0.000    0.397    0.000 C:\Users\Yuzi\AppData\Local\Programs\Python\Python313\Lib\site-packages\numpy\_core\numerictypes.py:471(issubdtype)
+     3947    0.003    0.000    0.389    0.000 E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\navigation_planner.py:293(pose_reason)
+    43569    0.011    0.000    0.366    0.000 {built-in method builtins.any}
+     4422    0.003    0.000    0.355    0.000 E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\competition_simulation.py:188(<genexpr>)
+
+

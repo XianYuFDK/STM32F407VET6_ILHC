@@ -1,0 +1,15 @@
+test_busy_and_sim_mode_refuse_settings_including_console (tests.test_trajectory_settings_qt.TrajectorySettingsQtTests.test_busy_and_sim_mode_refuse_settings_including_console) ... ok
+test_fast_preset_is_local_until_sent (tests.test_trajectory_settings_qt.TrajectorySettingsQtTests.test_fast_preset_is_local_until_sent) ... ok
+test_json_load_save_and_invalid_file_are_local_and_atomic (tests.test_trajectory_settings_qt.TrajectorySettingsQtTests.test_json_load_save_and_invalid_file_are_local_and_atomic) ... ok
+test_mismatched_readback_aborts_remaining_writes (tests.test_trajectory_settings_qt.TrajectorySettingsQtTests.test_mismatched_readback_aborts_remaining_writes) ... ok
+test_new_page_edit_and_default_do_not_send (tests.test_trajectory_settings_qt.TrajectorySettingsQtTests.test_new_page_edit_and_default_do_not_send) ... ok
+test_one_setting_sends_then_waits_for_actual_readback (tests.test_trajectory_settings_qt.TrajectorySettingsQtTests.test_one_setting_sends_then_waits_for_actual_readback) ... ok
+test_pending_write_blocks_match_start (tests.test_trajectory_settings_qt.TrajectorySettingsQtTests.test_pending_write_blocks_match_start) ... ok
+test_send_all_is_paced_and_confirmed_one_at_a_time (tests.test_trajectory_settings_qt.TrajectorySettingsQtTests.test_send_all_is_paced_and_confirmed_one_at_a_time) ... ok
+test_session_reset_clears_pending_and_readbacks (tests.test_trajectory_settings_qt.TrajectorySettingsQtTests.test_session_reset_clears_pending_and_readbacks) ... ok
+test_timeout_and_old_firmware_do_not_claim_success (tests.test_trajectory_settings_qt.TrajectorySettingsQtTests.test_timeout_and_old_firmware_do_not_claim_success) ... ok
+
+----------------------------------------------------------------------
+Ran 10 tests in 1.591s
+
+OK

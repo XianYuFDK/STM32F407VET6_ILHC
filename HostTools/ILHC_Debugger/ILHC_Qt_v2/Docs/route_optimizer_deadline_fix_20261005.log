@@ -1,0 +1,20 @@
+test_coordinate_click_executes_without_arcs_and_exports_program (test_map_click_qt.MapClickQtTests.test_coordinate_click_executes_without_arcs_and_exports_program) ... ok
+test_dynamic_snapshot_is_drawn_and_invalidates_old_plan (test_map_click_qt.MapClickQtTests.test_dynamic_snapshot_is_drawn_and_invalidates_old_plan) ... ok
+test_chassis_send_buttons_supply_all_coordinate_parameters (test_map_click_qt.MapClickQtTests.test_chassis_send_buttons_supply_all_coordinate_parameters) ... ok
+test_async_request_then_poll (tests.test_navigation_safety.UiLogicTests.test_async_request_then_poll) ... ERROR
+test_actual_click_handler_starts_worker_and_displays_result (tests.test_map_click_regression.MapClickRegressionTests.test_actual_click_handler_starts_worker_and_displays_result) ... ok
+test_submit_error_is_visible_and_next_click_can_recover (tests.test_map_click_regression.MapClickRegressionTests.test_submit_error_is_visible_and_next_click_can_recover) ... ok
+
+======================================================================
+ERROR: test_async_request_then_poll (tests.test_navigation_safety.UiLogicTests.test_async_request_then_poll)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\tests\test_navigation_safety.py", line 410, in test_async_request_then_poll
+    self.assertTrue(self.w.planned_result['ok'])
+                    ~~~~~~~~~~~~~~~~~~~~~^^^^^^
+TypeError: 'NoneType' object is not subscriptable
+
+----------------------------------------------------------------------
+Ran 6 tests in 54.812s
+
+FAILED (errors=1)

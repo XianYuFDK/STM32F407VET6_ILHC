@@ -18,7 +18,10 @@ def main():
                'tests.test_map_click_regression','tests.test_navigation_audit_fixes',
                'tests.test_arc_smoothing','tests.test_trajectory','tests.test_continuous_tracking',
                'tests.test_competition_simulation','tests.test_mecanum_planning',
-               'tests.test_hardware_trajectory','tests.test_home_return','tests.test_trajectory_settings','-v']]
+               'tests.test_hardware_trajectory','tests.test_home_return','tests.test_trajectory_settings',
+               'tests.test_segment_route','tests.test_coordinate_navigation','tests.test_mixed_telemetry',
+               'tests.test_crc_telemetry','tests.test_competition_profile','tests.test_route_optimality',
+               'tests.test_click_planning','-v']]
     if args.qt:
         missing=[name for name in ('PySide6','pyqtgraph','serial','shapely','numpy')
                  if importlib.util.find_spec(name) is None]

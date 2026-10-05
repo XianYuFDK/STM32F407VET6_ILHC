@@ -1,0 +1,13 @@
+test_bad_initial_header_never_locks_onto_payload_inf (tests.test_crc_telemetry.CrcTelemetryTests.test_bad_initial_header_never_locks_onto_payload_inf) ... ok
+test_batch_read_preserves_device_spacing_and_rejects_bad_frame_before_queue (tests.test_crc_telemetry.CrcTelemetryTests.test_batch_read_preserves_device_spacing_and_rejects_bad_frame_before_queue) ... ok
+test_each_byte_loss_insertion_bit_damage_only_delivers_intact_positions (tests.test_crc_telemetry.CrcTelemetryTests.test_each_byte_loss_insertion_bit_damage_only_delivers_intact_positions) ... ok
+test_legacy_then_crc_text_chunking_and_no_fallback_after_corruption (tests.test_crc_telemetry.CrcTelemetryTests.test_legacy_then_crc_text_chunking_and_no_fallback_after_corruption) ... ok
+test_no_corrupt_data_refreshes_link_freshness (tests.test_crc_telemetry.CrcTelemetryTests.test_no_corrupt_data_refreshes_link_freshness) ... ok
+test_printable_payload_does_not_inject_parameters_or_status (tests.test_crc_telemetry.CrcTelemetryTests.test_printable_payload_does_not_inject_parameters_or_status) ... ok
+test_renegotiate_crc_after_firmware_reset_without_replaying_motion (tests.test_crc_telemetry.CrcTelemetryTests.test_renegotiate_crc_after_firmware_reset_without_replaying_motion) ... ok
+test_sequence_wrap_duplicates_reboot_and_invalid_position (tests.test_crc_telemetry.CrcTelemetryTests.test_sequence_wrap_duplicates_reboot_and_invalid_position) ... ok
+
+----------------------------------------------------------------------
+Ran 8 tests in 0.123s
+
+OK

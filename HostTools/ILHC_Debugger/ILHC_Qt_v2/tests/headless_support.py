@@ -93,7 +93,7 @@ def make_window():
     w.nav_map=nav.load_map(ROOT/'navigation_map.json')
     w._planner_pool=ThreadPoolExecutor(max_workers=1)
     for name in ('map_status','competition_status','plan_info','plan_text','follow_btn','follow_timer','map_view',
-                 'obstacle_info','obstacle_mode_check','strafe_limit_check'):
+                 'obstacle_info','obstacle_mode_check','strafe_limit_check','plan_optimize_check'):
         setattr(w,name,Widget())
     for name,value in (('map_ox_spin',0),('map_oy_spin',0),('map_theta_spin',0),
                        ('plan_grid_spin',10),('plan_pad_spin',1),('map_yaw_combo',None),

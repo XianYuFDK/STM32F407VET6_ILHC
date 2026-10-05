@@ -9,10 +9,9 @@ from trajectory import _normalize, _ends, _pose_at, _tangent_at, _motion_mode
 LOOKAHEAD_MM = 100.0
 
 
-class TrajectoryTracker:
-    def __init__(self, samples, primitives):
-        if len(samples) < 2:
-            raise ValueError('连续跟踪需要至少两个Trajectory样本')
+class SegmentTracker:
+    """只保存直线端点/圆弧参数，按实际位置实时计算参考坐标。"""
+    def __init__(self, primitives):
         self.pieces = _normalize(primitives)
         if not self.pieces:
             raise ValueError('缺少连续几何')
@@ -21,14 +20,12 @@ class TrajectoryTracker:
         self.progress = 0.0
         self.last_position = None
         self.cross_track = 0.0
-        self.yaws = [finite_number(samples[0]['field_yaw_deg'], '起始切线航向')]
-        self.tangent_yaws = [finite_number(samples[0].get('tangent_yaw_deg', samples[0]['field_yaw_deg']), '起始行驶切线')]
+        self.yaws = [(-90-self.pieces[0]['yaw_in']+180) % 360-180]
+        self.tangent_yaws = [(-90-self.pieces[0]['tangent_in']+180) % 360-180]
         for before, after in zip(self.pieces, self.pieces[1:]):
             change = before['yaw_out']-before['yaw_in']
             self.yaws.append(self.yaws[-1]-change)
             self.tangent_yaws.append(self.tangent_yaws[-1]-(before['tangent_out']-before['tangent_in']))
-        if abs(finite_number(samples[-1]['s_mm'], '最终弧长')-self.length) > 1e-5:
-            raise ValueError('Trajectory与连续几何总长不一致')
 
     def reference_at(self, station):
         station = max(0.0, min(self.length, finite_number(station, '参考弧长')))
@@ -38,7 +35,8 @@ class TrajectoryTracker:
         lx, ly, yaw = _pose_at(piece, station-begin)
         fx, fy = layout_to_field(lx, ly)
         reference = dict(x_mm=fx, y_mm=fy, field_yaw_deg=self.yaws[index]-(yaw-piece['yaw_in']),
-                         s_mm=station, segment_type='STOP' if station >= self.length-EPS else piece['kind'])
+                         s_mm=station, segment_type='STOP' if station >= self.length-EPS else piece['kind'],
+                         segment_index=index+1, segment_count=len(self.pieces))
         if piece['explicit_heading']:
             tangent = _tangent_at(piece, station-begin)
             reference.update(tangent_yaw_deg=self.tangent_yaws[index]-(tangent-piece['tangent_in']),
@@ -120,3 +118,21 @@ class TrajectoryTracker:
         if ref['segment_type'] == 'STOP' and distance <= .5 and abs(yaw_error) <= .3:
             vx, vy, omega = 0.0, 0.0, 0.0
         return ref, (vx, vy), omega
+
+
+class TrajectoryTracker(SegmentTracker):
+    """兼容旧采样输入；几何执行和新端点模式共用，不逐点追踪。"""
+    def __init__(self, samples, primitives):
+        if len(samples) < 2:
+            raise ValueError('连续跟踪需要至少两个Trajectory样本')
+        super().__init__(primitives)
+        if abs(finite_number(samples[-1]['s_mm'], '最终弧长')-self.length) > 1e-5:
+            raise ValueError('Trajectory与连续几何总长不一致')
+        # 保留旧接口的unwrap起始周数，允许合法的等价角表示。
+        first = finite_number(samples[0]['field_yaw_deg'], '起始切线航向')
+        tangent = finite_number(samples[0].get('tangent_yaw_deg', first), '起始行驶切线')
+        if abs((first-self.yaws[0]+180) % 360-180) > 1e-5 or \
+                abs((tangent-self.tangent_yaws[0]+180) % 360-180) > 1e-5:
+            raise ValueError('Trajectory起始航向与连续几何不一致')
+        self.yaws = [v+first-self.yaws[0] for v in self.yaws]
+        self.tangent_yaws = [v+tangent-self.tangent_yaws[0] for v in self.tangent_yaws]

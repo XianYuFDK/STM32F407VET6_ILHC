@@ -1,4 +1,10 @@
 --cpu=Cortex-M4.fp.sp
+"stm32f407vet6_ilhc\rtos_app.o"
+"stm32f407vet6_ilhc\app_rx.o"
+"stm32f407vet6_ilhc\app_control.o"
+"stm32f407vet6_ilhc\app_comm.o"
+"stm32f407vet6_ilhc\app_mechanism.o"
+"stm32f407vet6_ilhc\app_maintenance.o"
 "stm32f407vet6_ilhc\startup_stm32f407xx.o"
 "stm32f407vet6_ilhc\main.o"
 "stm32f407vet6_ilhc\gpio.o"
@@ -49,6 +55,7 @@
 "stm32f407vet6_ilhc\hcan.o"
 "stm32f407vet6_ilhc\dm_j4310.o"
 "stm32f407vet6_ilhc\debug_usart.o"
+"stm32f407vet6_ilhc\trajectory_buffer.o"
 "stm32f407vet6_ilhc\zdt_x42s.o"
 "stm32f407vet6_ilhc\mecanum_control.o"
 --strict --scatter "STM32F407VET6_ILHC\STM32F407VET6_ILHC.sct"

@@ -1,0 +1,41 @@
+test_continuous_arc_tracks_to_final_stop_and_draws_four_layers (test_map_click_qt.MapClickQtTests.test_continuous_arc_tracks_to_final_stop_and_draws_four_layers) ... ok
+test_coordinate_click_executes_without_arcs_and_exports_program (test_map_click_qt.MapClickQtTests.test_coordinate_click_executes_without_arcs_and_exports_program) ... ok
+test_direct_obstacle_list_change_is_caught_before_next_core_motion (test_map_click_qt.MapClickQtTests.test_direct_obstacle_list_change_is_caught_before_next_core_motion) ... ok
+test_direct_sim_home_respects_selected_zone_mapping_stop_and_disabled (test_map_click_qt.MapClickQtTests.test_direct_sim_home_respects_selected_zone_mapping_stop_and_disabled) ... ok
+test_dynamic_snapshot_is_drawn_and_invalidates_old_plan (test_map_click_qt.MapClickQtTests.test_dynamic_snapshot_is_drawn_and_invalidates_old_plan) ... ok
+test_invalid_click_displays_failure_without_motion (test_map_click_qt.MapClickQtTests.test_invalid_click_displays_failure_without_motion) ... ok
+test_manual_and_random_obstacles_are_preserved_by_match_start (test_map_click_qt.MapClickQtTests.test_manual_and_random_obstacles_are_preserved_by_match_start) ... ok
+test_map_version_change_cancels_core_and_all_planned_layers_immediately (test_map_click_qt.MapClickQtTests.test_map_version_change_cancels_core_and_all_planned_layers_immediately) ... ok
+test_match_preflight_cancellation_bad_code_and_hardware_are_rejected (test_map_click_qt.MapClickQtTests.test_match_preflight_cancellation_bad_code_and_hardware_are_rejected) ... ok
+test_match_stop_work_phase_and_map_changes_stop_before_next_frame (test_map_click_qt.MapClickQtTests.test_match_stop_work_phase_and_map_changes_stop_before_next_frame) ... ok
+test_mid_match_stop_then_direct_sim_home_bypasses_obstacles_without_restart (test_map_click_qt.MapClickQtTests.test_mid_match_stop_then_direct_sim_home_bypasses_obstacles_without_restart) ... ok
+test_mouse_click_reaches_planner_and_draws_route (test_map_click_qt.MapClickQtTests.test_mouse_click_reaches_planner_and_draws_route) ... ok
+test_no_preset_button_and_explicit_obstacles_preserved_for_match_and_json (test_map_click_qt.MapClickQtTests.test_no_preset_button_and_explicit_obstacles_preserved_for_match_and_json) ... ok
+test_normal_sim_home_plans_and_clear_path_does_not_grant_bypass (test_map_click_qt.MapClickQtTests.test_normal_sim_home_plans_and_clear_path_does_not_grant_bypass) ... ok
+test_obstacle_edits_cancel_preflight_motion_and_work_without_late_restart (test_map_click_qt.MapClickQtTests.test_obstacle_edits_cancel_preflight_motion_and_work_without_late_restart) ... ok
+test_obstacle_occupied_station_refuses_start_and_preserves_actual_vehicle_pose (test_map_click_qt.MapClickQtTests.test_obstacle_occupied_station_refuses_start_and_preserves_actual_vehicle_pose) ... ok
+test_one_key_complete_match_both_start_zones_and_real_json_export (test_map_click_qt.MapClickQtTests.test_one_key_complete_match_both_start_zones_and_real_json_export) ... ok
+test_pending_sim_wheel_disable_cannot_be_bypassed_by_direct_return (test_map_click_qt.MapClickQtTests.test_pending_sim_wheel_disable_cannot_be_bypassed_by_direct_return) ... ok
+test_quick_target_button_reaches_planner (test_map_click_qt.MapClickQtTests.test_quick_target_button_reaches_planner) ... ok
+test_reverse_and_diagonal_arrows_follow_motion_while_reference_shows_body (test_map_click_qt.MapClickQtTests.test_reverse_and_diagonal_arrows_follow_motion_while_reference_shows_body) ... ok
+test_safe_arc_preview_uses_samples_and_exports_arc_geometry (test_map_click_qt.MapClickQtTests.test_safe_arc_preview_uses_samples_and_exports_arc_geometry) ... ok
+test_screenshot_two_obstacles_plan_and_complete_through_real_match_button (test_map_click_qt.MapClickQtTests.test_screenshot_two_obstacles_plan_and_complete_through_real_match_button) ... FAIL
+test_sim_match_protective_stop_allows_one_direct_return (test_map_click_qt.MapClickQtTests.test_sim_match_protective_stop_allows_one_direct_return) ... ok
+test_slot_submission_exception_is_shown_not_swallowed (test_map_click_qt.MapClickQtTests.test_slot_submission_exception_is_shown_not_swallowed) ... ok
+test_trajectory_arrows_follow_unwrapped_cw_and_ccw_tangents_and_clear (test_map_click_qt.MapClickQtTests.test_trajectory_arrows_follow_unwrapped_cw_and_ccw_tangents_and_clear) ... ok
+
+======================================================================
+FAIL: test_screenshot_two_obstacles_plan_and_complete_through_real_match_button (test_map_click_qt.MapClickQtTests.test_screenshot_two_obstacles_plan_and_complete_through_real_match_button)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\test_map_click_qt.py", line 483, in test_screenshot_two_obstacles_plan_and_complete_through_real_match_button
+    runner = self.start_competition()
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\test_map_click_qt.py", line 247, in start_competition
+    self.assertIsNone(self.w._competition_future, self.w.competition_status.text())
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: <Future at 0x1a99a951950 state=running> is not None : 启动前预检：包含2个模拟障碍，生成整轮避障路线并预演真实控制器；尚未发车…
+
+----------------------------------------------------------------------
+Ran 25 tests in 88.754s
+
+FAILED (failures=1)

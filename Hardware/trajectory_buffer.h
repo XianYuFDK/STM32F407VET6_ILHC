@@ -5,6 +5,8 @@
 /* 整批点在运行前缓存于SRAM；每点16字节，绝不写Flash。 */
 #define TRAJ_CAPACITY 4096U
 #define TRAJ_WINDOW 3U
+/* 与旧点表共享SRAM；关键坐标控制协议CCAPS/CBEGIN/CPOINT。 */
+#define COORD_CAPACITY 2048U
 #define TRAJ_STOP 1U
 #define TRAJ_WAIT 2U
 #define TRAJ_ROTATE 4U
@@ -41,6 +43,9 @@ typedef struct {
 extern TrajControlParams_t traj_control_params;
 /* 1成功、2轨迹忙、3非有限值或越界；必须通过此接口写参数。 */
 uint8_t Traj_SetControlParam(float *target, float value, float lower, float upper);
+/* KPX/KPY/KPZ/XVMAX/ZVMAX/XVMIN/ZVMIN实际RAM快照，接收/控制入口同步。 */
+void Traj_UpdateChassisParameters(const float parameters[7]);
+uint8_t Traj_CoordinateMode(void);
 void Traj_Init(void);
 uint8_t Traj_ParseLine(const char *line, uint32_t now, uint8_t upload_allowed);
 void Traj_Cancel(uint8_t reason);

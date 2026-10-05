@@ -1,0 +1,310 @@
+[
+  {
+    "name": "near",
+    "wall_s": 0.6738,
+    "ok": true,
+    "code": null,
+    "reason": "关键坐标闭环实际矩形扫掠通过",
+    "search": {
+      "refined": false,
+      "extended": false,
+      "expanded": 8,
+      "candidates": 1,
+      "skeleton_cost_mm": 70.0,
+      "turn_penalty_mm": 120,
+      "replay_tested": 8,
+      "replay_safe": 8,
+      "phases": [
+        {
+          "refined": false,
+          "extended": false,
+          "expanded": 2,
+          "candidates": 1,
+          "graph_lower_bound_mm": 70.0,
+          "remaining_lower_bound_mm": null,
+          "complete": true,
+          "limit_hit": false
+        },
+        {
+          "refined": false,
+          "extended": true,
+          "expanded": 2,
+          "candidates": 1,
+          "graph_lower_bound_mm": 70.0,
+          "remaining_lower_bound_mm": null,
+          "complete": true,
+          "limit_hit": false
+        },
+        {
+          "refined": true,
+          "extended": true,
+          "expanded": 4,
+          "candidates": 1,
+          "graph_lower_bound_mm": 70.0,
+          "remaining_lower_bound_mm": null,
+          "complete": true,
+          "limit_hit": false
+        }
+      ],
+      "time_limit_hit": false
+    }
+  },
+  {
+    "name": "qr",
+    "wall_s": 2.9253,
+    "ok": true,
+    "code": null,
+    "reason": "关键坐标闭环实际矩形扫掠通过",
+    "search": {
+      "refined": false,
+      "extended": true,
+      "skeleton_cost_mm": 1056.3014581273465,
+      "turn_penalty_mm": 120,
+      "expanded": 13,
+      "candidates": 3,
+      "replay_tested": 44,
+      "replay_safe": 22,
+      "phases": [
+        {
+          "refined": false,
+          "extended": false,
+          "expanded": 7,
+          "candidates": 2,
+          "graph_lower_bound_mm": 1100.0,
+          "remaining_lower_bound_mm": null,
+          "complete": true,
+          "limit_hit": false
+        },
+        {
+          "refined": false,
+          "extended": true,
+          "expanded": 3,
+          "candidates": 1,
+          "graph_lower_bound_mm": 1056.3014581273465,
+          "remaining_lower_bound_mm": 1100.0,
+          "complete": true,
+          "limit_hit": false
+        },
+        {
+          "refined": true,
+          "extended": true,
+          "expanded": 3,
+          "candidates": 1,
+          "graph_lower_bound_mm": 1056.3014581273465,
+          "remaining_lower_bound_mm": null,
+          "complete": true,
+          "limit_hit": false
+        }
+      ],
+      "time_limit_hit": false
+    }
+  },
+  {
+    "name": "center",
+    "wall_s": 2.819,
+    "ok": true,
+    "code": null,
+    "reason": "关键坐标闭环实际矩形扫掠通过",
+    "search": {
+      "refined": false,
+      "extended": false,
+      "expanded": 30,
+      "candidates": 4,
+      "skeleton_cost_mm": 1920.0,
+      "turn_penalty_mm": 120,
+      "replay_tested": 62,
+      "replay_safe": 6,
+      "phases": [
+        {
+          "refined": false,
+          "extended": false,
+          "expanded": 4,
+          "candidates": 1,
+          "graph_lower_bound_mm": 1920.0,
+          "remaining_lower_bound_mm": null,
+          "complete": true,
+          "limit_hit": false
+        },
+        {
+          "refined": false,
+          "extended": true,
+          "expanded": 7,
+          "candidates": 2,
+          "graph_lower_bound_mm": 1920.0,
+          "remaining_lower_bound_mm": null,
+          "complete": true,
+          "limit_hit": false
+        },
+        {
+          "refined": true,
+          "extended": true,
+          "expanded": 19,
+          "candidates": 4,
+          "graph_lower_bound_mm": 1920.0,
+          "remaining_lower_bound_mm": null,
+          "complete": true,
+          "limit_hit": false
+        }
+      ],
+      "time_limit_hit": false
+    }
+  },
+  {
+    "name": "raw",
+    "wall_s": 2.4231,
+    "ok": true,
+    "code": null,
+    "reason": "关键坐标闭环实际矩形扫掠通过",
+    "search": {
+      "refined": false,
+      "extended": false,
+      "skeleton_cost_mm": 1930.0,
+      "turn_penalty_mm": 120,
+      "expanded": 27,
+      "candidates": 2,
+      "replay_tested": 36,
+      "replay_safe": 9,
+      "phases": [
+        {
+          "refined": false,
+          "extended": false,
+          "expanded": 7,
+          "candidates": 2,
+          "graph_lower_bound_mm": 1930.0,
+          "remaining_lower_bound_mm": null,
+          "complete": true,
+          "limit_hit": false
+        },
+        {
+          "refined": false,
+          "extended": true,
+          "expanded": 7,
+          "candidates": 2,
+          "graph_lower_bound_mm": 1930.0,
+          "remaining_lower_bound_mm": null,
+          "complete": true,
+          "limit_hit": false
+        },
+        {
+          "refined": true,
+          "extended": true,
+          "expanded": 13,
+          "candidates": 2,
+          "graph_lower_bound_mm": 1930.0,
+          "remaining_lower_bound_mm": null,
+          "complete": true,
+          "limit_hit": false
+        }
+      ],
+      "time_limit_hit": false
+    }
+  },
+  {
+    "name": "rough",
+    "wall_s": 1.4461,
+    "ok": true,
+    "code": null,
+    "reason": "关键坐标闭环实际矩形扫掠通过",
+    "search": {
+      "refined": false,
+      "extended": false,
+      "skeleton_cost_mm": 1630.0,
+      "turn_penalty_mm": 120,
+      "expanded": 9,
+      "candidates": 1,
+      "replay_tested": 18,
+      "replay_safe": 14,
+      "phases": [
+        {
+          "refined": false,
+          "extended": false,
+          "expanded": 3,
+          "candidates": 1,
+          "graph_lower_bound_mm": 1630.0,
+          "remaining_lower_bound_mm": null,
+          "complete": true,
+          "limit_hit": false
+        },
+        {
+          "refined": false,
+          "extended": true,
+          "expanded": 3,
+          "candidates": 1,
+          "graph_lower_bound_mm": 1630.0,
+          "remaining_lower_bound_mm": null,
+          "complete": true,
+          "limit_hit": false
+        },
+        {
+          "refined": true,
+          "extended": true,
+          "expanded": 3,
+          "candidates": 1,
+          "graph_lower_bound_mm": 1630.0,
+          "remaining_lower_bound_mm": null,
+          "complete": true,
+          "limit_hit": false
+        }
+      ],
+      "time_limit_hit": false
+    }
+  },
+  {
+    "name": "storage",
+    "wall_s": 1.503,
+    "ok": true,
+    "code": null,
+    "reason": "关键坐标闭环实际矩形扫掠通过",
+    "search": {
+      "refined": false,
+      "extended": false,
+      "expanded": 21,
+      "candidates": 2,
+      "skeleton_cost_mm": 1720.0,
+      "turn_penalty_mm": 120,
+      "replay_tested": 45,
+      "replay_safe": 5,
+      "phases": [
+        {
+          "refined": false,
+          "extended": false,
+          "expanded": 5,
+          "candidates": 2,
+          "graph_lower_bound_mm": 1720.0,
+          "remaining_lower_bound_mm": null,
+          "complete": true,
+          "limit_hit": false
+        },
+        {
+          "refined": false,
+          "extended": true,
+          "expanded": 5,
+          "candidates": 2,
+          "graph_lower_bound_mm": 1720.0,
+          "remaining_lower_bound_mm": null,
+          "complete": true,
+          "limit_hit": false
+        },
+        {
+          "refined": true,
+          "extended": true,
+          "expanded": 11,
+          "candidates": 2,
+          "graph_lower_bound_mm": 1720.0,
+          "remaining_lower_bound_mm": null,
+          "complete": true,
+          "limit_hit": false
+        }
+      ],
+      "time_limit_hit": false
+    }
+  },
+  {
+    "name": "blocked",
+    "wall_s": 0.7834,
+    "ok": false,
+    "code": "COORDINATE_NO_SAFE_ROUTE",
+    "reason": "关键坐标无安全候选；关键坐标起点/停靠点姿态非法：车体/安全裕量越出合法行驶区域",
+    "search": null
+  }
+]

@@ -1,0 +1,11 @@
+test_duplicate_conflict_and_legacy_capability_do_not_run (__main__.CoordinateFirmwareTests.test_duplicate_conflict_and_legacy_capability_do_not_run) ... ok
+test_eight_matches_c_execute_all_coordinates_with_swept_body (__main__.CoordinateFirmwareTests.test_eight_matches_c_execute_all_coordinates_with_swept_body) ... ok
+test_protocol_crc_and_parameters (__main__.CoordinateFirmwareTests.test_protocol_crc_and_parameters) ... ok
+test_rotated_mapping_and_nondefault_body_parameters (__main__.CoordinateFirmwareTests.test_rotated_mapping_and_nondefault_body_parameters) ... ok
+test_stop_parameter_change_pose_loss_and_deviation (__main__.CoordinateFirmwareTests.test_stop_parameter_change_pose_loss_and_deviation) ... ok
+
+----------------------------------------------------------------------
+Ran 5 tests in 43.359s
+
+OK
+C关键坐标全场回放: [(0, 1, 19, 49.46), (0, 2, 19, 49.46), (1, 1, 27, 67.64), (1, 2, 26, 66.7), (4, 1, 25, 63.24), (4, 2, 25, 63.24), (2, 1, 33, 83.78), (2, 2, 33, 85.36)]

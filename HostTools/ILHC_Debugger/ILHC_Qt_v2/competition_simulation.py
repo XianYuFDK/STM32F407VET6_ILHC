@@ -40,9 +40,66 @@ def load_profile(path=None):
     return nav.load_map(path)
 
 
+def with_competition_defaults(data):
+    """Fill absent competition fields from the bundled profile, preserving geometry.
+
+    Explicit values are validated, never overwritten. The input/file is not
+    modified; callers apply the returned snapshot before taking a run signature.
+    """
+    result=copy.deepcopy(data)
+    if result.get('frame_id')!='LAYOUT_MM' or tuple(result.get('bounds',()))!=(0,0,2400,2400):
+        raise ValueError('比赛默认配置需要2400×2400mm的LAYOUT_MM地图')
+    default=None
+    def value_for(key,name=None):
+        nonlocal default
+        if default is None:
+            default=load_profile().get('competition')
+        try:
+            return copy.deepcopy(default[key] if name is None else default[key][name])
+        except (KeyError,TypeError) as exc:
+            raise ValueError('比赛默认模板缺少有效配置：%s%s'%(key,'.'+name if name else '')) from exc
+    config=result.get('competition')
+    if config is None:
+        config={}
+    if not isinstance(config,dict):
+        raise ValueError('competition配置须为对象')
+    config=copy.deepcopy(config);added=[]
+    required={'start_zones':('1','2'),'staging':('1','2'),'stations':('qr','raw','rough','storage')}
+    for key,names in required.items():
+        if key not in config:
+            config[key]={}
+        if not isinstance(config[key],dict):
+            raise ValueError('competition.%s须为对象'%key)
+        for name in names:
+            if name not in config[key]:
+                config[key][name]=value_for(key,name);added.append(key+'.'+name)
+            try:
+                point=nav.point2(config[key][name],'competition.%s.%s'%(key,name))
+            except (ValueError,TypeError,OverflowError) as exc:
+                raise ValueError('competition.%s.%s坐标非法：%s'%(key,name,exc)) from exc
+            if not all(0<=v<=2400 for v in point):
+                raise ValueError('competition.%s.%s超出地图边界'%(key,name))
+    if 'lane_nodes' not in config:
+        config['lane_nodes']=value_for('lane_nodes');added.append('lane_nodes')
+    nodes=config['lane_nodes']
+    if not isinstance(nodes,list) or len(nodes)>256:
+        raise ValueError('competition.lane_nodes须为最多256个坐标的列表')
+    try:
+        for node in nodes:
+            if not all(0<=v<=2400 for v in nav.point2(node,'比赛车道节点')):
+                raise ValueError('车道节点超出地图边界')
+    except (ValueError,TypeError,OverflowError) as exc:
+        raise ValueError('competition.lane_nodes非法：'+str(exc)) from exc
+    result['competition']=config
+    if added:
+        result['competition_config_source']='competition_map.json defaults: '+', '.join(added)
+    return result,added
+
+
 def collision_scene(data, margin=10, sim_obstacles=()):
     return nav.CollisionScene(data['rects'], data['circles'], data['bounds'], margin,
                               (core.CAR_LENGTH_MM, core.CAR_WIDTH_MM, 0), data['drivable_polygons'],
+                              dynamic_rects=data.get('dynamic_rects'),dynamic_circles=data.get('dynamic_circles'),
                               sim_circles=core.sim_obstacle_circles(sim_obstacles))
 
 
@@ -89,11 +146,11 @@ def _tracking_reason(result, scene, cancelled):
     """100mm参考会产生切内偏差；预演真实控制器，不能只凭规划线安全放行。"""
     sim = core.Simulator(queue.Queue(), queue.Queue())
     sim.handle_line('ZERO')
-    first = result['trajectory'][0]
+    first = result['segment_program']['start']
     sim.hold = first['x_mm'], first['y_mm']
     sim.zval = 90-first['field_yaw_deg']
-    sim.submit_navigation_trajectory(sim.begin_navigation(), result['trajectory'],
-                                     result['smoothed_primitives'], (0, 0, 0), scene)
+    sim.submit_navigation_segments(sim.begin_navigation(), result['segment_program'],
+                                   (0, 0, 0), scene)
     for i in range(7500):
         if i % 32 == 0 and cancelled():
             raise ValueError('比赛流程规划已取消')
@@ -266,10 +323,11 @@ def plan_leg(start, goal, scene, nodes, cancelled=lambda: False, *, graph_cache=
 
 
 def compile_match(data, task_code=DEFAULT_CODE, zone=1, margin=10, cancelled=lambda: False,
-                  sim_obstacles=()):
+                  sim_obstacles=(), *, coordinate_mode=False, chassis_control=None):
     """预检整轮；站点仅来自可编辑配置，原始比赛地图不被覆盖。"""
     data = copy.deepcopy(data)
     batches = parse_task_code(task_code)
+    chassis_control = dict(core.CHASSIS_DEFAULTS, **copy.deepcopy(chassis_control or {})) if coordinate_mode else None
     if zone not in (1, 2):
         raise ValueError('出发区必须为1或2')
     obstacles = obstacle_snapshot(data, sim_obstacles)
@@ -300,6 +358,12 @@ def compile_match(data, task_code=DEFAULT_CODE, zone=1, margin=10, cancelled=lam
     graph_cache = {}
     def route_between(a, b, heading):
         key = tuple(a), tuple(b), heading % 360
+        if coordinate_mode:
+            from coordinate_navigation import plan_route
+            if key not in route_cache:
+                route_cache[key] = plan_route(a, b, scene, config['lane_nodes'], heading, cancelled=cancelled,
+                                              graph_cache=graph_cache, chassis_control=chassis_control)
+            return copy.deepcopy(route_cache[key])
         if key not in route_cache:
             failures, candidates = [], []
             # 优先当前车头；矩形车体固定方向绕行，不因换向强制旋转。
@@ -379,7 +443,7 @@ def compile_match(data, task_code=DEFAULT_CODE, zone=1, margin=10, cancelled=lam
         nonlocal current, current_yaw
         target = tuple(config['stations'][key])
         result = route_between(current, target, current_yaw)
-        first = result['trajectory'][0]
+        first = result['waypoint_program']['start'] if coordinate_mode else result['trajectory'][0]
         yaw = -90-first['field_yaw_deg']
         if abs((yaw-current_yaw+180) % 360-180) > nav.EPS:
             why = scene.turn_reason(current, current_yaw, yaw)
@@ -388,7 +452,8 @@ def compile_match(data, task_code=DEFAULT_CODE, zone=1, margin=10, cancelled=lam
             maneuver('停车区对齐下一路段航向', current, yaw)
         stages.append(dict(kind='TRAVEL', label=label, route=result))
         legs.append(dict(label=label, route=result))
-        current, current_yaw = target, -90-result['trajectory'][-1]['field_yaw_deg']
+        last = result['waypoint_program']['goal'] if coordinate_mode else result['trajectory'][-1]
+        current, current_yaw = target, -90-last['field_yaw_deg']
     def action(kind, label, **fields):
         stages.append(dict(kind=kind, label=label, duration_s=.5, **fields))
     travel('qr', '前往二维码板')
@@ -412,7 +477,8 @@ def compile_match(data, task_code=DEFAULT_CODE, zone=1, margin=10, cancelled=lam
                    batch=batch_i, color=color, slot=slot)
     # 返回安全停车区；真实车头对齐后斜向入库，斜线不安全则保留已检查的L形横移。
     result = route_between(current, staging, current_yaw)
-    yaw = -90-result['trajectory'][0]['field_yaw_deg']
+    first = result['waypoint_program']['start'] if coordinate_mode else result['trajectory'][0]
+    yaw = -90-first['field_yaw_deg']
     why = scene.turn_reason(current, current_yaw, yaw)
     if why:
         raise ValueError('返程对齐不安全：'+why)
@@ -420,7 +486,8 @@ def compile_match(data, task_code=DEFAULT_CODE, zone=1, margin=10, cancelled=lam
         maneuver('返程停车区对齐', current, yaw)
     stages.append(dict(kind='TRAVEL', label='返回出发启停区前的停车区', route=result))
     legs.append(dict(label=stages[-1]['label'], route=result))
-    yaw = -90-result['trajectory'][-1]['field_yaw_deg']
+    last = result['waypoint_program']['goal'] if coordinate_mode else result['trajectory'][-1]
+    yaw = -90-last['field_yaw_deg']
     why = scene.turn_reason(staging, yaw, launch_yaw)
     if why:
         raise ValueError('入库航向调整不安全：'+why)
@@ -432,7 +499,8 @@ def compile_match(data, task_code=DEFAULT_CODE, zone=1, margin=10, cancelled=lam
         maneuver('入库：保持航向驶向启停区边', lateral, launch_yaw)
         maneuver('入库横移：返回抽签启停区', home, launch_yaw)
     return dict(schema_version=2, kind='PRELIMINARY_PC_SIMULATION', task_code=task_code,
-                planner='MECANUM_BODY_AND_TANGENT', diagonal_docking=diagonal_docking,
+                planner='COORDINATE_NO_ARC' if coordinate_mode else 'MECANUM_BODY_AND_TANGENT', diagonal_docking=diagonal_docking,
+                chassis_control=chassis_control,
                 zone=zone, home=home, start_yaw=launch_yaw, stages=stages, legs=legs,
                 batches=batches, map_snapshot=copy.deepcopy(data), margin_mm=margin,
                 sim_obstacles=obstacles, obstacle_frame_id='LAYOUT_MM',
@@ -467,6 +535,9 @@ class CompetitionRunner:
     """只消费新模拟积分帧；每个作业动作完成后才更新仓位和统计。"""
     def __init__(self, sim, match, mapping=(0, 0, 0), validity=lambda: True):
         self.sim, self.match, self.mapping, self.validity = sim, match, mapping, validity
+        if match.get('chassis_control') is not None:
+            parameters = copy.deepcopy(match['chassis_control'])
+            self.validity = lambda: validity() and sim.chassis_parameters() == parameters
         self.scene = collision_scene(match['map_snapshot'], match['margin_mm'], match.get('sim_obstacles', ()))
         self.status, self.reason = 'READY', ''
         self.index, self.elapsed_s, self.action_elapsed_s = -1, 0.0, 0.0
@@ -523,8 +594,12 @@ class CompetitionRunner:
             if len(self.cargo) not in (0, 3):
                 raise ValueError('物料必须放入车载仓后才能跨区域运行')
             r = stage['route']
-            self.goal_id = self.sim.submit_navigation_trajectory(self.epoch, r['trajectory'],
-                r['smoothed_primitives'], self.mapping, self.scene, self.validity)
+            if r.get('waypoint_program'):
+                self.goal_id = self.sim.submit_navigation_coordinates(self.epoch, r['waypoint_program'],
+                    self.mapping, self.scene, self.validity)
+            else:
+                self.goal_id = self.sim.submit_navigation_segments(self.epoch, r['segment_program'],
+                    self.mapping, self.scene, self.validity)
             self.status = 'RUNNING'
         elif stage['kind'] == 'MANEUVER':
             self.goal_id = self.sim.submit_navigation_maneuver(self.epoch, stage['target'], stage['yaw'],
@@ -618,7 +693,8 @@ class CompetitionRunner:
                 if snap['settled_frames'] < 10 or snap['speed_mm_s'] > 1 or abs(snap['yaw_rate_deg_s']) > 1:
                     raise ValueError('阶段终点未停稳')
                 if self.stage['kind'] == 'TRAVEL':
-                    final = self.stage['route']['trajectory'][-1]
+                    route = self.stage['route']
+                    final = route.get('waypoint_program', route.get('segment_program'))['goal']
                     target = final['x_mm'], final['y_mm'], final['field_yaw_deg']
                 else:
                     target = (*core.layout_to_field(*self.stage['target']), -90-self.stage['yaw'])

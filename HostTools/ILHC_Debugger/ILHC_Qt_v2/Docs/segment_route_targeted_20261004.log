@@ -1,0 +1,13 @@
+test_entire_match_executes_after_removing_all_dense_route_points (tests.test_segment_route.SegmentCompetitionTests.test_entire_match_executes_after_removing_all_dense_route_points) ... ok
+test_arc_moves_and_changes_heading_without_waiting_at_endpoints (tests.test_segment_route.SegmentRouteTests.test_arc_moves_and_changes_heading_without_waiting_at_endpoints) ... ok
+test_collinear_endpoints_merge_and_json_contains_no_sample_table (tests.test_segment_route.SegmentRouteTests.test_collinear_endpoints_merge_and_json_contains_no_sample_table) ... ok
+test_invalid_geometry_and_turn_fallback_are_not_implicitly_connected (tests.test_segment_route.SegmentRouteTests.test_invalid_geometry_and_turn_fallback_are_not_implicitly_connected) ... ok
+test_program_still_requires_full_rectangular_collision_recheck (tests.test_segment_route.SegmentRouteTests.test_program_still_requires_full_rectangular_collision_recheck) ... ok
+test_segment_tracker_needs_only_geometry_and_matches_old_commands (tests.test_segment_route.SegmentRouteTests.test_segment_tracker_needs_only_geometry_and_matches_old_commands) ... ok
+test_stop_and_map_version_change_cancel_without_residual_motion (tests.test_segment_route.SegmentRouteTests.test_stop_and_map_version_change_cancel_without_residual_motion) ... ok
+test_stop_during_segment_recheck_does_not_block_or_accept_old_epoch (tests.test_segment_route.SegmentRouteTests.test_stop_during_segment_recheck_does_not_block_or_accept_old_epoch) ... ok
+
+----------------------------------------------------------------------
+Ran 8 tests in 5.486s
+
+OK

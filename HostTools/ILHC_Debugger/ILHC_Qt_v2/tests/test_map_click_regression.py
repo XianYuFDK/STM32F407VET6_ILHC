@@ -6,6 +6,7 @@ geometry and simulator are real. See test_map_click_qt.py for real Qt events.
 from __future__ import annotations
 
 import ast
+import math
 from pathlib import Path
 import tempfile
 import time
@@ -125,7 +126,7 @@ class MapClickRegressionTests(unittest.TestCase):
         self.assert_failed_visibly('snapshot failure')
 
     def test_worker_error_is_visible(self):
-        with patch.object(core, 'plan_path', side_effect=RuntimeError('geometry failure')):
+        with patch.object(core, 'plan_coordinate_path', side_effect=RuntimeError('geometry failure')):
             self.w._on_map_click(330.0, 1200.0)
             self.wait_result()
         self.assert_failed_visibly('geometry failure')
@@ -174,9 +175,11 @@ class MapClickRegressionTests(unittest.TestCase):
         self.w.sim.make_frame(0.0)
         self.w._on_map_click(1200.0, 330.0)
         self.wait_result()
+        self.assertIsNotNone(self.w.planned_result, self.w.map_status.text)
         self.assertTrue(self.w.planned_result['ok'])
         self.assertEqual(self.w._planned_context['goal'], (1200.0, 330.0))
-        self.assertEqual(self.w.map_view.points[-1], (1200.0, 330.0))
+        self.assertEqual(self.w.map_view.waypoint_points[-1], (1200.0, 330.0))
+        self.assertLess(math.dist(self.w.map_view.points[-1], (1200.0,330.0)), 1)
         self.assert_no_motion()
 
 

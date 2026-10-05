@@ -88,3 +88,8 @@ if ($LASTEXITCODE -eq 0) { & .\MDK-ARM\build\STM32F407VET6_ILHC\hardware_regress
 覆盖位置指令的实际字节和扩展 ID、四字节回零 DLC/补零、邮箱不足不发送、CAN 未启动、临界区状态恢复、分包 ID 越界、速度换算越界、回复快照、1像素高位图、12像素字符不改写下方行、零半径圆、画线端点和非法绘制参数。
 
 此测试不包含 `debug_usart.c` 的 RTOS 服务，不模拟真实 SPI 时序、CAN 仲裁或电机动作。USART1 DMA 所有权修复由源码检查与固件编译验证；设备通信仍需实机验证。
+
+
+## 公共坐标位置闭环
+
+`python Tests/hardware/test_chassis_position.py`编译固件实际`chassis_move_reference`，验证浮点坐标、世界/车体轴增益、最短航向、前馈叠加与非有限输入拒绝。`position_test_support.py`只负责从固件提取实际函数；轨迹测试将实际位置核心与`trajectory_buffer.c`共同链接，既有`test_chassis_move.py`仍检查单点控制的限幅/斜坡/到位行为，不连接串口或GPIO。

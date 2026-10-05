@@ -1,0 +1,13 @@
+test_add_defaults_without_replacing_map_or_modifying_input (tests.test_competition_profile.CompetitionProfileTests.test_add_defaults_without_replacing_map_or_modifying_input) ... ok
+test_complete_user_profile_needs_no_default_file_and_is_idempotent (tests.test_competition_profile.CompetitionProfileTests.test_complete_user_profile_needs_no_default_file_and_is_idempotent) ... ok
+test_damaged_default_template_reports_a_configuration_error (tests.test_competition_profile.CompetitionProfileTests.test_damaged_default_template_reports_a_configuration_error) ... ok
+test_invalid_explicit_coordinates_and_layout_are_not_overwritten (tests.test_competition_profile.CompetitionProfileTests.test_invalid_explicit_coordinates_and_layout_are_not_overwritten) ... ok
+test_partial_config_preserves_existing_station_and_fills_missing_fields (tests.test_competition_profile.CompetitionProfileTests.test_partial_config_preserves_existing_station_and_fills_missing_fields) ... ok
+test_disconnected_graph_reports_no_optimum (tests.test_route_optimality.GraphOracleTests.test_disconnected_graph_reports_no_optimum) ... ok
+test_exact_diagonal_and_turn_weighted_route_cost (tests.test_route_optimality.GraphOracleTests.test_exact_diagonal_and_turn_weighted_route_cost) ... ok
+test_incoming_direction_state_is_required_for_optimal_bend_cost (tests.test_route_optimality.GraphOracleTests.test_incoming_direction_state_is_required_for_optimal_bend_cost) ... ok
+
+----------------------------------------------------------------------
+Ran 8 tests in 0.012s
+
+OK

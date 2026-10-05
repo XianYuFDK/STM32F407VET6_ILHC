@@ -623,3 +623,375 @@ Traceback (most recent call last):
     % (res["turn_count"], core.DEFAULT_TURN_PENALTY_MM), "warn")
                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 AttributeError: module 'core' has no attribute 'DEFAULT_TURN_PENALTY_MM'
+
+[2026-10-05 02:40:59] 规划结果处理失败：IndexError: list index out of range
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 4085, in _poll_plan
+    accepted=self._finish_plan(result, context)
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 4175, in _finish_plan
+    self.plan_text.setPlainText("\n".join(self._waypoint_lines()))
+                                          ~~~~~~~~~~~~~~~~~~~~^^
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 4194, in _waypoint_lines
+    row = program['waypoints'][k]
+          ~~~~~~~~~~~~~~~~~~~~^^^
+IndexError: list index out of range
+
+[2026-10-05 19:35:12] 规划计算失败：AttributeError: 'WindowMethods' object has no attribute 'plan_optimize_check'
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 4179, in plan_to
+    context = self._prepare_plan(fx, fy)
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 4000, in _prepare_plan
+    return dict(request_id=self._plan_request_id, signature=self._navigation_signature(),
+                                                            ~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3952, in _navigation_signature
+    self.plan_optimize_check.isChecked(),
+    ^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'WindowMethods' object has no attribute 'plan_optimize_check'
+
+[2026-10-05 19:35:12] 规划启动失败：AttributeError: 'WindowMethods' object has no attribute 'plan_optimize_check'
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 4124, in _request_plan
+    context = self._prepare_plan(fx, fy)
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 4000, in _prepare_plan
+    return dict(request_id=self._plan_request_id, signature=self._navigation_signature(),
+                                                            ~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3952, in _navigation_signature
+    self.plan_optimize_check.isChecked(),
+    ^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'WindowMethods' object has no attribute 'plan_optimize_check'
+
+[2026-10-05 19:35:12] 规划启动失败：AttributeError: 'WindowMethods' object has no attribute 'plan_optimize_check'
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 4124, in _request_plan
+    context = self._prepare_plan(fx, fy)
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 4000, in _prepare_plan
+    return dict(request_id=self._plan_request_id, signature=self._navigation_signature(),
+                                                            ~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3952, in _navigation_signature
+    self.plan_optimize_check.isChecked(),
+    ^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'WindowMethods' object has no attribute 'plan_optimize_check'
+
+[2026-10-05 19:35:12] 规划计算失败：AttributeError: 'WindowMethods' object has no attribute 'plan_optimize_check'
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 4179, in plan_to
+    context = self._prepare_plan(fx, fy)
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 4000, in _prepare_plan
+    return dict(request_id=self._plan_request_id, signature=self._navigation_signature(),
+                                                            ~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3952, in _navigation_signature
+    self.plan_optimize_check.isChecked(),
+    ^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'WindowMethods' object has no attribute 'plan_optimize_check'
+
+[2026-10-05 19:35:12] 规划计算失败：AttributeError: 'WindowMethods' object has no attribute 'plan_optimize_check'
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 4179, in plan_to
+    context = self._prepare_plan(fx, fy)
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 4000, in _prepare_plan
+    return dict(request_id=self._plan_request_id, signature=self._navigation_signature(),
+                                                            ~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3952, in _navigation_signature
+    self.plan_optimize_check.isChecked(),
+    ^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'WindowMethods' object has no attribute 'plan_optimize_check'
+
+[2026-10-05 19:35:12] 规划计算失败：AttributeError: 'WindowMethods' object has no attribute 'plan_optimize_check'
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 4179, in plan_to
+    context = self._prepare_plan(fx, fy)
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 4000, in _prepare_plan
+    return dict(request_id=self._plan_request_id, signature=self._navigation_signature(),
+                                                            ~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3952, in _navigation_signature
+    self.plan_optimize_check.isChecked(),
+    ^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'WindowMethods' object has no attribute 'plan_optimize_check'
+
+[2026-10-05 19:35:12] 规划计算失败：AttributeError: 'WindowMethods' object has no attribute 'plan_optimize_check'
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 4179, in plan_to
+    context = self._prepare_plan(fx, fy)
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 4000, in _prepare_plan
+    return dict(request_id=self._plan_request_id, signature=self._navigation_signature(),
+                                                            ~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3952, in _navigation_signature
+    self.plan_optimize_check.isChecked(),
+    ^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'WindowMethods' object has no attribute 'plan_optimize_check'
+
+[2026-10-05 19:35:12] 规划计算失败：AttributeError: 'WindowMethods' object has no attribute 'plan_optimize_check'
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 4179, in plan_to
+    context = self._prepare_plan(fx, fy)
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 4000, in _prepare_plan
+    return dict(request_id=self._plan_request_id, signature=self._navigation_signature(),
+                                                            ~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3952, in _navigation_signature
+    self.plan_optimize_check.isChecked(),
+    ^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'WindowMethods' object has no attribute 'plan_optimize_check'
+
+[2026-10-05 19:35:12] 规划计算失败：AttributeError: 'WindowMethods' object has no attribute 'plan_optimize_check'
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 4179, in plan_to
+    context = self._prepare_plan(fx, fy)
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 4000, in _prepare_plan
+    return dict(request_id=self._plan_request_id, signature=self._navigation_signature(),
+                                                            ~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3952, in _navigation_signature
+    self.plan_optimize_check.isChecked(),
+    ^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'WindowMethods' object has no attribute 'plan_optimize_check'
+
+[2026-10-05 19:35:12] 规划计算失败：AttributeError: 'WindowMethods' object has no attribute 'plan_optimize_check'
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 4179, in plan_to
+    context = self._prepare_plan(fx, fy)
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 4000, in _prepare_plan
+    return dict(request_id=self._plan_request_id, signature=self._navigation_signature(),
+                                                            ~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3952, in _navigation_signature
+    self.plan_optimize_check.isChecked(),
+    ^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'WindowMethods' object has no attribute 'plan_optimize_check'
+
+[2026-10-05 19:35:12] 规划计算失败：AttributeError: 'WindowMethods' object has no attribute 'plan_optimize_check'
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 4179, in plan_to
+    context = self._prepare_plan(fx, fy)
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 4000, in _prepare_plan
+    return dict(request_id=self._plan_request_id, signature=self._navigation_signature(),
+                                                            ~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3952, in _navigation_signature
+    self.plan_optimize_check.isChecked(),
+    ^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'WindowMethods' object has no attribute 'plan_optimize_check'
+
+[2026-10-05 19:35:12] 规划计算失败：AttributeError: 'WindowMethods' object has no attribute 'plan_optimize_check'
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 4179, in plan_to
+    context = self._prepare_plan(fx, fy)
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 4000, in _prepare_plan
+    return dict(request_id=self._plan_request_id, signature=self._navigation_signature(),
+                                                            ~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3952, in _navigation_signature
+    self.plan_optimize_check.isChecked(),
+    ^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'WindowMethods' object has no attribute 'plan_optimize_check'
+
+[2026-10-05 19:35:12] 规划计算失败：AttributeError: 'WindowMethods' object has no attribute 'plan_optimize_check'
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 4179, in plan_to
+    context = self._prepare_plan(fx, fy)
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 4000, in _prepare_plan
+    return dict(request_id=self._plan_request_id, signature=self._navigation_signature(),
+                                                            ~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3952, in _navigation_signature
+    self.plan_optimize_check.isChecked(),
+    ^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'WindowMethods' object has no attribute 'plan_optimize_check'
+
+[2026-10-05 19:35:12] 规划计算失败：AttributeError: 'WindowMethods' object has no attribute 'plan_optimize_check'
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 4179, in plan_to
+    context = self._prepare_plan(fx, fy)
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 4000, in _prepare_plan
+    return dict(request_id=self._plan_request_id, signature=self._navigation_signature(),
+                                                            ~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3952, in _navigation_signature
+    self.plan_optimize_check.isChecked(),
+    ^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'WindowMethods' object has no attribute 'plan_optimize_check'
+
+[2026-10-05 19:35:12] 规划计算失败：AttributeError: 'WindowMethods' object has no attribute 'plan_optimize_check'
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 4179, in plan_to
+    context = self._prepare_plan(fx, fy)
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 4000, in _prepare_plan
+    return dict(request_id=self._plan_request_id, signature=self._navigation_signature(),
+                                                            ~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3952, in _navigation_signature
+    self.plan_optimize_check.isChecked(),
+    ^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'WindowMethods' object has no attribute 'plan_optimize_check'
+
+[2026-10-05 19:35:12] 规划计算失败：AttributeError: 'WindowMethods' object has no attribute 'plan_optimize_check'
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 4179, in plan_to
+    context = self._prepare_plan(fx, fy)
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 4000, in _prepare_plan
+    return dict(request_id=self._plan_request_id, signature=self._navigation_signature(),
+                                                            ~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3952, in _navigation_signature
+    self.plan_optimize_check.isChecked(),
+    ^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'WindowMethods' object has no attribute 'plan_optimize_check'
+
+[2026-10-05 19:35:12] 规划计算失败：AttributeError: 'WindowMethods' object has no attribute 'plan_optimize_check'
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 4179, in plan_to
+    context = self._prepare_plan(fx, fy)
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 4000, in _prepare_plan
+    return dict(request_id=self._plan_request_id, signature=self._navigation_signature(),
+                                                            ~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3952, in _navigation_signature
+    self.plan_optimize_check.isChecked(),
+    ^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'WindowMethods' object has no attribute 'plan_optimize_check'
+
+[2026-10-05 19:35:12] 规划计算失败：AttributeError: 'WindowMethods' object has no attribute 'plan_optimize_check'
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 4179, in plan_to
+    context = self._prepare_plan(fx, fy)
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 4000, in _prepare_plan
+    return dict(request_id=self._plan_request_id, signature=self._navigation_signature(),
+                                                            ~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3952, in _navigation_signature
+    self.plan_optimize_check.isChecked(),
+    ^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'WindowMethods' object has no attribute 'plan_optimize_check'
+
+[2026-10-05 19:35:12] 规划计算失败：AttributeError: 'WindowMethods' object has no attribute 'plan_optimize_check'
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 4179, in plan_to
+    context = self._prepare_plan(fx, fy)
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 4000, in _prepare_plan
+    return dict(request_id=self._plan_request_id, signature=self._navigation_signature(),
+                                                            ~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3952, in _navigation_signature
+    self.plan_optimize_check.isChecked(),
+    ^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'WindowMethods' object has no attribute 'plan_optimize_check'
+
+[2026-10-05 19:35:12] 规划计算失败：AttributeError: 'WindowMethods' object has no attribute 'plan_optimize_check'
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 4179, in plan_to
+    context = self._prepare_plan(fx, fy)
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 4000, in _prepare_plan
+    return dict(request_id=self._plan_request_id, signature=self._navigation_signature(),
+                                                            ~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3952, in _navigation_signature
+    self.plan_optimize_check.isChecked(),
+    ^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'WindowMethods' object has no attribute 'plan_optimize_check'
+
+[2026-10-05 19:35:12] 规划计算失败：AttributeError: 'WindowMethods' object has no attribute 'plan_optimize_check'
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 4179, in plan_to
+    context = self._prepare_plan(fx, fy)
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 4000, in _prepare_plan
+    return dict(request_id=self._plan_request_id, signature=self._navigation_signature(),
+                                                            ~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3952, in _navigation_signature
+    self.plan_optimize_check.isChecked(),
+    ^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'WindowMethods' object has no attribute 'plan_optimize_check'
+
+[2026-10-05 19:35:12] 规划计算失败：AttributeError: 'WindowMethods' object has no attribute 'plan_optimize_check'
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 4179, in plan_to
+    context = self._prepare_plan(fx, fy)
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 4000, in _prepare_plan
+    return dict(request_id=self._plan_request_id, signature=self._navigation_signature(),
+                                                            ~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3952, in _navigation_signature
+    self.plan_optimize_check.isChecked(),
+    ^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'WindowMethods' object has no attribute 'plan_optimize_check'
+
+[2026-10-05 19:35:12] 规划计算失败：AttributeError: 'WindowMethods' object has no attribute 'plan_optimize_check'
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 4179, in plan_to
+    context = self._prepare_plan(fx, fy)
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 4000, in _prepare_plan
+    return dict(request_id=self._plan_request_id, signature=self._navigation_signature(),
+                                                            ~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3952, in _navigation_signature
+    self.plan_optimize_check.isChecked(),
+    ^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'WindowMethods' object has no attribute 'plan_optimize_check'
+
+[2026-10-05 19:35:12] 规划计算失败：AttributeError: 'WindowMethods' object has no attribute 'plan_optimize_check'
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 4179, in plan_to
+    context = self._prepare_plan(fx, fy)
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 4000, in _prepare_plan
+    return dict(request_id=self._plan_request_id, signature=self._navigation_signature(),
+                                                            ~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3952, in _navigation_signature
+    self.plan_optimize_check.isChecked(),
+    ^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'WindowMethods' object has no attribute 'plan_optimize_check'
+
+[2026-10-05 19:35:12] 规划计算失败：AttributeError: 'WindowMethods' object has no attribute 'plan_optimize_check'
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 4179, in plan_to
+    context = self._prepare_plan(fx, fy)
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 4000, in _prepare_plan
+    return dict(request_id=self._plan_request_id, signature=self._navigation_signature(),
+                                                            ~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3952, in _navigation_signature
+    self.plan_optimize_check.isChecked(),
+    ^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'WindowMethods' object has no attribute 'plan_optimize_check'
+
+[2026-10-05 19:35:12] 规划计算失败：AttributeError: 'WindowMethods' object has no attribute 'plan_optimize_check'
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 4179, in plan_to
+    context = self._prepare_plan(fx, fy)
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 4000, in _prepare_plan
+    return dict(request_id=self._plan_request_id, signature=self._navigation_signature(),
+                                                            ~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3952, in _navigation_signature
+    self.plan_optimize_check.isChecked(),
+    ^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'WindowMethods' object has no attribute 'plan_optimize_check'
+
+[2026-10-05 19:35:12] 规划计算失败：AttributeError: 'WindowMethods' object has no attribute 'plan_optimize_check'
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 4179, in plan_to
+    context = self._prepare_plan(fx, fy)
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 4000, in _prepare_plan
+    return dict(request_id=self._plan_request_id, signature=self._navigation_signature(),
+                                                            ~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3952, in _navigation_signature
+    self.plan_optimize_check.isChecked(),
+    ^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'WindowMethods' object has no attribute 'plan_optimize_check'
+
+[2026-10-05 19:35:13] 规划计算失败：AttributeError: 'WindowMethods' object has no attribute 'plan_optimize_check'
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 4179, in plan_to
+    context = self._prepare_plan(fx, fy)
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 4000, in _prepare_plan
+    return dict(request_id=self._plan_request_id, signature=self._navigation_signature(),
+                                                            ~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3952, in _navigation_signature
+    self.plan_optimize_check.isChecked(),
+    ^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'WindowMethods' object has no attribute 'plan_optimize_check'
+
+[2026-10-05 19:35:13] 规划计算失败：AttributeError: 'WindowMethods' object has no attribute 'plan_optimize_check'
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 4179, in plan_to
+    context = self._prepare_plan(fx, fy)
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 4000, in _prepare_plan
+    return dict(request_id=self._plan_request_id, signature=self._navigation_signature(),
+                                                            ~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3952, in _navigation_signature
+    self.plan_optimize_check.isChecked(),
+    ^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'WindowMethods' object has no attribute 'plan_optimize_check'
+
+[2026-10-05 19:35:13] 规划计算失败：AttributeError: 'WindowMethods' object has no attribute 'plan_optimize_check'
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 4179, in plan_to
+    context = self._prepare_plan(fx, fy)
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 4000, in _prepare_plan
+    return dict(request_id=self._plan_request_id, signature=self._navigation_signature(),
+                                                            ~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\main.py", line 3952, in _navigation_signature
+    self.plan_optimize_check.isChecked(),
+    ^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'WindowMethods' object has no attribute 'plan_optimize_check'
