@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""ILHC Control Station v2.1.22 — PySide6 + PyQtGraph UI.
+"""ILHC Control Station v2.1.23 — PySide6 + PyQtGraph UI.
 
 保留 v1.1 的通信/安全核心，重做桌面 UI：
 - PySide6 Qt Widgets
@@ -60,6 +60,7 @@ try:
         QApplication,
         QCheckBox,
         QComboBox,
+        QDialog,
         QDoubleSpinBox,
         QFileDialog,
         QFrame,
@@ -1049,7 +1050,7 @@ class MainWindow(QMainWindow):
     def __init__(self, args):
         super().__init__()
         self.args = args
-        self.setWindowTitle("ILHC Control Station v2.1.22 — 三种转弯模式 / 实测OPS出发零点 / STM32F407VET6")
+        self.setWindowTitle("ILHC Control Station v2.1.23 — 三种转弯模式 / 实测OPS出发零点 / STM32F407VET6")
         self.resize(1500, 930)
         self.setMinimumSize(1180, 760)
 
@@ -1312,7 +1313,7 @@ class MainWindow(QMainWindow):
             self.nav_buttons.append(btn)
 
         lay.addStretch(1)
-        ver = QLabel("v2.1.22 Qt\nThree turn modes")
+        ver = QLabel("v2.1.23 Qt\nThree turn modes")
         ver.setObjectName("VersionLabel")
         lay.addWidget(ver)
         return side
@@ -1622,15 +1623,15 @@ class MainWindow(QMainWindow):
         self.real_collision_check.toggled.connect(self._real_collision_changed)
         real_row.addStretch(1)
         layout.addLayout(real_row)
-        layout.addWidget(self.real_collision_check)
-        work_points = self._build_work_points()
-        work_points.setVisible(False)
-        work_toggle = QPushButton('作业点坐标设置 ▸')
-        work_toggle.setCheckable(True)
-        work_toggle.toggled.connect(work_points.setVisible)
-        work_toggle.toggled.connect(lambda checked: work_toggle.setText('收起作业点坐标 ▾' if checked else '作业点坐标设置 ▸'))
-        layout.addWidget(work_toggle)
-        layout.addWidget(work_points)
+        settings_row = QHBoxLayout()
+        settings_row.addWidget(self.real_collision_check)
+        settings_row.addStretch(1)
+        self._build_work_points()
+        self.work_points_button = QPushButton('作业点坐标设置…')
+        self.work_points_button.setMinimumHeight(36)
+        self.work_points_button.clicked.connect(self._show_work_points)
+        settings_row.addWidget(self.work_points_button)
+        layout.addLayout(settings_row)
         orientation_hint = QLabel('右侧塔吊：到站朝向作业区；无额外障碍时复用固定路线。')
         orientation_hint.setObjectName('HintLabel')
         layout.addWidget(orientation_hint)
@@ -1646,36 +1647,90 @@ class MainWindow(QMainWindow):
         return panel
 
     def _build_work_points(self):
+        dialog = QDialog(self)
+        self.work_points_dialog = dialog
+        dialog.setObjectName('WorkPointDialog')
+        dialog.setWindowTitle('作业点坐标设置')
+        dialog.setMinimumSize(560, 360)
+        dialog.resize(620, 520)
+        outer = QVBoxLayout(dialog)
+        outer.setContentsMargins(24, 20, 24, 20)
+        outer.setSpacing(16)
+        title = QLabel('作业点坐标')
+        title.setObjectName('SectionTitle')
+        outer.addWidget(title)
+        hint = QLabel('使用地图上方的场地坐标：X 向左，Y 向前，单位 cm。\n关闭窗口不会应用未确认的修改。')
+        hint.setObjectName('HintLabel')
+        hint.setWordWrap(True)
+        outer.addWidget(hint)
+
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.NoFrame)
         box = QFrame()
+        box.setObjectName('WorkPointTable')
         grid = QGridLayout(box)
+        grid.setContentsMargins(12, 12, 12, 12)
+        grid.setHorizontalSpacing(16)
+        grid.setVerticalSpacing(12)
+        grid.setSizeConstraint(QLayout.SetMinimumSize)
+        grid.setColumnStretch(1, 1)
+        grid.setColumnStretch(2, 1)
         self.work_point_spins = {}
-        grid.addWidget(QLabel('作业点（场地坐标 cm）'), 0, 0)
-        grid.addWidget(QLabel('X 左'), 0, 1)
-        grid.addWidget(QLabel('Y 前'), 0, 2)
+        for col, text in enumerate(('作业点', 'X · 左右（cm）', 'Y · 前后（cm）')):
+            label = QLabel(text)
+            label.setObjectName('HintLabel')
+            grid.addWidget(label, 0, col)
         for row, (key, label) in enumerate((('qr', '二维码'), ('raw', '原料区'),
                                             ('rough', '粗加工区'), ('storage', '暂存区')), 1):
             grid.addWidget(QLabel(label), row, 0)
             pair = []
-            for col in (1, 2):
+            for col, axis in ((1, 'X'), (2, 'Y')):
                 spin = QDoubleSpinBox()
                 spin.setRange(-300, 300)
                 spin.setDecimals(1)
                 spin.setSingleStep(.5)
                 spin.setSuffix(' cm')
+                spin.setMinimumSize(150, 44)
+                spin.setAccessibleName(label + ' ' + axis + ' 坐标，厘米')
                 grid.addWidget(spin, row, col)
                 pair.append(spin)
             self.work_point_spins[key] = pair
-        apply = QPushButton('应用作业点')
-        apply.clicked.connect(self._apply_work_points)
-        grid.addWidget(apply, 1, 3)
-        save = QPushButton('保存当前地图…')
-        save.clicked.connect(self._save_work_point_map)
-        grid.addWidget(save, 2, 3)
-        self.work_point_status = QLabel('应用后重新规划；保存地图可保留点位。作业航向保持与设备边缘平行。')
+        scroll.setWidget(box)
+        outer.addWidget(scroll, 1)
+        self.work_point_status = QLabel('应用将使旧路线失效；作业朝向保持与设备边缘平行。')
         self.work_point_status.setWordWrap(True)
-        grid.addWidget(self.work_point_status, 3, 3, 2, 1)
+        self.work_point_status.setMinimumHeight(48)
+        self.work_point_status.setObjectName('HintLabel')
+        outer.addWidget(self.work_point_status)
+        actions = QHBoxLayout()
+        close = QPushButton('关闭')
+        close.clicked.connect(dialog.reject)
+        actions.addWidget(close)
+        actions.addStretch(1)
+        save = QPushButton('应用并保存地图…')
+        save.clicked.connect(self._save_work_point_map)
+        actions.addWidget(save)
+        apply = QPushButton('应用坐标')
+        apply.setObjectName('PrimaryButton')
+        apply.clicked.connect(self._apply_work_points)
+        actions.addWidget(apply)
+        for button in (close, save, apply):
+            button.setMinimumHeight(40)
+            button.setAutoDefault(False)
+            button.setDefault(False)
+        outer.addLayout(actions)
         self._sync_work_points()
-        return box
+        return dialog
+
+    def _show_work_points(self):
+        dialog = self.work_points_dialog
+        if not dialog.isVisible():
+            self._sync_work_points()
+            self.work_point_status.setText('应用将使旧路线失效；作业朝向保持与设备边缘平行。')
+        dialog.show()
+        dialog.raise_()
+        dialog.activateWindow()
 
     def _sync_work_points(self):
         if not hasattr(self, 'work_point_spins'):
@@ -5561,7 +5616,7 @@ class MainWindow(QMainWindow):
         self.command_entry.clear()
 
     def _journal_metadata(self):
-        return dict(pc_version='2.1.22',turn_mode=self.nav_map.get('turn_mode','WHEEL'),mapping=[self.map_ox,self.map_oy,self.map_theta],
+        return dict(pc_version='2.1.23',turn_mode=self.nav_map.get('turn_mode','WHEEL'),mapping=[self.map_ox,self.map_oy,self.map_theta],
             ops_zero_calibration=copy.deepcopy(getattr(self,'_ops_zero_result',{'state':'NOT_REQUESTED'})),
             python_version=sys.version,connection=dict(source='REAL' if self.worker is not None else 'SIM',
                 port=getattr(self.worker,'port',None),baud=getattr(self.worker,'baud',None),
@@ -5671,7 +5726,7 @@ class MainWindow(QMainWindow):
 
 
 def parse_args():
-    ap = argparse.ArgumentParser(description="ILHC Control Station v2.1.22")
+    ap = argparse.ArgumentParser(description="ILHC Control Station v2.1.23")
     ap.add_argument("--port", help="启动时连接指定串口，如 COM6")
     ap.add_argument("--baud", type=int, default=core.DEFAULT_BAUD)
     ap.add_argument("--simulate", action="store_true", help="启动即进入模拟模式")

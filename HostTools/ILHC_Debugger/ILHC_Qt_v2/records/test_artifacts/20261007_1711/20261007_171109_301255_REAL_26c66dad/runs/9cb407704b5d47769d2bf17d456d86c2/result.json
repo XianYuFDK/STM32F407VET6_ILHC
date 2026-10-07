@@ -1,0 +1,24 @@
+{
+  "event": "RUN_END",
+  "sequence": 9,
+  "run_id": "9cb407704b5d47769d2bf17d456d86c2",
+  "monotonic": 366258.1830174,
+  "wall_time": 1791364269.3083901,
+  "status": "CANCELLED",
+  "reason": "底盘轮使能已关闭",
+  "validation_trigger": {
+    "reason": "底盘轮使能已关闭",
+    "monotonic": 366258.1829208,
+    "telemetry_age_ms": 0.0,
+    "telemetry_limit_ms": 350.0,
+    "ops_pose_cm_deg": [
+      15,
+      15,
+      0
+    ],
+    "wheel_enabled": false,
+    "link_open": true,
+    "changed_fields": []
+  },
+  "collision_trigger": null
+}

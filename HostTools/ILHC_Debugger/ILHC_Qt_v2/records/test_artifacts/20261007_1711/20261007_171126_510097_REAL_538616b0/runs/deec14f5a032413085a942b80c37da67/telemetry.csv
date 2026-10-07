@@ -1,0 +1,1 @@
+﻿host_monotonic_s,host_wall_s,device_sequence,device_tick_ms,protocol,run_id,pos_x,pos_y,zangle,devx,devy,devz,mKpx,mKpy,mKpz,XYVmax,ZVmax,SpeedTarget0,dm_id,dm_pos,dm_vel,dm_torque,dm_status,dm_t_mos,dm_t_rotor,dm_cmd_pos,dm_cmd_vel,dm_kp,dm_kd,dm_torque_cmd

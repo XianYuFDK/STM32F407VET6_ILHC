@@ -1,0 +1,28 @@
+{
+  "event": "RUN_END",
+  "sequence": 8,
+  "run_id": "225f25eaa5794e3cb2f19e3b7421be9e",
+  "monotonic": 366274.9292638,
+  "wall_time": 1791364286.0546365,
+  "status": "CANCELLED",
+  "reason": "实际车体碰撞保护：二维码板 · 相邻帧扫掠（前帧X=105.0cm Y=0.0cm → 触发位置X=22.4cm Y=100.8cm，航向11.8°）",
+  "validation_trigger": null,
+  "collision_trigger": {
+    "reason": "二维码板",
+    "check": "相邻帧扫掠",
+    "field_x_mm": 224.0,
+    "field_y_mm": 1008.0,
+    "heading_deg": 11.8,
+    "previous_layout_pose": [
+      2250,
+      1200,
+      180
+    ],
+    "layout_pose": [
+      1242.0,
+      2026.0,
+      -168.2
+    ],
+    "telemetry_time": 366274.7212312
+  }
+}

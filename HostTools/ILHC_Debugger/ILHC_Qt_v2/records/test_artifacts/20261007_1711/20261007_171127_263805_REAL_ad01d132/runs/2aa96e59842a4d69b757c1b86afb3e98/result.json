@@ -1,0 +1,9 @@
+{
+  "event": "RUN_END",
+  "sequence": 4,
+  "run_id": "2aa96e59842a4d69b757c1b86afb3e98",
+  "monotonic": 100.82000000000001,
+  "wall_time": 1791364287.2753155,
+  "status": "COMPLETE",
+  "reason": "直接回库位置/航向到位并停稳"
+}

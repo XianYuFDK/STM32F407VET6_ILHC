@@ -1,0 +1,9 @@
+{
+  "event": "RUN_END",
+  "sequence": 5,
+  "run_id": "afa2741137cd4ffaba3b9861868794b7",
+  "monotonic": 366261.4242684,
+  "wall_time": 1791364272.5496414,
+  "status": "SESSION_CLOSED",
+  "reason": "连接或窗口关闭"
+}

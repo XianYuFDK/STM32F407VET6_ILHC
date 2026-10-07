@@ -1,0 +1,24 @@
+{
+  "event": "RUN_END",
+  "sequence": 10,
+  "run_id": "2b6eacb311584e589654eed13ea25b8d",
+  "monotonic": 100,
+  "wall_time": 1791364286.9653978,
+  "status": "CANCELLED",
+  "reason": "OPS遥测过期：400ms未收到有效帧（上限350ms）",
+  "validation_trigger": {
+    "reason": "OPS遥测过期：400ms未收到有效帧（上限350ms）",
+    "monotonic": 100,
+    "telemetry_age_ms": 400.0,
+    "telemetry_limit_ms": 350.0,
+    "ops_pose_cm_deg": [
+      15,
+      15,
+      0
+    ],
+    "wheel_enabled": true,
+    "link_open": true,
+    "changed_fields": []
+  },
+  "collision_trigger": null
+}

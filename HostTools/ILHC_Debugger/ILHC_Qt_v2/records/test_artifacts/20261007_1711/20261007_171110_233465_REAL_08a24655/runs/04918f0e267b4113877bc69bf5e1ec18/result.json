@@ -1,0 +1,9 @@
+{
+  "event": "RUN_END",
+  "sequence": 4,
+  "run_id": "04918f0e267b4113877bc69bf5e1ec18",
+  "monotonic": 366259.1115475,
+  "wall_time": 1791364270.2369204,
+  "status": "STOP_REQUESTED",
+  "reason": "STOP"
+}

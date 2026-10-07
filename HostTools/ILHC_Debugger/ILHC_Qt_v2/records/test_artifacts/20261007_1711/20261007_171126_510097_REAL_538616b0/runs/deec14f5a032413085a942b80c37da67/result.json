@@ -1,0 +1,26 @@
+{
+  "event": "RUN_END",
+  "sequence": 8,
+  "run_id": "deec14f5a032413085a942b80c37da67",
+  "monotonic": 366275.3917215,
+  "wall_time": 1791364286.5170944,
+  "status": "CANCELLED",
+  "reason": "导航配置已变化：X偏移",
+  "validation_trigger": {
+    "reason": "导航配置已变化：X偏移",
+    "monotonic": 366275.3916106,
+    "telemetry_age_ms": 0.0,
+    "telemetry_limit_ms": 350.0,
+    "ops_pose_cm_deg": [
+      15,
+      15,
+      0
+    ],
+    "wheel_enabled": true,
+    "link_open": true,
+    "changed_fields": [
+      "X偏移"
+    ]
+  },
+  "collision_trigger": null
+}

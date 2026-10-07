@@ -1,0 +1,10 @@
+{
+  "event": "RUN_END",
+  "sequence": 12,
+  "run_id": "bf586ed7015a4b9b9cb4cef740e293ba",
+  "monotonic": 366272.7449204,
+  "wall_time": 1791364283.8702931,
+  "status": "CANCELLED",
+  "reason": "STOP：旧规划已失效",
+  "validation_trigger": null
+}

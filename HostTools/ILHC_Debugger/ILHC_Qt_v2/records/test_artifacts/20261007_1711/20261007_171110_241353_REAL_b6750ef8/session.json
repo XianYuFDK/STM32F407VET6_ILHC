@@ -1,0 +1,585 @@
+{
+  "schema_version": 1,
+  "source": "REAL",
+  "physical_data": true,
+  "recording_scope": "single_run",
+  "wallclock": "2026-10-07T17:11:10.241401+08:00",
+  "channels": [
+    [
+      0,
+      "pos_x",
+      "OPS X 坐标（左右）",
+      "cm",
+      0
+    ],
+    [
+      1,
+      "pos_y",
+      "OPS Y 坐标（前后）",
+      "cm",
+      0
+    ],
+    [
+      2,
+      "zangle",
+      "航向角",
+      "°",
+      0
+    ],
+    [
+      3,
+      "devx",
+      "X 轴误差（左右）",
+      "cm",
+      0
+    ],
+    [
+      4,
+      "devy",
+      "Y 轴误差（前后）",
+      "cm",
+      0
+    ],
+    [
+      5,
+      "devz",
+      "航向误差",
+      "",
+      0
+    ],
+    [
+      6,
+      "mKpx",
+      "X 轴 P（左右）",
+      "",
+      1
+    ],
+    [
+      7,
+      "mKpy",
+      "Y 轴 P（前后）",
+      "",
+      1
+    ],
+    [
+      8,
+      "mKpz",
+      "航向 P",
+      "",
+      1
+    ],
+    [
+      9,
+      "XYVmax",
+      "XY 限幅",
+      "",
+      1
+    ],
+    [
+      10,
+      "ZVmax",
+      "Z 限幅",
+      "",
+      1
+    ],
+    [
+      11,
+      "SpeedTarget0",
+      "1 号轮目标",
+      "",
+      1
+    ],
+    [
+      12,
+      "dm_id",
+      "DM 电机 ID",
+      "",
+      2
+    ],
+    [
+      13,
+      "dm_pos",
+      "DM 实际位置",
+      "rad",
+      2
+    ],
+    [
+      14,
+      "dm_vel",
+      "DM 实际速度",
+      "rad/s",
+      2
+    ],
+    [
+      15,
+      "dm_torque",
+      "DM 实际力矩",
+      "Nm",
+      2
+    ],
+    [
+      16,
+      "dm_status",
+      "DM 状态码",
+      "",
+      2
+    ],
+    [
+      17,
+      "dm_t_mos",
+      "DM MOS 温度",
+      "°C",
+      2
+    ],
+    [
+      18,
+      "dm_t_rotor",
+      "DM 线圈温度",
+      "°C",
+      2
+    ],
+    [
+      19,
+      "dm_cmd_pos",
+      "DM 目标位置",
+      "rad",
+      3
+    ],
+    [
+      20,
+      "dm_cmd_vel",
+      "DM 目标速度",
+      "rad/s",
+      3
+    ],
+    [
+      21,
+      "dm_kp",
+      "DM Kp",
+      "",
+      3
+    ],
+    [
+      22,
+      "dm_kd",
+      "DM Kd",
+      "",
+      3
+    ],
+    [
+      23,
+      "dm_torque_cmd",
+      "DM 前馈力矩",
+      "Nm",
+      3
+    ]
+  ],
+  "units": {
+    "position": "OPS cm",
+    "angle": "degrees",
+    "monotonic": "host seconds",
+    "device_tick": "MCU milliseconds"
+  },
+  "firmware_feedback_limits": "24 channels include wheel1 target, not all wheel encoder feedback",
+  "metadata": {
+    "pc_version": "2.1.21",
+    "turn_mode": "WHEEL",
+    "mapping": [
+      0,
+      0,
+      0
+    ],
+    "ops_zero_calibration": {
+      "state": "NOT_REQUESTED"
+    },
+    "python_version": "3.13.2 (tags/v3.13.2:4f8bb39, Feb  4 2025, 15:23:48) [MSC v.1942 64 bit (AMD64)]",
+    "connection": {
+      "source": "REAL",
+      "port": null,
+      "baud": null,
+      "link_mode": null
+    },
+    "map_snapshot": {
+      "schema_version": 1,
+      "map_id": "2027-preliminary-nominal-pc-station-calibration-20261007-clearance-calibration-verified-device-dimensions-measured-ops-zero-edge-heading-rough-190-110",
+      "map_version": 6,
+      "frame_id": "LAYOUT_MM",
+      "geometry_verified": false,
+      "note": "场地2400×2400mm、四块450×450mm禁区、400mm通道、300×300mm启停区；用户提供图3确认暂存和粗加工设备580×150mm，正文确认原料圆盘直径300mm、高80～100mm。三处停靠点保留用户实测坐标；设备位置按约40mm净空反算，全场绝对边界未独立实测。",
+      "bounds": [
+        0,
+        0,
+        2400,
+        2400
+      ],
+      "drivable_polygons": [
+        {
+          "outer": [
+            [
+              0,
+              0
+            ],
+            [
+              2400,
+              0
+            ],
+            [
+              2400,
+              2400
+            ],
+            [
+              0,
+              2400
+            ]
+          ],
+          "holes": [
+            [
+              [
+                550,
+                550
+              ],
+              [
+                1000,
+                550
+              ],
+              [
+                1000,
+                1000
+              ],
+              [
+                550,
+                1000
+              ]
+            ],
+            [
+              [
+                1400,
+                550
+              ],
+              [
+                1850,
+                550
+              ],
+              [
+                1850,
+                1000
+              ],
+              [
+                1400,
+                1000
+              ]
+            ],
+            [
+              [
+                550,
+                1400
+              ],
+              [
+                1000,
+                1400
+              ],
+              [
+                1000,
+                1850
+              ],
+              [
+                550,
+                1850
+              ]
+            ],
+            [
+              [
+                1400,
+                1400
+              ],
+              [
+                1850,
+                1400
+              ],
+              [
+                1850,
+                1850
+              ],
+              [
+                1400,
+                1850
+              ]
+            ]
+          ]
+        }
+      ],
+      "rects": [
+        [
+          550,
+          550,
+          1000,
+          1000,
+          "黄色禁行区"
+        ],
+        [
+          1400,
+          550,
+          1850,
+          1000,
+          "黄色禁行区"
+        ],
+        [
+          550,
+          1400,
+          1000,
+          1850,
+          "黄色禁行区"
+        ],
+        [
+          1400,
+          1400,
+          1850,
+          1850,
+          "黄色禁行区"
+        ],
+        [
+          0,
+          910,
+          150,
+          1490,
+          "暂存区设备"
+        ],
+        [
+          910,
+          -70.0,
+          1490,
+          80.0,
+          "粗加工区设备"
+        ],
+        [
+          2388,
+          1170,
+          2400,
+          1230,
+          "二维码板"
+        ]
+      ],
+      "circles": [
+        [
+          1200,
+          2470,
+          150,
+          "原料区圆盘"
+        ]
+      ],
+      "competition": {
+        "source_pages": {
+          "命题与运行": [
+            3,
+            4,
+            6,
+            7,
+            8
+          ],
+          "评分与规则": [
+            2,
+            3
+          ]
+        },
+        "start_zones": {
+          "1": [
+            2250,
+            2250
+          ],
+          "2": [
+            2250,
+            150
+          ]
+        },
+        "staging": {
+          "1": [
+            2100,
+            2100
+          ],
+          "2": [
+            2100,
+            300
+          ]
+        },
+        "stations": {
+          "qr": [
+            2180,
+            1200
+          ],
+          "raw": [
+            1200.0,
+            2150.0
+          ],
+          "rough": [
+            1150.0,
+            350.0
+          ],
+          "storage": [
+            350.0,
+            1150.0
+          ]
+        },
+        "work_areas": {
+          "raw": [
+            1200,
+            2470
+          ],
+          "rough": [
+            1200,
+            5.0
+          ],
+          "storage": [
+            75,
+            1200
+          ]
+        },
+        "lane_nodes": [
+          [
+            300,
+            300
+          ],
+          [
+            1200,
+            300
+          ],
+          [
+            2100,
+            300
+          ],
+          [
+            300,
+            400
+          ],
+          [
+            1200,
+            400
+          ],
+          [
+            2100,
+            400
+          ],
+          [
+            300,
+            1200
+          ],
+          [
+            400,
+            1200
+          ],
+          [
+            1200,
+            1200
+          ],
+          [
+            2100,
+            1200
+          ],
+          [
+            2180,
+            1200
+          ],
+          [
+            300,
+            2030
+          ],
+          [
+            1200,
+            2030
+          ],
+          [
+            2100,
+            2030
+          ],
+          [
+            300,
+            2100
+          ],
+          [
+            1200,
+            2100
+          ],
+          [
+            2100,
+            2100
+          ],
+          [
+            1200.0,
+            2150.0
+          ],
+          [
+            1150.0,
+            350.0
+          ],
+          [
+            350.0,
+            1150.0
+          ]
+        ],
+        "work_heading_field_deg": {
+          "raw": 0,
+          "rough": 180,
+          "storage": 90
+        }
+      },
+      "station_calibration": {
+        "date": "2026-10-07",
+        "source": "用户重新标定的实际停靠坐标",
+        "field_coordinates_cm": {
+          "raw": [
+            10,
+            105
+          ],
+          "rough": [
+            190,
+            110
+          ],
+          "storage": [
+            110,
+            190
+          ]
+        },
+        "reference": "用户确认上位机OPS X/Y或地图场地X/Y；固件已完成车心补偿，不再叠加安装偏移",
+        "status": "MEASURED_STATIONS",
+        "note": "三处间隙均用户报告约4cm；粗加工与原料设备位置据此反算、尺寸沿用。暂存原模型47mm净空与约40mm相符。保留10mm规划裕量和四个固定禁区，未宣称全场几何已实测。",
+        "clearance_measurements_mm": {
+          "rough": 40,
+          "storage": 40,
+          "raw": 40
+        },
+        "clearance_measurement_tolerance_mm": 10,
+        "rough_boundary_model": "按新停靠点、车宽260mm与约40mm实体间隙反算：设备保留原尺寸，沿LAYOUT-y平移；不是独立测量的绝对边界。",
+        "raw_boundary_model": "按新停靠点与约40mm实体间隙反算设备位置，保留各地图原圆盘半径；不是独立测量的圆心或半径。",
+        "device_dimensions_source": "用户2026-10-07提供图3及原料区正文截图",
+        "orientation_note": "用户要求车身平行设备边缘，右侧朝向作业区；原料0°、粗加工180°、暂存90°。停靠坐标不变。暂存当前轮廓模型净空70mm；不据此修改设备位置或宣称新实测间隙。",
+        "rough_update_note": "用户改粗加工停车点为(190,110)cm，航向180°；设备轮廓保持，当前模型净空140mm。原约40mm记录属于此前停车点。"
+      },
+      "coordinate_reference": {
+        "mode": "MEASURED_OPS_ZERO",
+        "units": "mm",
+        "departure_field_mm": [
+          150,
+          150
+        ],
+        "origin_description": "在测量三个作业点时的实际出发位置与朝向执行OPS ZERO；回库目标(0,0,0)，不从启停区中心生成零点偏移。",
+        "layout_anchor_note": "LAYOUT(2250,2250)是绘图换算锚点；设备和边界相对零点的绝对位置仍以现有模型为准，不代表实车零点自动吸附启停区中心。"
+      }
+    },
+    "obstacles": [],
+    "chassis_telemetry": [
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0
+    ],
+    "ops_offset_inputs_mm": [
+      53.0,
+      -39.5
+    ],
+    "ops_offset_inputs_are_not_readback": true,
+    "task_code": "156+123+516+231",
+    "zone": 1,
+    "runtime_collision_protection": true,
+    "chassis_control": null
+  }
+}

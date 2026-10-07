@@ -491,3 +491,13 @@ QWidget#StepperPage QPushButton#StepperDisclosure {
 QWidget#StepperPage QPushButton#StepperDisclosure:hover {
     color: #69D0F5;
 }
+
+/* Station editor: independent window; scroll the table instead of compressing rows. */
+QDialog#WorkPointDialog { background-color: #141920; }
+QFrame#WorkPointTable {
+    background-color: #1b222b;
+    border: 1px solid #303b48;
+    border-radius: 8px;
+}
+QFrame#WorkPointTable QLabel { background: transparent; border: none; }
+QFrame#WorkPointTable QDoubleSpinBox { padding: 8px 12px; }

@@ -1,0 +1,10 @@
+{
+  "event": "RUN_END",
+  "sequence": 7,
+  "run_id": "334d393174584472a7baebdd1e321396",
+  "monotonic": 366259.5545207,
+  "wall_time": 1791364270.6798935,
+  "status": "CANCELLED",
+  "reason": "地图版本/几何改变，连续跟踪已取消",
+  "validation_trigger": null
+}
