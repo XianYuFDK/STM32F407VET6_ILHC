@@ -119,7 +119,7 @@ try:
 except ImportError:
     serial = None
 
-APP_VERSION = "v2.1.7 Fast click planning / CRC telemetry / 50 Hz UI"
+APP_VERSION = "v2.1.18 Approach heading / confirmed corner exits"
 FRAME_TAIL = b"\x00\x00\x80\x7F"
 FRAME_FLOATS = 24
 FRAME_DATA_LEN = 4 * FRAME_FLOATS
@@ -317,8 +317,9 @@ CAR_WIDTH_MM = 260.0    # 车宽 26 cm，沿车左方向
 
 
 def layout_to_field(x, y):
-    """旋转后屏幕坐标：启停区1中心为零，屏幕左为+X、上为+Y，与协议轴序一致
-    （X=左右轴、Y=前后轴）。"""
+    """绘图内部 LAYOUT 到用户坐标。2250只是画布锚点，不执行定位或选区校准。
+    实测OPS地图的用户零点是实际摆车置零点，+X车左、+Y置零时车头方向。
+    """
     return 2250.0 - y, 2250.0 - x
 
 
@@ -402,11 +403,11 @@ FIELD_FORBIDDEN_RECTS = [
     (550.0, 1400.0, 1000.0, 1850.0, "中央物料区"),
     (1400.0, 1400.0, 1850.0, 1850.0, "中央物料区"),
     (0.0, 910.0, 150.0, 1490.0, "暂存区设备"),
-    (1000.0, 0.0, 1400.0, 150.0, "粗加工区设备"),
+    (910.0, 0.0, 1490.0, 150.0, "粗加工区设备"),
     (2388.0, 1170.0, 2400.0, 1230.0, "二维码板"),
 ]
 FIELD_FORBIDDEN_CIRCLES = [
-    (1200.0, 2400.0, 110.0, "原料区圆盘"),
+    (1200.0, 2400.0, 150.0, "原料区圆盘"),
 ]
 
 def dm_register_feedback(text):
@@ -422,6 +423,9 @@ def dm_register_feedback(text):
 
 CRC_FRAME_MAGIC = b'\xa5\x5a\x01\x18'
 CRC_FRAME_LEN = 112
+CRC2_POSE_MAGIC = b'\xa5\x5a\x02\x03'
+CRC2_FULL_MAGIC = b'\xa5\x5a\x02\x18'
+CRC_MAGICS = (CRC_FRAME_MAGIC, CRC2_POSE_MAGIC, CRC2_FULL_MAGIC)
 
 
 class FrameParser:
@@ -453,6 +457,10 @@ class FrameParser:
         self._sequence = None
         self._device_tick = None
         self.frame_metadata = []
+        self.frame_channels = []
+        self.frame_full_ticks = []
+        self._full_values = None
+        self._full_tick = None
 
     def _scan_text(self, data):
         """从字节流里拾取可读 ASCII 行（固件的文字应答/错误行）。
@@ -485,7 +493,7 @@ class FrameParser:
                 del self._param_lines[:-64]
                 continue
             repeat_stepper = (re.search(r"\bS(?:28|35)\s+", line) is not None or "DMREG " in line or
-                              line.startswith(('TSTAT ', 'TCAPS ', 'CCAPS ', 'CSTALL ')))
+                              line.startswith(('TSTAT ', 'TCAPS ', 'CCAPS ', 'CSTALL ', 'CCTRL ')))
             if len(line) >= 6 and any(c.isalpha() for c in line) and (repeat_stepper or line not in self._seen_text):
                 self._seen_text.append(line)
                 del self._seen_text[:-32]
@@ -514,14 +522,15 @@ class FrameParser:
         self.err_bytes += count
         del self.buf[:count]
 
-    def _crc_frame(self):
-        packet = bytes(self.buf[:CRC_FRAME_LEN])
-        expected = struct.unpack_from('<I', packet, CRC_FRAME_LEN-4)[0]
+    def _crc_frame(self, channels=24):
+        frame_len=16+4*channels
+        packet = bytes(self.buf[:frame_len])
+        expected = struct.unpack_from('<I', packet, frame_len-4)[0]
         if zlib.crc32(packet[:-4]) != expected:
             self.crc_errors += 1
             self._drop(1, False)
             return None
-        del self.buf[:CRC_FRAME_LEN]
+        del self.buf[:frame_len]
         seq, tick = struct.unpack_from('<II', packet, 4)
         self.crc_frames += 1
         if self._sequence is not None:
@@ -532,18 +541,30 @@ class FrameParser:
             if delta >= 0x80000000:
                 if seq < 8 and tick < self._device_tick:
                     self.device_restarts += 1
+                    self._full_values=None;self._full_tick=None
                 else:
                     self.duplicate_packets += 1
                     return None
             else:
                 self.lost_packets += delta-1
         self._sequence, self._device_tick = seq, tick
-        values = struct.unpack_from('<24f', packet, 12)
+        present = struct.unpack_from('<%df'%channels, packet, 12)
+        if channels==24:
+            values=present
+        elif self._full_values is not None:
+            values=present+self._full_values[3:]
+        else:
+            # 丢失首个完整状态后，等下一个独立全帧；不编造未接收通道。
+            return None
         if not all(math.isfinite(v) for v in values[:3]):
             self.invalid_pose_frames += 1
             return None
+        if channels==24:
+            self._full_values=values;self._full_tick=tick
         self.frames_ok += 1
         self.frame_metadata.append((seq, tick))
+        self.frame_channels.append(channels)
+        self.frame_full_ticks.append(self._full_tick)
         return values
 
     def _boundary_text_length(self):
@@ -564,20 +585,23 @@ class FrameParser:
         self.buf += data
         self.bytes_in += len(data)
         self.frame_metadata = []
+        self.frame_channels = []
+        self.frame_full_ticks = []
         frames = []
 
         while True:
             # Once CRC1 is observed, damaged binary must NEVER fall back to a
             # footer inside its payload. Only verified packets reach position,
             # runtime protection, recorder and GUI; binary is not scanned as GET.
-            if self.buf and CRC_FRAME_MAGIC.startswith(self.buf) and len(self.buf)<4:
+            if self.buf and len(self.buf)<4 and any(m.startswith(self.buf) for m in CRC_MAGICS):
                 break
-            if self.buf.startswith(CRC_FRAME_MAGIC):
-                self.protocol = 'CRC1'
+            magic=next((m for m in CRC_MAGICS if self.buf.startswith(m)),None)
+            if magic is not None:
+                self.protocol = 'CRC1' if magic==CRC_FRAME_MAGIC else 'CRC2'
                 self.synced = False
-                if len(self.buf) < CRC_FRAME_LEN:
+                if len(self.buf) < 16+4*magic[3]:
                     break
-                values = self._crc_frame()
+                values = self._crc_frame(magic[3])
                 if values is not None:
                     frames.append(values)
                 continue
@@ -588,8 +612,9 @@ class FrameParser:
                 self._scan_text(self.buf[:text_length])
                 del self.buf[:text_length]
                 continue
-            if self.protocol == 'CRC1':
-                start = self.buf.find(CRC_FRAME_MAGIC)
+            if self.protocol in ('CRC1','CRC2'):
+                starts=[self.buf.find(m) for m in CRC_MAGICS]
+                start=min((n for n in starts if n>=0),default=-1)
                 if start >= 0:
                     self._drop(start, False)
                     continue
@@ -605,12 +630,13 @@ class FrameParser:
                 if self.buf[FRAME_DATA_LEN:FRAME_LEN] == FRAME_TAIL:
                     frames.append(self._accept(self.buf[:FRAME_DATA_LEN]))
                     self.frame_metadata.append(None)
+                    self.frame_channels.append(24);self.frame_full_ticks.append(None)
                     del self.buf[:FRAME_LEN]
                     continue
                 # 固定位置帧尾不匹配：失步，转入重新同步。
                 self.synced = False
 
-            start_crc = self.buf.find(CRC_FRAME_MAGIC)
+            start_crc = min((n for m in CRC_MAGICS if (n:=self.buf.find(m))>=0),default=-1)
             if start_crc >= 0:
                 self._drop(start_crc)
                 continue
@@ -640,6 +666,7 @@ class FrameParser:
                 found -= start
             frames.append(self._accept(self.buf[:found]))
             self.frame_metadata.append(None)
+            self.frame_channels.append(24);self.frame_full_ticks.append(None)
             del self.buf[:found + len(FRAME_TAIL)]
             self.synced = True
 
@@ -729,9 +756,17 @@ class RingBuffer:
 # ======================================================================
 # 串口工作线程：收（解析遥测）+ 发（ASCII 命令）
 # ======================================================================
+class TelemetryValues(tuple):
+    """24通道兼容视图；慢通道保留自己的接收时间，不冒充新测量。"""
+    def __new__(cls, values, full_state_monotonic):
+        result=super().__new__(cls,values)
+        result.full_state_monotonic=full_state_monotonic
+        return result
+
+
 class SerialWorker(threading.Thread):
     def __init__(self, port, baud, frame_q, line_q, urgent_q=None, err_cb=None,
-                 text_q=None, param_q=None):
+                 text_q=None, param_q=None, event_cb=None, link_mode='wired'):
         super().__init__(daemon=True)
         self.port, self.baud = port, baud
         self.frame_q, self.line_q = frame_q, line_q
@@ -757,19 +792,53 @@ class SerialWorker(threading.Thread):
         self._crc_requests = 0
         self._crc_confirmed_frames = 0
         self.queue_drops = 0
+        self.event_cb = event_cb
+        self.event_cb_errors = 0
+        if link_mode not in ('wired','dl20'):raise ValueError('未知串口链路模式')
+        self.link_mode=link_mode
+        self._tx_credit=128.0;self._tx_credit_tick=0.0
+        self.tx_bytes=0;self.slow_writes=0;self.max_write_s=0.0
+
+    def _refill_tx_credit(self):
+        now=time.monotonic()
+        if self._tx_credit_tick:
+            self._tx_credit=min(128.0,self._tx_credit+max(0.0,now-self._tx_credit_tick)*450)
+        self._tx_credit_tick=now
+
+    def _ordinary_ready(self):
+        if self.link_mode!='dl20':return True
+        self._refill_tx_credit()
+        # 不先取走命令：取消时清空队列就能清掉所有未发点/启动命令。
+        with self.line_q.mutex:
+            if not self.line_q.queue:return False
+            size=min(128,len(str(self.line_q.queue[0]).encode('ascii','ignore'))+1)
+        return self._tx_credit>=size and getattr(self.ser,'out_waiting',0)<=128
+
+    def _event(self, event, **data):
+        if self.event_cb is not None:
+            try:self.event_cb(event, **data)
+            except Exception:self.event_cb_errors += 1
 
     def _write_line(self, line):
         if not self.ser or not self.ser.is_open:
             return False
         data = str(line).encode("ascii", "ignore") + b"\n"
+        if self.link_mode=='dl20' and len(data)>128:
+            self._event('TX',command=str(line),successful=False,failure='dl20_line_exceeds_128_bytes')
+            self._note('上位机: DL-20单行命令超过128字节，已拒绝；后续命令继续发送')
+            return False
         # 超时可能只发出半条命令；先用非法后缀终结残行，禁止重放运动命令。
         if self._tx_resync:
             data = b"!\n" + data
+        started=time.monotonic()
+        self._refill_tx_credit()
+        if self.link_mode=='dl20':self._tx_credit=max(-128.0,self._tx_credit-len(data))
         try:
             written = self.ser.write(data)
             if written != len(data):
                 raise serial.SerialTimeoutException("串口短写")
         except serial.SerialTimeoutException:
+            self._event('TX', command=str(line), successful=False, failure='write_timeout_or_short_write')
             self._write_timeouts += 1
             self._tx_resync = True
             self.ser.reset_output_buffer()
@@ -777,10 +846,17 @@ class SerialWorker(threading.Thread):
             if self._write_timeouts >= 3:
                 raise serial.SerialException("连续 3 次写入超时，停止连接")
             return False
+        except Exception as exc:
+            self._event('TX', command=str(line), successful=False, failure=str(exc), bytes_hex=data.hex())
+            raise
         self._write_timeouts = 0
         self._tx_resync = False
         if str(line).strip().upper() == 'STOP':
             self.last_stop_write_monotonic = time.monotonic()
+        duration=time.monotonic()-started
+        self.tx_bytes+=len(data);self.max_write_s=max(self.max_write_s,duration)
+        if duration>.03:self.slow_writes+=1
+        self._event('TX', command=str(line), successful=True, bytes_hex=data.hex(),write_elapsed_s=duration)
         return True
 
     @staticmethod
@@ -802,6 +878,7 @@ class SerialWorker(threading.Thread):
     def _flush_firmware_text(self):
         # 参数回读行先分流：它们是周期性状态，进日志会把提示刷掉。
         for name, value in self.parser.take_params():
+            self._event('PARAM', name=name, value=value)
             if self.param_q is None:
                 continue
             try:
@@ -809,6 +886,7 @@ class SerialWorker(threading.Thread):
             except queue.Full:
                 pass
         for line in self.parser.take_text():
+            self._event('RX_TEXT', text=line)
             self._note("固件文本: " + line)
 
     def _maybe_resend_vofa(self):
@@ -828,32 +906,38 @@ class SerialWorker(threading.Thread):
             return
         self._vofa_last = now
         self._vofa_tries += 1
-        if not self._write_line("VOFA"):
+        recovery_command='TELEM=2' if self.link_mode=='dl20' else 'VOFA'
+        if not self._write_line(recovery_command):
             return
         self._crc_request_time = 0.0
         self._crc_requests = 0
         self._crc_confirmed_frames = self.parser.crc_frames
-        self._note("上位机: %.1fs 未收到遥测，已补发 VOFA 恢复波形（第 %d/%d 次）"
-                   % (now - last, self._vofa_tries, VOFA_MAX_RETRIES))
+        self._note("上位机: %.1fs 未收到遥测，已补发 %s（第 %d/%d 次）"
+                   % (now - last,recovery_command,self._vofa_tries, VOFA_MAX_RETRIES))
 
     def _maybe_negotiate_telemetry(self):
         # Allow old firmware to keep JustFloat. A new firmware only changes
         # transport; this command cannot move/enable motors or alter parameters.
         now = time.monotonic()
-        if self.parser.crc_frames > self._crc_confirmed_frames or self._crc_requests >= 6:
+        confirmed=self.parser.crc_frames>self._crc_confirmed_frames and (
+            self.link_mode!='dl20' or self.parser.protocol=='CRC2')
+        if confirmed or self._crc_requests >= 6:
             return
         if now-self.opened_monotonic < .1 or now-self._crc_request_time < 1.5:
             return
         self._crc_request_time = now
         self._crc_requests += 1
-        self._write_line('TELEM=1')
+        self._write_line('TELEM=2' if self.link_mode=='dl20' else 'TELEM=1')
+        if self.link_mode=='dl20' and self._crc_requests==6:
+            self._note('上位机: 未确认DL-20低带宽遥测，请更新v2.1.16固件；当前帧可能超出无线带宽')
 
     def _receive(self, data, now):
+        self._event('RX_BYTES', monotonic=now, bytes_hex=bytes(data).hex())
         frames = self.parser.feed(data)
         metadata = self.parser.frame_metadata
         newest = next((m[1] for m in reversed(metadata) if m is not None), None)
-        for values, meta in zip(frames, metadata):
-            if meta is None and self.parser.protocol == 'CRC1':
+        for values, meta, channels, full_tick in zip(frames, metadata,self.parser.frame_channels,self.parser.frame_full_ticks):
+            if meta is None and self.parser.protocol in ('CRC1','CRC2'):
                 continue
             stamp = now
             if meta is not None and newest is not None:
@@ -862,7 +946,19 @@ class SerialWorker(threading.Thread):
                     stamp -= age_ms*.001
             self.last_frame_monotonic = stamp
             self._vofa_tries = 0
+            if self.parser.protocol=='CRC2':
+                full_age=(meta[1]-full_tick)&0xffffffff
+                values=TelemetryValues(values,stamp-full_age*.001)
+            self._event('FRAME', monotonic=stamp, received_monotonic=now, values=tuple(values),
+                        device_sequence=None if meta is None else meta[0],
+                        device_tick_ms=None if meta is None else meta[1], protocol=self.parser.protocol,
+                        present_channels=channels,full_state_device_tick_ms=full_tick)
             self._push((stamp, values))
+        self._event('TRANSPORT', crc_errors=self.parser.crc_errors, lost_packets=self.parser.lost_packets,
+                    duplicate_packets=self.parser.duplicate_packets, invalid_pose_frames=self.parser.invalid_pose_frames,
+                    device_restarts=self.parser.device_restarts, gui_queue_drops=self.queue_drops,
+                    observer_errors=self.event_cb_errors,link_mode=self.link_mode,tx_bytes=self.tx_bytes,
+                    slow_writes=self.slow_writes,max_write_s=self.max_write_s)
         self._flush_firmware_text()
 
     def request_stop(self, safe=True):
@@ -890,7 +986,7 @@ class SerialWorker(threading.Thread):
         try:
             # 固件可能停留在ZDT文字模式；连接后只恢复遥测，不触发运动。
             if not self.stop_flag:
-                self._write_line("VOFA")
+                self._write_line('TELEM=2' if self.link_mode=='dl20' else 'VOFA')
                 self._vofa_last = time.monotonic()
             while not self.stop_flag:
                 # 急停/失能命令优先于读数据和普通参数命令。
@@ -922,7 +1018,7 @@ class SerialWorker(threading.Thread):
 
                 # 普通命令分小批发送；每发一条都检查是否出现新的急停命令。
                 for _ in range(16):
-                    if self.stop_flag or not self.urgent_q.empty():
+                    if self.stop_flag or not self.urgent_q.empty() or not self._ordinary_ready():
                         break
                     line = self._drain_one(self.line_q)
                     if line is None:
@@ -1037,14 +1133,16 @@ class NavigationMap(dict):
 
 
 class Simulator(threading.Thread):
-    def __init__(self, frame_q, line_q, urgent_q=None, param_q=None, text_q=None):
+    def __init__(self, frame_q, line_q, urgent_q=None, param_q=None, text_q=None, event_cb=None):
         super().__init__(daemon=True)
+        self.event_cb = event_cb
         self._state_lock = threading.RLock()
         self.frame_seq = 0
         self.last_frame_monotonic = 0.0
         self._nav_epoch = 0
         self._nav_goal_id = 0
         self._nav_completed_id = 0
+        self._nav_paused = False
         self._nav_active = False
         self._nav_guard = None
         self._nav_fault = ""
@@ -1123,6 +1221,7 @@ class Simulator(threading.Thread):
         discard_motion_commands(self.line_q)
         discard_motion_commands(self.urgent_q)
         self._nav_epoch += 1
+        self._nav_paused = False
         self._nav_active = False
         self._nav_guard = None
         self._nav_tracker = self._nav_pose_guard = self._nav_validity = None
@@ -1136,6 +1235,17 @@ class Simulator(threading.Thread):
             self.hold = (600.0 * math.sin(0.25 * self._t),
                          450.0 * math.cos(0.19 * self._t))
         return self._nav_epoch
+
+    @_sim_atomic
+    def set_navigation_paused(self, paused):
+        if not self._nav_active or not self.wheel_enabled:
+            raise ValueError('当前没有可暂停的模拟轨迹')
+        self._nav_paused = bool(paused)
+        self._nav_velocity, self._nav_omega = (0.0, 0.0), 0.0
+        self._nav_settled = 0
+        if self._nav_tracker is not None and hasattr(self._nav_tracker, 'hold'):
+            self._nav_tracker.hold()
+        return self._nav_paused
 
     @_sim_atomic
     def begin_navigation(self):
@@ -1341,6 +1451,8 @@ class Simulator(threading.Thread):
                 raise ValueError('实际定位跳变超过50mm')
             if abs((yaw-self._nav_last_pose[2]+180) % 360-180) > 15:
                 raise ValueError('实际航向跳变超过15°')
+            if self._nav_paused:
+                return
             dt = 1.0/SEND_HZ
             self._nav_elapsed += dt
             mx, my, angle = self._nav_mapping
@@ -1372,7 +1484,8 @@ class Simulator(threading.Thread):
             if tracker.progress > getattr(self, '_nav_best_progress', -1)+1 or error < self._nav_best_error-.1:
                 self._nav_best_progress, self._nav_best_error = tracker.progress, error
                 self._nav_last_progress_time = self._nav_elapsed
-            settled = (ref['segment_type'] == 'STOP' and distance < 1 and yaw_error < 1 and
+            at_final = not hasattr(tracker,'points') or tracker.index==len(tracker.points)-1
+            settled = (at_final and ref['segment_type'] == 'STOP' and distance < 1 and yaw_error < 1 and
                        math.hypot(vx, vy) <= 1 and abs(omega) <= 1)
             if self._nav_representation == 'COORDINATES':
                 pose=(new_field[0],new_field[1],90-angle-candidate[2])
@@ -1424,7 +1537,7 @@ class Simulator(threading.Thread):
 
     @_sim_atomic
     def navigation_snapshot(self):
-        return {"epoch": self._nav_epoch, "goal_id": self._nav_goal_id,
+        return {"paused": self._nav_paused, "epoch": self._nav_epoch, "goal_id": self._nav_goal_id,
                 "completed_id": self._nav_completed_id, "active": self._nav_active,
                 "fault": self._nav_fault, "frame_seq": self.frame_seq,
                 "frame_time": self.last_frame_monotonic, "hold": self.hold,
@@ -1453,6 +1566,9 @@ class Simulator(threading.Thread):
         line = line.strip().upper()
         if not line:
             return
+        if self.event_cb is not None:
+            try:self.event_cb('SIM_COMMAND', command=line, successful=True)
+            except Exception:pass
         cmd = line.split("=", 1)[0]
         if cmd in ("STOP", "ZERO", "OPSOFFSET", "WHEELEN", "WHEELOFF"):
             if self._nav_active:
@@ -1755,7 +1871,7 @@ class Simulator(threading.Thread):
         zangle = self._relative_heading(zangle)
         # 与 debug_usart.c 完全同序：ch0=X=车左、ch1=Y=车头、ch3/ch4 误差、
         # ch6/ch7 分别回读 mKpx/mKpy；位置/误差对外为 cm，hold 仍为 mm。
-        return (
+        values = (
             pos_x / OPS_CM_TO_MM, pos_y / OPS_CM_TO_MM, zangle,
             devx / OPS_CM_TO_MM, devy / OPS_CM_TO_MM, devz,
             self.kpx, self.kpy, self.kpz, self.xyvmax, self.zvmax, spd0,
@@ -1763,6 +1879,15 @@ class Simulator(threading.Thread):
             float(self.fb_status), self.fb_tmos, self.fb_trotor,
             self.dm_pos, self.dm_vel, self.dm_kp, self.dm_kd, self.dm_tor,
         )
+        if self.event_cb is not None:
+            try:
+                self.event_cb('FRAME', monotonic=self.last_frame_monotonic, values=values,
+                              device_sequence=None, device_tick_ms=None, protocol='SIM',
+                              simulation_time_s=t, frame_sequence=self.frame_seq,
+                              reference=copy.deepcopy(self._nav_reference), tracking_status=self._nav_status)
+            except Exception:
+                pass
+        return values
 
     @_sim_atomic
     def _service_commands(self):
@@ -2102,6 +2227,7 @@ def plan_coordinate_path(start, goal, *, coordinate_nodes=None, **kwargs):
             kwargs.get('bounds', (0,0,FIELD_SIZE,FIELD_SIZE)), kwargs.get('pad', CAR_INFLATE_MM), fp,
             kwargs.get('drivable_polygons'), sim_rects=kwargs.get('sim_rects'), sim_circles=kwargs.get('sim_circles'),
             dynamic_rects=kwargs.get('dynamic_rects'), dynamic_circles=kwargs.get('dynamic_circles'))
+        scene.wheel_geometry=copy.deepcopy(kwargs.get('wheel_geometry'))
         if cancelled():
             raise ValueError('关键坐标规划已取消')
         if time.monotonic()-started>=limit:
@@ -2122,7 +2248,7 @@ def plan_coordinate_path(start, goal, *, coordinate_nodes=None, **kwargs):
         result = plan_route(start, goal, scene, coordinate_nodes, yaw,
                             goal_yaw=kwargs.get('goal_heading_deg'), cancelled=cancelled,
                             deadline=started+limit,
-                            interactive=kwargs.get('interactive',False),
+                            interactive=kwargs.get('interactive',False),turn_mode=kwargs.get('turn_mode'),
                             chassis_control=kwargs.get('chassis_control'),
                             constraints={key: kwargs.get(key) for key in ('allow_strafe','strafe_run_limit_mm','strafe_polygons')})
         result.update(grid=kwargs.get('grid', GRID_MM), pad=scene.pad, expanded=0,

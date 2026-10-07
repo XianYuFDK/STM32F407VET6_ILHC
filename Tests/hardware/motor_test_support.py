@@ -2,8 +2,13 @@
 from pathlib import Path
 import ctypes
 import math
+import re
 
 ROOT = Path(__file__).resolve().parents[2]
+geometry_source=(ROOT/'Hardware/mecanum_geometry.h').read_text(encoding='utf-8')
+WHEELBASE_MM=float(re.search(r'#define MECANUM_WHEELBASE_MM ([\d.]+)f',geometry_source).group(1))
+TRACK_MM=float(re.search(r'#define MECANUM_TRACK_MM ([\d.]+)f',geometry_source).group(1))
+ROTATION_LEVER_MM=(WHEELBASE_MM+TRACK_MM)/2
 
 
 def function(source, name):
@@ -24,7 +29,7 @@ def write_motor_kernel(folder):
 #define ZDT_X42S_MAX_RPM 3000U
 #define ZDT_X42S_DIR_CW 0U
 #define ZDT_X42S_DIR_CCW 1U
-#define MECANUM_ROTATION_LEVER_MM 270.0f
+#include "mecanum_geometry.h"
 int last_Speed[4],SpeedTarget[4],captured_wheels[4];
 static uint8_t in_pos,near_pos,delay_pos;
 static uint32_t s_settle_ms;
@@ -48,7 +53,7 @@ def wheel_motion(wheels, yaw):
     a, b, c, d = wheels
     bx = (-a-b+c+d)/(4*.238)
     by = (a-b+c-d)/(4*.238)
-    omega = -sum(wheels)/(4*.238*270)*180/math.pi
+    omega = -sum(wheels)/(4*.238*ROTATION_LEVER_MM)*180/math.pi
     angle = math.radians(yaw)
     return (math.cos(angle)*bx+math.sin(angle)*by,
             -math.sin(angle)*bx+math.cos(angle)*by, omega)

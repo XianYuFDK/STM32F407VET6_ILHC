@@ -1,0 +1,9 @@
+test_hold_during_motion_preserves_point_and_resumes (__main__.RecoveryHoldTests.test_hold_during_motion_preserves_point_and_resumes) ... ok
+test_hold_clears_final_stop_settle_window (__main__.RecoveryHoldTests.test_hold_clears_final_stop_settle_window) ... ok
+test_hold_cannot_restore_canceled_batch (__main__.RecoveryHoldTests.test_hold_cannot_restore_canceled_batch) ... ok
+test_legacy_dense_trajectory_resumes_after_hold (__main__.RecoveryHoldTests.test_legacy_dense_trajectory_resumes_after_hold) ... ok
+
+----------------------------------------------------------------------
+Ran 4 tests in 2.047s
+
+OK

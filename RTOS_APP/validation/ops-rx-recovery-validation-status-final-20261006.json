@@ -1,0 +1,17 @@
+{
+  "pc_targeted": {
+    "returncode": 0,
+    "elapsed_s": 3.295,
+    "log": "E:\\STM32\\STM32F407VET6_ILHC\\RTOS_APP\\validation\\ops-rx-recovery-pc_targeted-final-20261006.log"
+  },
+  "test_ops_rx_recovery": {
+    "returncode": 0,
+    "elapsed_s": 1.407,
+    "log": "E:\\STM32\\STM32F407VET6_ILHC\\RTOS_APP\\validation\\ops-rx-recovery-test_ops_rx_recovery-final-20261006.log"
+  },
+  "test_trajectory_bridge": {
+    "returncode": 0,
+    "elapsed_s": 1.062,
+    "log": "E:\\STM32\\STM32F407VET6_ILHC\\RTOS_APP\\validation\\ops-rx-recovery-test_trajectory_bridge-final-20261006.log"
+  }
+}

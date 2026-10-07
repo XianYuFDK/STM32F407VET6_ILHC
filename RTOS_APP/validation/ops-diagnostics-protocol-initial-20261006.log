@@ -1,0 +1,2 @@
+OPS protocol: V2 flags/CRC16, split stream, noise resync, CRC retry, V1 and session passed
+OPS任务接收：ISR不解析、分包、接收时间、过期、溢出、DMA重启失败与失效唤醒通过

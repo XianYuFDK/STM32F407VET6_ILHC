@@ -94,6 +94,36 @@ typedef struct
   volatile uint8_t  zero_enabled; /* 1 已清零，0 未清零     */
 } OPS_Data_t;
 
+/* 诊断不改变原取消码17和定位保护；原因是可组合的位掩码。 */
+#define OPS_FAULT_SESSION_ID       1U
+#define OPS_FAULT_TIMESTAMP_BACK   2U
+#define OPS_FAULT_FRAME_GAP        4U
+#define OPS_FAULT_PROTOCOL_V1      8U
+#define OPS_FAULT_IMU_REBASED      16U
+#define OPS_FAULT_RX_RESTART       32U
+#define OPS_FAULT_RX_OVERFLOW      64U
+#define OPS_FAULT_RX_QUEUE         128U
+#define OPS_FAULT_RX_STALE         256U
+#define OPS_FAULT_UART             512U
+#define OPS_FAULT_RECOVERY_TIMEOUT 1024U
+#define OPS_FAULT_RECOVERED        2048U /* 接收恢复通知，不代表取消 */
+
+typedef struct {
+  uint32_t id, reason, tick, previous_session, session;
+  uint32_t previous_timestamp, timestamp, seq, flags;
+  uint32_t gap_ms, valid_age_ms, rx_age_ms, uart_error, crc_errors, rx_overflows;
+} OPS_Fault_t;
+
+typedef struct {
+  uint32_t tick, session, seq, timestamp, flags, pose_valid, valid_age_ms;
+  uint32_t crc_errors, format_errors, uart_errors, last_uart_error;
+  uint32_t rx_overflows, stale_packets, restart_failures, diagnostic_drops;
+} OPS_Diagnostics_t;
+
+uint8_t OPS_PeekFault(OPS_Fault_t *fault);
+void OPS_FaultSent(uint32_t id);
+void OPS_GetDiagnostics(OPS_Diagnostics_t *snapshot);
+
 /* ---------------------------- 对外接口 ---------------------------- */
 void              OPS_Init(void);                       /* 初始化并启动接收                     */
 void              OPS_Start(void);                      /* 重新启动空闲中断 + DMA 接收          */
@@ -109,6 +139,7 @@ uint8_t OPS_IsNew(void);                                  /* 是否有新数据 
 void    OPS_ClearNew(void);                               /* 清除新数据标志                       */
 uint8_t OPS_IsOnline(uint32_t timeout_ms);                 /* 定位数据是否在超时时间内更新         */
 uint8_t OPS_ConsumeSessionChanged(void);                   /* 读取并清除会话变化标志               */
+uint8_t OPS_RecoveryPending(void);                         /* 短时V2接收恢复；必须暂停运动 */
 
 /* 安装偏移，单位 mm，±500，统一坐标：
  *   x_mm : X=左右，+ 为车左（+60 = 装在中心左侧 60mm）

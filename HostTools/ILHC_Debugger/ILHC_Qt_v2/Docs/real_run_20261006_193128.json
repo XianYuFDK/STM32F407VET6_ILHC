@@ -1,0 +1,1265 @@
+{
+  "session": "E:\\STM32\\STM32F407VET6_ILHC\\HostTools\\ILHC_Debugger\\ILHC_Qt_v2\\records\\runs\\20261006_193116_859875_REAL_56ce1058",
+  "run_id": "852e5b168c7a4f76964180cb4a71dcbe",
+  "physical_data": true,
+  "user_confirmed_transport": "JDY-31 Bluetooth SPP",
+  "pc_version": "2.1.15",
+  "firmware_caps_reply": [
+    "CCAPS 6 2048 3"
+  ],
+  "firmware_binary_verified": false,
+  "duration_s": 123.6714925999986,
+  "running_status_s": 122.42519499995979,
+  "model_round_s": 102.98,
+  "points": 30,
+  "frames": 6183,
+  "frame_protocols": {
+    "CRC1": 6183
+  },
+  "accepted_frames_per_device_second": 49.991913310690606,
+  "tick_span_s": 123.66,
+  "tick_gap_ms": {
+    "20": 6179,
+    "21": 1,
+    "19": 1,
+    "40": 1
+  },
+  "transport_delta": {
+    "crc_errors": 1,
+    "lost_packets": 1,
+    "duplicate_packets": 0,
+    "invalid_pose_frames": 0,
+    "device_restarts": 0,
+    "gui_queue_drops": 0,
+    "observer_errors": 0
+  },
+  "rx_bytes_per_run_second": 6067.736260183283,
+  "tx_successful": true,
+  "tx_types": {
+    "CCAPS": 1,
+    "GET": 124,
+    "PING": 553,
+    "CBEGIN": 1,
+    "CPOINT": 30,
+    "TSTATUS": 157,
+    "TCOMMIT": 1,
+    "TRUN": 1
+  },
+  "tx_duration_available": false,
+  "params": {
+    "kpx": 1.5,
+    "kpy": 1.5,
+    "kpz": 9.05,
+    "xyvmax": 930.0,
+    "zvmax": 750.0,
+    "xyvmin": 0.5,
+    "zvmin": 0.5
+  },
+  "extra_obstacles": [
+    [
+      1191.1764705882354,
+      692.6470588235293
+    ],
+    [
+      301.764705882353,
+      2114.1176470588234
+    ]
+  ],
+  "planning_stats": {
+    "search_calls": 6,
+    "static_hits": 0,
+    "revalidated_hits": 0,
+    "local_hits": 2
+  },
+  "runtime_collision_protection": false,
+  "diagnostics": [
+    {
+      "t": 0.1837322000064887,
+      "text": "CCAPS 6 2048 3"
+    }
+  ],
+  "pivots": [
+    {
+      "target": 8,
+      "start_s": 36.81050740001956,
+      "end_s": 39.94535710004857,
+      "observed_duration_s": 3.134849700029008,
+      "model_duration_s": 1.2,
+      "first_under_1deg_s": 38.12657040002523,
+      "position_gap_when_first_under_1deg_mm": 5.939357157257743,
+      "overshoot_deg": 4.228515625,
+      "tail_rate_reversals": 1,
+      "recovery_start_s": 38.29043030005414,
+      "recovery_to_status_completion_s": 1.6549267999944277,
+      "after_first_cross_span_deg": 4.0950469970703125,
+      "inferred_anchor_max_mm": 8.282737154683725,
+      "inferred_anchor_rms_mm": 4.830313826167218
+    },
+    {
+      "target": 19,
+      "start_s": 82.22553049999988,
+      "end_s": 85.40115040005185,
+      "observed_duration_s": 3.17561990005197,
+      "model_duration_s": 1.2,
+      "first_under_1deg_s": 83.56718500005081,
+      "position_gap_when_first_under_1deg_mm": 12.337690662015449,
+      "overshoot_deg": 3.996002197265625,
+      "tail_rate_reversals": 1,
+      "recovery_start_s": 83.69251400005305,
+      "recovery_to_status_completion_s": 1.7086363999987952,
+      "after_first_cross_span_deg": 3.8153533935546875,
+      "inferred_anchor_max_mm": 11.821600157613556,
+      "inferred_anchor_rms_mm": 6.654351134115305
+    }
+  ],
+  "legs": [
+    {
+      "label": "前往二维码板",
+      "from_point": 1,
+      "to_point": 2,
+      "observed_s": 5.99108070001239,
+      "model_s": 5.52,
+      "skeleton": [
+        [
+          2100,
+          2100
+        ],
+        [
+          2180,
+          1200
+        ]
+      ],
+      "policy": "INTERACTIVE_FIRST_VERIFIED_SAFE",
+      "reuse": {
+        "source": "SEARCH",
+        "search_skipped": false,
+        "extra_obstacles": true
+      }
+    },
+    {
+      "label": "第1批：前往原料区",
+      "from_point": 2,
+      "to_point": 4,
+      "observed_s": 11.004871199955232,
+      "model_s": 9.82,
+      "skeleton": [
+        [
+          2180,
+          1200
+        ],
+        [
+          1200,
+          1200
+        ],
+        [
+          1200,
+          2030
+        ]
+      ],
+      "policy": "INTERACTIVE_FIRST_VERIFIED_SAFE",
+      "reuse": {
+        "source": "SEARCH",
+        "search_skipped": false,
+        "extra_obstacles": true
+      }
+    },
+    {
+      "label": "第1批：前往粗加工区",
+      "from_point": 4,
+      "to_point": 9,
+      "observed_s": 22.11913560004905,
+      "model_s": 16.06,
+      "skeleton": [
+        [
+          1200,
+          2030
+        ],
+        [
+          1200,
+          1200
+        ],
+        [
+          400,
+          1200
+        ],
+        [
+          400,
+          400
+        ],
+        [
+          1200,
+          400
+        ]
+      ],
+      "policy": "INTERACTIVE_FIRST_VERIFIED_SAFE",
+      "reuse": {
+        "source": "SEARCH",
+        "search_skipped": false,
+        "extra_obstacles": true
+      }
+    },
+    {
+      "label": "第1批：前往暂存区",
+      "from_point": 9,
+      "to_point": 13,
+      "observed_s": 12.845739299955312,
+      "model_s": 11.54,
+      "skeleton": [
+        [
+          1200,
+          400
+        ],
+        [
+          300,
+          400
+        ],
+        [
+          300,
+          300
+        ],
+        [
+          400,
+          300
+        ],
+        [
+          400,
+          1200
+        ]
+      ],
+      "policy": "INTERACTIVE_FIRST_VERIFIED_SAFE",
+      "reuse": {
+        "source": "SEARCH",
+        "search_skipped": false,
+        "extra_obstacles": true
+      }
+    },
+    {
+      "label": "第2批：前往原料区",
+      "from_point": 13,
+      "to_point": 15,
+      "observed_s": 10.7652703000349,
+      "model_s": 9.68,
+      "skeleton": [
+        [
+          400,
+          1200
+        ],
+        [
+          1200,
+          1200
+        ],
+        [
+          1200,
+          2030
+        ]
+      ],
+      "policy": "INTERACTIVE_FIRST_VERIFIED_SAFE",
+      "reuse": {
+        "source": "SEARCH",
+        "search_skipped": false,
+        "extra_obstacles": true
+      }
+    },
+    {
+      "label": "第2批：前往粗加工区",
+      "from_point": 15,
+      "to_point": 20,
+      "observed_s": 21.870888100005686,
+      "model_s": 16.06,
+      "skeleton": [
+        [
+          1200,
+          2030
+        ],
+        [
+          1200,
+          1200
+        ],
+        [
+          400,
+          1200
+        ],
+        [
+          400,
+          400
+        ],
+        [
+          1200,
+          400
+        ]
+      ],
+      "policy": "INTERACTIVE_FIRST_VERIFIED_SAFE",
+      "reuse": {
+        "source": "SEARCH",
+        "search_skipped": false,
+        "extra_obstacles": true
+      }
+    },
+    {
+      "label": "第2批：前往暂存区",
+      "from_point": 20,
+      "to_point": 24,
+      "observed_s": 12.682043399952818,
+      "model_s": 11.54,
+      "skeleton": [
+        [
+          1200,
+          400
+        ],
+        [
+          300,
+          400
+        ],
+        [
+          300,
+          300
+        ],
+        [
+          400,
+          300
+        ],
+        [
+          400,
+          1200
+        ]
+      ],
+      "policy": "INTERACTIVE_FIRST_VERIFIED_SAFE",
+      "reuse": {
+        "source": "SEARCH",
+        "search_skipped": false,
+        "extra_obstacles": true
+      }
+    },
+    {
+      "label": "返回出发启停区前的停车区",
+      "from_point": 24,
+      "to_point": 27,
+      "observed_s": 12.941593900031876,
+      "model_s": 12.02,
+      "skeleton": [
+        [
+          400,
+          1200
+        ],
+        [
+          2100,
+          1200
+        ],
+        [
+          2100,
+          2100
+        ]
+      ],
+      "policy": "INTERACTIVE_FIRST_VERIFIED_SAFE",
+      "reuse": {
+        "source": "SEARCH",
+        "search_skipped": false,
+        "extra_obstacles": true
+      }
+    }
+  ],
+  "point_statistics": [
+    {
+      "target": 1,
+      "point": [
+        1500,
+        1500,
+        2121,
+        0,
+        1,
+        0,
+        0,
+        2000,
+        0,
+        0
+      ],
+      "observed_start_s": 1.2462976000388153,
+      "observed_end_s": 5.940111100033391,
+      "observed_duration_s": 4.693813499994576,
+      "goal_changes": [],
+      "first_under_2mm_s": 4.890156800043769,
+      "near_2mm_to_status_completion_s": 1.049954299989622
+    },
+    {
+      "target": 2,
+      "point": [
+        10500,
+        700,
+        11157,
+        -8492,
+        1,
+        -8492,
+        0,
+        400,
+        0,
+        0
+      ],
+      "observed_start_s": 5.940111100033391,
+      "observed_end_s": 11.93119180004578,
+      "observed_duration_s": 5.99108070001239,
+      "goal_changes": [],
+      "first_under_2mm_s": 11.090254200040363,
+      "near_2mm_to_status_completion_s": 0.8409376000054181
+    },
+    {
+      "target": 3,
+      "point": [
+        10500,
+        10500,
+        20957,
+        -9000,
+        0,
+        0,
+        50,
+        400,
+        0,
+        0
+      ],
+      "observed_start_s": 11.93119180004578,
+      "observed_end_s": 16.99890060001053,
+      "observed_duration_s": 5.067708799964748,
+      "goal_changes": [
+        {
+          "t": 14.901557100005448,
+          "previous": 0.0,
+          "goal": -90.0,
+          "gap": 39.5
+        }
+      ],
+      "first_under_2mm_s": null,
+      "near_2mm_to_status_completion_s": null
+    },
+    {
+      "target": 4,
+      "point": [
+        2200,
+        10500,
+        29257,
+        0,
+        1,
+        -9000,
+        0,
+        400,
+        0,
+        0
+      ],
+      "observed_start_s": 16.99890060001053,
+      "observed_end_s": 22.936063000001013,
+      "observed_duration_s": 5.937162399990484,
+      "goal_changes": [
+        {
+          "t": 19.49018960003741,
+          "previous": -90.0,
+          "goal": 0.0,
+          "gap": 35.4
+        }
+      ],
+      "first_under_2mm_s": 22.092751900025178,
+      "near_2mm_to_status_completion_s": 0.8433110999758355
+    },
+    {
+      "target": 5,
+      "point": [
+        10500,
+        10500,
+        37557,
+        0,
+        0,
+        9000,
+        50,
+        400,
+        0,
+        0
+      ],
+      "observed_start_s": 22.936063000001013,
+      "observed_end_s": 27.808489200018812,
+      "observed_duration_s": 4.872426200017799,
+      "goal_changes": [
+        {
+          "t": 25.89031430002069,
+          "previous": 90.0,
+          "goal": 0.0,
+          "gap": 30.4
+        }
+      ],
+      "first_under_2mm_s": null,
+      "near_2mm_to_status_completion_s": null
+    },
+    {
+      "target": 6,
+      "point": [
+        10500,
+        18500,
+        45557,
+        9000,
+        0,
+        0,
+        50,
+        400,
+        0,
+        0
+      ],
+      "observed_start_s": 27.808489200018812,
+      "observed_end_s": 32.38952020002762,
+      "observed_duration_s": 4.581031000008807,
+      "goal_changes": [
+        {
+          "t": 30.092866100021638,
+          "previous": 0.0,
+          "goal": 90.0,
+          "gap": 39.2
+        }
+      ],
+      "first_under_2mm_s": null,
+      "near_2mm_to_status_completion_s": null
+    },
+    {
+      "target": 7,
+      "point": [
+        16380,
+        18500,
+        51437,
+        9000,
+        0,
+        9000,
+        10,
+        400,
+        0,
+        0
+      ],
+      "observed_start_s": 32.38952020002762,
+      "observed_end_s": 36.81050740001956,
+      "observed_duration_s": 4.4209871999919415,
+      "goal_changes": [],
+      "first_under_2mm_s": 36.29041120002512,
+      "near_2mm_to_status_completion_s": 0.5200961999944411
+    },
+    {
+      "target": 8,
+      "point": [
+        18500,
+        18440,
+        53792,
+        -18000,
+        48,
+        9000,
+        20,
+        400,
+        17410,
+        17410
+      ],
+      "observed_start_s": 36.81050740001956,
+      "observed_end_s": 39.94535710004857,
+      "observed_duration_s": 3.134849700029008,
+      "goal_changes": [],
+      "first_under_2mm_s": null,
+      "near_2mm_to_status_completion_s": null
+    },
+    {
+      "target": 9,
+      "point": [
+        18500,
+        10500,
+        61732,
+        -18000,
+        1,
+        -18000,
+        0,
+        400,
+        0,
+        0
+      ],
+      "observed_start_s": 39.94535710004857,
+      "observed_end_s": 45.05519860005006,
+      "observed_duration_s": 5.109841500001494,
+      "goal_changes": [],
+      "first_under_2mm_s": 44.090498900040984,
+      "near_2mm_to_status_completion_s": 0.9646997000090778
+    },
+    {
+      "target": 10,
+      "point": [
+        18500,
+        19500,
+        70732,
+        9000,
+        0,
+        -18000,
+        250,
+        600,
+        0,
+        0
+      ],
+      "observed_start_s": 45.05519860005006,
+      "observed_end_s": 48.017424900026526,
+      "observed_duration_s": 2.9622262999764644,
+      "goal_changes": [
+        {
+          "t": 47.29060100001516,
+          "previous": -180.0,
+          "goal": 90.0,
+          "gap": 53.6
+        }
+      ],
+      "first_under_2mm_s": null,
+      "near_2mm_to_status_completion_s": null
+    },
+    {
+      "target": 11,
+      "point": [
+        19500,
+        19500,
+        71732,
+        -18000,
+        0,
+        9000,
+        250,
+        600,
+        0,
+        0
+      ],
+      "observed_start_s": 48.017424900026526,
+      "observed_end_s": 49.575831399997696,
+      "observed_duration_s": 1.55840649997117,
+      "goal_changes": [
+        {
+          "t": 48.49183330003871,
+          "previous": 90.0,
+          "goal": -180.0,
+          "gap": 52.4
+        }
+      ],
+      "first_under_2mm_s": null,
+      "near_2mm_to_status_completion_s": null
+    },
+    {
+      "target": 12,
+      "point": [
+        19500,
+        18500,
+        72732,
+        -9000,
+        0,
+        -18000,
+        250,
+        600,
+        0,
+        0
+      ],
+      "observed_start_s": 49.575831399997696,
+      "observed_end_s": 51.27198190003401,
+      "observed_duration_s": 1.6961505000363104,
+      "goal_changes": [
+        {
+          "t": 49.890722000040114,
+          "previous": -180.0,
+          "goal": -90.0,
+          "gap": 55.8
+        }
+      ],
+      "first_under_2mm_s": null,
+      "near_2mm_to_status_completion_s": null
+    },
+    {
+      "target": 13,
+      "point": [
+        10500,
+        18500,
+        81732,
+        9000,
+        1,
+        -9000,
+        0,
+        600,
+        0,
+        0
+      ],
+      "observed_start_s": 51.27198190003401,
+      "observed_end_s": 57.900937900005374,
+      "observed_duration_s": 6.628955999971367,
+      "goal_changes": [
+        {
+          "t": 53.49189990002196,
+          "previous": -90.0,
+          "goal": 90.0,
+          "gap": 54.3
+        }
+      ],
+      "first_under_2mm_s": 57.09071340004448,
+      "near_2mm_to_status_completion_s": 0.8102244999608956
+    },
+    {
+      "target": 14,
+      "point": [
+        10500,
+        10500,
+        89732,
+        -9000,
+        0,
+        -18000,
+        50,
+        400,
+        0,
+        0
+      ],
+      "observed_start_s": 57.900937900005374,
+      "observed_end_s": 62.784435000037774,
+      "observed_duration_s": 4.8834971000324,
+      "goal_changes": [
+        {
+          "t": 60.894487000012305,
+          "previous": -180.0,
+          "goal": -90.0,
+          "gap": 39.4
+        }
+      ],
+      "first_under_2mm_s": null,
+      "near_2mm_to_status_completion_s": null
+    },
+    {
+      "target": 15,
+      "point": [
+        2200,
+        10500,
+        98032,
+        0,
+        1,
+        -9000,
+        0,
+        400,
+        0,
+        0
+      ],
+      "observed_start_s": 62.784435000037774,
+      "observed_end_s": 68.66620820004027,
+      "observed_duration_s": 5.881773200002499,
+      "goal_changes": [
+        {
+          "t": 65.09072210005252,
+          "previous": -90.0,
+          "goal": 0.0,
+          "gap": 38.8
+        }
+      ],
+      "first_under_2mm_s": 67.89090280001983,
+      "near_2mm_to_status_completion_s": 0.7753054000204429
+    },
+    {
+      "target": 16,
+      "point": [
+        10500,
+        10500,
+        106332,
+        0,
+        0,
+        9000,
+        50,
+        400,
+        0,
+        0
+      ],
+      "observed_start_s": 68.66620820004027,
+      "observed_end_s": 73.60983950004447,
+      "observed_duration_s": 4.943631300004199,
+      "goal_changes": [
+        {
+          "t": 71.4908310000319,
+          "previous": 90.0,
+          "goal": 0.0,
+          "gap": 38.5
+        }
+      ],
+      "first_under_2mm_s": null,
+      "near_2mm_to_status_completion_s": null
+    },
+    {
+      "target": 17,
+      "point": [
+        10500,
+        18500,
+        114332,
+        9000,
+        0,
+        0,
+        50,
+        400,
+        0,
+        0
+      ],
+      "observed_start_s": 73.60983950004447,
+      "observed_end_s": 77.90349610004341,
+      "observed_duration_s": 4.29365659999894,
+      "goal_changes": [
+        {
+          "t": 75.89084970002295,
+          "previous": 0.0,
+          "goal": 90.0,
+          "gap": 37.6
+        }
+      ],
+      "first_under_2mm_s": null,
+      "near_2mm_to_status_completion_s": null
+    },
+    {
+      "target": 18,
+      "point": [
+        16380,
+        18500,
+        120212,
+        9000,
+        0,
+        9000,
+        10,
+        400,
+        0,
+        0
+      ],
+      "observed_start_s": 77.90349610004341,
+      "observed_end_s": 82.22553049999988,
+      "observed_duration_s": 4.322034399956465,
+      "goal_changes": [],
+      "first_under_2mm_s": 81.91604550002376,
+      "near_2mm_to_status_completion_s": 0.3094849999761209
+    },
+    {
+      "target": 19,
+      "point": [
+        18500,
+        18440,
+        122568,
+        -18000,
+        48,
+        9000,
+        20,
+        400,
+        17410,
+        17410
+      ],
+      "observed_start_s": 82.22553049999988,
+      "observed_end_s": 85.40115040005185,
+      "observed_duration_s": 3.17561990005197,
+      "goal_changes": [],
+      "first_under_2mm_s": null,
+      "near_2mm_to_status_completion_s": null
+    },
+    {
+      "target": 20,
+      "point": [
+        18500,
+        10500,
+        130508,
+        -18000,
+        1,
+        -18000,
+        0,
+        400,
+        0,
+        0
+      ],
+      "observed_start_s": 85.40115040005185,
+      "observed_end_s": 90.53709630004596,
+      "observed_duration_s": 5.1359458999941126,
+      "goal_changes": [],
+      "first_under_2mm_s": 89.49100480001653,
+      "near_2mm_to_status_completion_s": 1.0460915000294335
+    },
+    {
+      "target": 21,
+      "point": [
+        18500,
+        19500,
+        139508,
+        9000,
+        0,
+        -18000,
+        250,
+        600,
+        0,
+        0
+      ],
+      "observed_start_s": 90.53709630004596,
+      "observed_end_s": 93.46520890004467,
+      "observed_duration_s": 2.9281125999987125,
+      "goal_changes": [
+        {
+          "t": 92.6910543999984,
+          "previous": -180.0,
+          "goal": 90.0,
+          "gap": 57.4
+        }
+      ],
+      "first_under_2mm_s": null,
+      "near_2mm_to_status_completion_s": null
+    },
+    {
+      "target": 22,
+      "point": [
+        19500,
+        19500,
+        140508,
+        -18000,
+        0,
+        9000,
+        250,
+        600,
+        0,
+        0
+      ],
+      "observed_start_s": 93.46520890004467,
+      "observed_end_s": 94.96912650001468,
+      "observed_duration_s": 1.5039175999700092,
+      "goal_changes": [
+        {
+          "t": 93.89122510002926,
+          "previous": 90.0,
+          "goal": -180.0,
+          "gap": 56.1
+        }
+      ],
+      "first_under_2mm_s": null,
+      "near_2mm_to_status_completion_s": null
+    },
+    {
+      "target": 23,
+      "point": [
+        19500,
+        18500,
+        141508,
+        -9000,
+        0,
+        -18000,
+        250,
+        600,
+        0,
+        0
+      ],
+      "observed_start_s": 94.96912650001468,
+      "observed_end_s": 96.61733950005146,
+      "observed_duration_s": 1.648213000036776,
+      "goal_changes": [
+        {
+          "t": 95.29380390001461,
+          "previous": -180.0,
+          "goal": -90.0,
+          "gap": 59.1
+        }
+      ],
+      "first_under_2mm_s": null,
+      "near_2mm_to_status_completion_s": null
+    },
+    {
+      "target": 24,
+      "point": [
+        10500,
+        18500,
+        150508,
+        9000,
+        1,
+        -9000,
+        0,
+        600,
+        0,
+        0
+      ],
+      "observed_start_s": 96.61733950005146,
+      "observed_end_s": 103.21913969999878,
+      "observed_duration_s": 6.60180019994732,
+      "goal_changes": [
+        {
+          "t": 98.69114760000957,
+          "previous": -90.0,
+          "goal": 90.0,
+          "gap": 58.6
+        }
+      ],
+      "first_under_2mm_s": 102.29123240004992,
+      "near_2mm_to_status_completion_s": 0.9279072999488562
+    },
+    {
+      "target": 25,
+      "point": [
+        10500,
+        17700,
+        151308,
+        -18000,
+        0,
+        9000,
+        50,
+        400,
+        0,
+        0
+      ],
+      "observed_start_s": 103.21913969999878,
+      "observed_end_s": 105.46398040000349,
+      "observed_duration_s": 2.2448407000047155,
+      "goal_changes": [
+        {
+          "t": 103.89242670004023,
+          "previous": 90.0,
+          "goal": -180.0,
+          "gap": 34.8
+        }
+      ],
+      "first_under_2mm_s": null,
+      "near_2mm_to_status_completion_s": null
+    },
+    {
+      "target": 26,
+      "point": [
+        10500,
+        1500,
+        167508,
+        -9000,
+        0,
+        -18000,
+        50,
+        400,
+        0,
+        0
+      ],
+      "observed_start_s": 105.46398040000349,
+      "observed_end_s": 110.72879160003504,
+      "observed_duration_s": 5.264811200031545,
+      "goal_changes": [
+        {
+          "t": 108.69508040003711,
+          "previous": -180.0,
+          "goal": -90.0,
+          "gap": 39.1
+        }
+      ],
+      "first_under_2mm_s": null,
+      "near_2mm_to_status_completion_s": null
+    },
+    {
+      "target": 27,
+      "point": [
+        1500,
+        1500,
+        176508,
+        -9000,
+        1,
+        -9000,
+        0,
+        400,
+        0,
+        0
+      ],
+      "observed_start_s": 110.72879160003504,
+      "observed_end_s": 116.16073360003065,
+      "observed_duration_s": 5.431941999995615,
+      "goal_changes": [],
+      "first_under_2mm_s": 115.2913437000243,
+      "near_2mm_to_status_completion_s": 0.8693899000063539
+    },
+    {
+      "target": 28,
+      "point": [
+        1500,
+        1500,
+        176508,
+        0,
+        1,
+        -9000,
+        0,
+        2000,
+        0,
+        0
+      ],
+      "observed_start_s": 116.16073360003065,
+      "observed_end_s": 119.34681529999943,
+      "observed_duration_s": 3.1860816999687813,
+      "goal_changes": [],
+      "first_under_2mm_s": 118.49132870003814,
+      "near_2mm_to_status_completion_s": 0.8554865999612957
+    },
+    {
+      "target": 29,
+      "point": [
+        0,
+        0,
+        178629,
+        0,
+        1,
+        0,
+        0,
+        2000,
+        0,
+        0
+      ],
+      "observed_start_s": 119.34681529999943,
+      "observed_end_s": 123.67144970002118,
+      "observed_duration_s": 4.3246344000217505,
+      "goal_changes": [],
+      "first_under_2mm_s": 122.6926621000166,
+      "near_2mm_to_status_completion_s": 0.9787876000045799
+    }
+  ],
+  "safety": {
+    "rectangular_pad_mm": 10,
+    "pose_violations": 63,
+    "interval_violations": 68,
+    "bare_body_pose_violations": 0,
+    "minimum_sampled_body_clearance_mm": 8.148476553439785,
+    "windows": [
+      {
+        "from_s": 34.366587300028186,
+        "to_s": 34.56676930002868,
+        "samples": 11,
+        "cursors": [
+          6.0
+        ],
+        "minimum_body_clearance_mm": 8.807809091746957
+      },
+      {
+        "from_s": 38.306769800023176,
+        "to_s": 38.4916446999996,
+        "samples": 10,
+        "cursors": [
+          7.0
+        ],
+        "minimum_body_clearance_mm": 11.477611438601988
+      },
+      {
+        "from_s": 83.5471485000453,
+        "to_s": 84.12715590000153,
+        "samples": 30,
+        "cursors": [
+          18.0
+        ],
+        "minimum_body_clearance_mm": 8.148476553439785
+      },
+      {
+        "from_s": 91.09227310004644,
+        "to_s": 91.31232750002528,
+        "samples": 12,
+        "cursors": [
+          20.0
+        ],
+        "minimum_body_clearance_mm": 8.528231580247393
+      }
+    ]
+  },
+  "alternative_rough_storage": {
+    "verified_model_only": true,
+    "identical_recorded_scene": true,
+    "original_model_s": 11.54,
+    "alternative_model_s": 8.18,
+    "original_cost": {
+      "modeled_time_s": 11.54,
+      "yaw_total_deg": 444.08317136080973,
+      "yaw_residual_deg": 0.00692630387356985,
+      "yaw_reversals": 2,
+      "score_s": 18.601351464970246
+    },
+    "alternative_cost": {
+      "modeled_time_s": 8.18,
+      "yaw_total_deg": 90.78796519880606,
+      "yaw_residual_deg": 0.006926303873200368,
+      "yaw_reversals": 0,
+      "score_s": 9.54192337254019
+    },
+    "alternative_program": {
+      "schema_version": 3,
+      "kind": "PC_COORDINATE_PROGRAM",
+      "frame_id": "LAYOUT_MM",
+      "hardware_ready": false,
+      "control_source": "CHASSIS_MOVE",
+      "waypoints": [
+        {
+          "x_mm": 1200.0,
+          "y_mm": 400.0,
+          "layout_yaw_deg": 0,
+          "kind": "START",
+          "pass_mm": 0
+        },
+        {
+          "x_mm": 612.0,
+          "y_mm": 400.0,
+          "layout_yaw_deg": 0.0,
+          "travel_yaw_deg": 0.0,
+          "kind": "PASS",
+          "pass_mm": 1.0
+        },
+        {
+          "x_mm": 400.0,
+          "y_mm": 406.0,
+          "layout_yaw_deg": -90.0,
+          "travel_yaw_deg": 0.0,
+          "kind": "PASS",
+          "pass_mm": 2.0,
+          "motion": "WHEEL_PIVOT",
+          "pivot_wheel": "BL",
+          "pivot_center_mm": [
+            509.0,
+            509.0
+          ]
+        },
+        {
+          "x_mm": 400.0,
+          "y_mm": 1200.0,
+          "layout_yaw_deg": -90.0,
+          "travel_yaw_deg": 270.0,
+          "kind": "STOP",
+          "pass_mm": 0
+        }
+      ],
+      "control": {
+        "kpx": 1.5,
+        "kpy": 1.5,
+        "kpz": 9.05,
+        "xyvmax": 930.0,
+        "zvmax": 750.0,
+        "xyvmin": 0.5,
+        "zvmin": 0.5,
+        "turn_lead_mm": 40
+      },
+      "start": {
+        "x_mm": 1850.0,
+        "y_mm": 1050.0,
+        "field_yaw_deg": -90.0,
+        "s_mm": 0.0,
+        "segment_type": "COORDINATE",
+        "segment_index": 1,
+        "segment_count": 2
+      },
+      "goal": {
+        "x_mm": 1050.0,
+        "y_mm": 1850.0,
+        "field_yaw_deg": 0.0,
+        "s_mm": 1600.0,
+        "segment_type": "STOP",
+        "segment_index": 2,
+        "segment_count": 2
+      },
+      "length_mm": 1600.0,
+      "reference_frame_id": "FIELD_MM",
+      "wheel_geometry": {
+        "wheelbase_mm": 206.0,
+        "track_mm": 218.0,
+        "verified": true
+      }
+    },
+    "measured_real_alternative_s": null
+  },
+  "final_ops_mm_deg": [
+    0.22757513448596,
+    0.45870713889598846,
+    -0.014862491749227047
+  ],
+  "events_snapshot_bytes": 85900302,
+  "snapshot_incomplete_lines": 0,
+  "closed_run_file_sha256": {
+    "metadata.json": "6fbc5153cb2ba64f3ea4fd435db3c7577a884855e62ad1471dfea0c5354dd6da",
+    "plan.json": "caae240f9d62848c77be117c2020089bf8ecf59ff82b6f475604433d7d84041a",
+    "result.json": "3184a51dda3434af348a694322c7cc3338fd6a52808a4a74cca7a58042b7d58a",
+    "telemetry.csv": "a6276fa21a4fe36038b6c92dc1cc94b5d4052cb5ea1dce93e9030c6b39cd7139"
+  },
+  "limitations": [
+    "TSTAT/CCTRL以接收时间记录，约有0.2秒采样和传输错位；区段时间是观测近似。",
+    "OPS位姿及其差分不是外部实车位置或四轮编码器；安全复核受地图和定位准确性限制。",
+    "10mm裕量是车体各局部轴矩形膨胀，旋转后不等同于外缘欧氏距离10mm。",
+    "候选路线模型通过不证明实车用时或全局最优；本次不改变控制、地图、参数，不连接串口。",
+    "本版TX没有耗时字段，不能从发包间隔推断每次write耗时。"
+  ]
+}

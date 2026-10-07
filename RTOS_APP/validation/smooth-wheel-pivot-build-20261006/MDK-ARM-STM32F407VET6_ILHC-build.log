@@ -1,0 +1,30 @@
+--- STDERR ---
+Failed to create CoreCLR, HRESULT: 0x8007000E
+
+--- BUILD LOG: E:\STM32\STM32F407VET6_ILHC\MDK-ARM\build\STM32F407VET6_ILHC\compiler.log ---
+>>> info
+
+Compiler Full Name: Component: ARM Compiler 5.06 update 7 (build 960)
+Compiler Version: 5.06
+Builder Mode: Incremental
+The amount of C files: 3
+The amount of C++ files: 0
+The amount of Asm files: 0
+
+>>> prebuild
+
+
+
+>>> cc
+
+
+
+
+
+>>> ld
+
+Program Size: Code=65884 RO-data=11696 RW-data=812 ZI-data=96252  
+
+
+>>> postbuild
+

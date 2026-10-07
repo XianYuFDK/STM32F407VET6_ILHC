@@ -20,9 +20,7 @@
 #define __MECANUM_CONTROL_H__
 
 /* 旋转运动学：四轮中心前后半距+左右半距，单位mm；实车需按轮距标定。 */
-#ifndef MECANUM_ROTATION_LEVER_MM
-#define MECANUM_ROTATION_LEVER_MM 270.0f
-#endif
+#include "mecanum_geometry.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -91,7 +89,7 @@ void MecanumControl_Disable(void);
 void MecanumControl_Stop(void);
 void MecanumControl_ClearTarget(void);
 void MecanumControl_MoveVelocity(float vxRpm, float vyRpm, float vzRpm);
-/* 连续轨迹世界速度；mm/s、deg/s。转动等效臂长默认270mm，需按轮心尺寸标定。 */
+/* 连续轨迹世界速度；mm/s、deg/s。转动臂长由实测轮心轴距/轮距确定，当前212mm。 */
 void MecanumControl_MoveWorldVelocity(float vx, float vy, float omega, float yaw);
 uint8_t MecanumControl_GotoOPS(float targetX, float targetY, float targetYaw, float maxRpm);
 uint8_t MecanumControl_MoveTo(float targetX, float targetY, float targetYaw, float maxRpm);

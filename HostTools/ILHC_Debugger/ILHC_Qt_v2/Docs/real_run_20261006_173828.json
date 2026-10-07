@@ -1,0 +1,311 @@
+{
+  "session": "E:\\STM32\\STM32F407VET6_ILHC\\HostTools\\ILHC_Debugger\\ILHC_Qt_v2\\records\\runs\\20261006_173705_418470_REAL_18d0f001",
+  "run_id": "10eb2c61fbc3423ea6e5fe7521c0e41a",
+  "result": "DONE",
+  "duration_s": 92.8206635999959,
+  "events_snapshot_bytes": 165922164,
+  "frame_count": 4575,
+  "point_count": 23,
+  "station_mode": "AUTO_ROUTE",
+  "parameters": {
+    "kpx": 1.5,
+    "kpy": 1.5,
+    "kpz": 9.05,
+    "xyvmax": 930.0,
+    "zvmax": 750.0,
+    "xyvmin": 0.5,
+    "zvmin": 0.5
+  },
+  "telemetry_parameter_ranges": {
+    "kpx": [
+      1.5,
+      1.5
+    ],
+    "kpy": [
+      1.5,
+      1.5
+    ],
+    "kpz": [
+      9.050000190734863,
+      9.050000190734863
+    ],
+    "xyvmax": [
+      930.0,
+      930.0
+    ],
+    "zvmax": [
+      750.0,
+      750.0
+    ]
+  },
+  "transport_delta": {
+    "crc_errors": 42,
+    "lost_packets": 66,
+    "duplicate_packets": 0,
+    "invalid_pose_frames": 0,
+    "device_restarts": 0,
+    "gui_queue_drops": 0,
+    "observer_errors": 0
+  },
+  "diagnostics": [
+    {
+      "t": 0.11713120003696531,
+      "text": "CCAPS 5 2048 3"
+    },
+    {
+      "t": 53.62471619999269,
+      "text": "CSTALL 1307107670 13 17 -1 83 57 82 1 0"
+    }
+  ],
+  "transitions": [
+    {
+      "state": "CAPS",
+      "cursor": 0,
+      "t": 0.08694250002736226
+    },
+    {
+      "state": "BEGIN",
+      "cursor": 0,
+      "t": 0.1851471000118181
+    },
+    {
+      "state": "UPLOADING",
+      "cursor": 0,
+      "t": 0.24630810000235215
+    },
+    {
+      "state": "STARTING",
+      "cursor": 0,
+      "t": 1.066273100033868
+    },
+    {
+      "state": "RUNNING",
+      "cursor": 0,
+      "t": 1.1252999000134878
+    },
+    {
+      "state": "RUNNING",
+      "cursor": 1,
+      "t": 5.865877700038254
+    },
+    {
+      "state": "RUNNING",
+      "cursor": 2,
+      "t": 7.185936400026549
+    },
+    {
+      "state": "RUNNING",
+      "cursor": 3,
+      "t": 12.746077899995726
+    },
+    {
+      "state": "RUNNING",
+      "cursor": 4,
+      "t": 16.06003029999556
+    },
+    {
+      "state": "RUNNING",
+      "cursor": 5,
+      "t": 21.682308699993882
+    },
+    {
+      "state": "RUNNING",
+      "cursor": 6,
+      "t": 23.57991570001468
+    },
+    {
+      "state": "RUNNING",
+      "cursor": 7,
+      "t": 30.25883430003887
+    },
+    {
+      "state": "RUNNING",
+      "cursor": 8,
+      "t": 33.32685070001753
+    },
+    {
+      "state": "RUNNING",
+      "cursor": 9,
+      "t": 36.53423260001
+    },
+    {
+      "state": "RUNNING",
+      "cursor": 10,
+      "t": 41.226162300037686
+    },
+    {
+      "state": "RUNNING",
+      "cursor": 11,
+      "t": 44.79477380000753
+    },
+    {
+      "state": "RUNNING",
+      "cursor": 12,
+      "t": 46.99314490001416
+    },
+    {
+      "state": "RUNNING",
+      "cursor": 13,
+      "t": 55.60622150002746
+    },
+    {
+      "state": "RUNNING",
+      "cursor": 14,
+      "t": 57.56338410003809
+    },
+    {
+      "state": "RUNNING",
+      "cursor": 15,
+      "t": 64.60634599998593
+    },
+    {
+      "state": "RUNNING",
+      "cursor": 16,
+      "t": 67.69465510000009
+    },
+    {
+      "state": "RUNNING",
+      "cursor": 17,
+      "t": 71.8706710000406
+    },
+    {
+      "state": "RUNNING",
+      "cursor": 18,
+      "t": 75.18711040000198
+    },
+    {
+      "state": "RUNNING",
+      "cursor": 19,
+      "t": 78.99570379999932
+    },
+    {
+      "state": "RUNNING",
+      "cursor": 20,
+      "t": 82.06827590003377
+    },
+    {
+      "state": "RUNNING",
+      "cursor": 21,
+      "t": 88.56295440002577
+    },
+    {
+      "state": "DONE",
+      "cursor": 22,
+      "t": 92.82061560003785
+    }
+  ],
+  "pivots": [
+    {
+      "target": 9,
+      "start_s": 33.28129610000178,
+      "end_s": 36.4861777999904,
+      "observed_duration_s": 3.2048816999886185,
+      "tail_start_s": 34.46608730003936,
+      "tail_duration_s": 2.0200904999510385,
+      "tail_yaw_min_deg": 85.71357727050781,
+      "tail_yaw_max_deg": 99.71633911132812,
+      "tail_yaw_peak_to_peak_deg": 14.002761840820312,
+      "after_first_cross_min_deg": 85.71357727050781,
+      "after_first_cross_max_deg": 94.26007843017578,
+      "tail_rate_reversals": 4,
+      "anchor_max_mm": 13.13378332727909,
+      "anchor_rms_mm": 7.416180490608081,
+      "model_pivot_s": 1.2
+    },
+    {
+      "target": 12,
+      "start_s": 44.75153700000374,
+      "end_s": 46.937580200028606,
+      "observed_duration_s": 2.1860432000248693,
+      "tail_start_s": 45.83272130001569,
+      "tail_duration_s": 1.104858900012914,
+      "tail_yaw_min_deg": -4.348221302032471,
+      "tail_yaw_max_deg": 9.219061851501465,
+      "tail_yaw_peak_to_peak_deg": 13.567283153533936,
+      "after_first_cross_min_deg": -4.348221302032471,
+      "after_first_cross_max_deg": 4.503198623657227,
+      "tail_rate_reversals": 2,
+      "anchor_max_mm": 8.084570470423486,
+      "anchor_rms_mm": 5.570340533415572,
+      "model_pivot_s": 1.2
+    },
+    {
+      "target": 17,
+      "start_s": 67.6718292000005,
+      "end_s": 71.78187390003586,
+      "observed_duration_s": 4.11004470003536,
+      "tail_start_s": 68.84623259998625,
+      "tail_duration_s": 2.9356413000496104,
+      "tail_yaw_min_deg": 85.75503540039062,
+      "tail_yaw_max_deg": 98.94625091552734,
+      "tail_yaw_peak_to_peak_deg": 13.191215515136719,
+      "after_first_cross_min_deg": 85.75503540039062,
+      "after_first_cross_max_deg": 94.4245834350586,
+      "tail_rate_reversals": 6,
+      "anchor_max_mm": 13.830215679750166,
+      "anchor_rms_mm": 7.988330583653537,
+      "model_pivot_s": 1.2
+    },
+    {
+      "target": 20,
+      "start_s": 78.93208890000824,
+      "end_s": 82.02646800002549,
+      "observed_duration_s": 3.0943791000172496,
+      "tail_start_s": 80.12204009998823,
+      "tail_duration_s": 1.9044279000372626,
+      "tail_yaw_min_deg": -4.366130352020264,
+      "tail_yaw_max_deg": 9.941245079040527,
+      "tail_yaw_peak_to_peak_deg": 14.307375431060791,
+      "after_first_cross_min_deg": -4.366130352020264,
+      "after_first_cross_max_deg": 4.443078994750977,
+      "tail_rate_reversals": 4,
+      "anchor_max_mm": 10.462937387224208,
+      "anchor_rms_mm": 5.958932271956942,
+      "model_pivot_s": 1.2
+    }
+  ],
+  "stations": [
+    {
+      "target": 10,
+      "first_under_2mm_s": 39.58597509999527,
+      "remaining_until_last_observed_s": 1.5784758999943733,
+      "tail_yaw_span_deg": 0.08428955078125
+    },
+    {
+      "target": 13,
+      "first_under_2mm_s": 50.00595349998912,
+      "remaining_until_last_observed_s": 5.54181670001708,
+      "tail_yaw_span_deg": 0.05602121166884899
+    },
+    {
+      "target": 18,
+      "first_under_2mm_s": 74.83532569999807,
+      "remaining_until_last_observed_s": 0.3310230000060983,
+      "tail_yaw_span_deg": 0.21163177490234375
+    }
+  ],
+  "final_ops_mm_deg": [
+    0.2747749723494053,
+    0.4179340600967407,
+    0.004016151186078787
+  ],
+  "reconstructed_join_angular_speed_deg_s": 30.564541948924806,
+  "accepted_tick_gaps_ms": {
+    "20": 4551,
+    "40": 9,
+    "80": 4,
+    "180": 1,
+    "160": 1,
+    "60": 3,
+    "120": 1,
+    "200": 1,
+    "21": 1,
+    "19": 1
+  },
+  "limits": [
+    "TSTAT 与遥测不同步，区段起止约有状态更新延迟；不是精确 MCU 切换时刻。",
+    "航向来自 OPS，轮心偏移由 OPS 位姿推算，非外部真值或编码器测量。",
+    "模型采用理想轮速响应，图中按进入 PIVOT 相对时间对齐；不含实车惯性、滑移和 OPS 延迟。",
+    "四轮实际编码器、控制器实时角速度请求和固件二进制散列未回读。"
+  ]
+}

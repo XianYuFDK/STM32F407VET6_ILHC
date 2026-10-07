@@ -62,6 +62,19 @@ class UploaderTests(unittest.TestCase):
         self.setUp();self.now=3.01;self.job.tick();self.assertEqual(self.job.state,'CANCELLED')
         self.assertNotIn('TRUN=17',self.lines)
 
+    def test_invalid_context_preserves_specific_reason_and_stop_before_run(self):
+        lines=[]
+        job=BatchUploader(tiny_batch(),lines.append,valid=lambda:False,
+            invalid_reason=lambda:'OPS遥测过期：400ms未收到有效帧（上限350ms）')
+        job.start()
+        self.assertEqual(job.state,'CANCELLED')
+        self.assertIn('OPS遥测过期',job.reason)
+        self.assertEqual(lines,['TABORT=17','STOP'])
+        self.job.invalid_reason=lambda:'导航配置已变化：安全裕量'
+        self.valid=False;self.job.tick()
+        self.assertEqual(self.job.reason,'导航配置已变化：安全裕量')
+        self.assertEqual(self.lines[-2:],['TABORT=17','STOP'])
+
     def test_old_batch_and_stale_upload_reply_cannot_rewind(self):
         self.ready();self.job.handle_reply('TSTAT 99 8 3 0 0 7')
         self.assertEqual(self.job.state,'STARTING')

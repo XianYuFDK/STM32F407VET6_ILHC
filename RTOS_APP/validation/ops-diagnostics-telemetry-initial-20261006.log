@@ -1,0 +1,8 @@
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\Tests\hardware\test_debug_telemetry.py", line 120, in <module>
+    code += function('Debug_TelemetryCrc')+'\n'+function('Debug_OpsFaultReply')+'\n'+function('Debug_OpsSnapshotReply')+'\n'+function('DebugUsart_Send')
+                                                ~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\STM32\STM32F407VET6_ILHC\Tests\hardware\test_debug_telemetry.py", line 19, in function
+    assert match, name
+           ^^^^^
+AssertionError: Debug_OpsFaultReply

@@ -1,0 +1,246 @@
+{
+  "source_directory": "E:\\STM32\\STM32F407VET6_ILHC\\HostTools\\ILHC_Debugger\\ILHC_Qt_v2\\records\\runs\\20261006_234427_088205_REAL_bcfc2280",
+  "run_id": "5a1fa3a116cf423eb2450d3894a6cb40",
+  "batch_id": 3774468927,
+  "conclusion": "USART2 HAL frame error FE caused generic OPS protection cancellation 17",
+  "trun_time": "2026-10-06T23:44:27.965718+08:00",
+  "cancel_time": "2026-10-06T23:44:32.802773+08:00",
+  "seconds_trun_to_first_fault_rx": 4.81199060002109,
+  "seconds_trun_to_cancel_rx": 4.837054600007832,
+  "terminal_tstat": "TSTAT 3774468927 7 29 1 2147 17",
+  "progress_mm": 214.7,
+  "initial_points": [
+    [
+      0,
+      0,
+      0,
+      0,
+      1,
+      0,
+      0,
+      2000,
+      0,
+      0
+    ],
+    [
+      1500,
+      1500,
+      2121,
+      0,
+      1,
+      0,
+      0,
+      2000,
+      0,
+      0
+    ],
+    [
+      1500,
+      700,
+      2921,
+      9000,
+      64,
+      0,
+      200,
+      800,
+      0,
+      0
+    ]
+  ],
+  "ops_diagnostics": {
+    "faults": [
+      {
+        "event_id": 19,
+        "OPSE": {
+          "kind": "OPSE",
+          "event_id": 19,
+          "cause_mask": 512,
+          "device_tick_ms": 209957,
+          "previous_session_id": 4,
+          "session_id": 4,
+          "previous_timestamp_ms": 209250,
+          "timestamp_ms": 209250,
+          "ops_sequence": 41849,
+          "causes": [
+            "USART2硬件错误"
+          ],
+          "unknown_cause_bits": 0,
+          "host_monotonic_s": 303461.6018233
+        },
+        "OPSX": {
+          "kind": "OPSX",
+          "event_id": 19,
+          "flags": 27,
+          "frame_gap_ms": 0,
+          "valid_pose_age_ms": 1,
+          "rx_packet_age_ms": 0,
+          "uart_error": 4,
+          "crc_errors": 0,
+          "rx_overflows": 1,
+          "imu_rebased": false,
+          "imu_online": true,
+          "host_monotonic_s": 303461.6231527
+        },
+        "complete": true,
+        "causes": [
+          "USART2硬件错误"
+        ]
+      },
+      {
+        "event_id": 20,
+        "OPSE": {
+          "kind": "OPSE",
+          "event_id": 20,
+          "cause_mask": 512,
+          "device_tick_ms": 209958,
+          "previous_session_id": 4,
+          "session_id": 4,
+          "previous_timestamp_ms": 209250,
+          "timestamp_ms": 209250,
+          "ops_sequence": 41849,
+          "causes": [
+            "USART2硬件错误"
+          ],
+          "unknown_cause_bits": 0,
+          "host_monotonic_s": 303461.6318881
+        },
+        "OPSX": {
+          "kind": "OPSX",
+          "event_id": 20,
+          "flags": 27,
+          "frame_gap_ms": 0,
+          "valid_pose_age_ms": 2,
+          "rx_packet_age_ms": 0,
+          "uart_error": 4,
+          "crc_errors": 0,
+          "rx_overflows": 1,
+          "imu_rebased": false,
+          "imu_online": true,
+          "host_monotonic_s": 303461.6532614
+        },
+        "complete": true,
+        "causes": [
+          "USART2硬件错误"
+        ]
+      },
+      {
+        "event_id": 21,
+        "OPSE": {
+          "kind": "OPSE",
+          "event_id": 21,
+          "cause_mask": 512,
+          "device_tick_ms": 209958,
+          "previous_session_id": 4,
+          "session_id": 4,
+          "previous_timestamp_ms": 209250,
+          "timestamp_ms": 209250,
+          "ops_sequence": 41849,
+          "causes": [
+            "USART2硬件错误"
+          ],
+          "unknown_cause_bits": 0,
+          "host_monotonic_s": 303461.6606485
+        },
+        "complete": false,
+        "causes": [
+          "USART2硬件错误"
+        ]
+      }
+    ],
+    "snapshots": [
+      {
+        "kind": "OPSD",
+        "device_tick_ms": 206194,
+        "session_id": 4,
+        "ops_sequence": 41096,
+        "timestamp_ms": 205485,
+        "flags": 27,
+        "pose_valid": 1,
+        "valid_pose_age_ms": 2,
+        "crc_errors": 0,
+        "format_errors": 0,
+        "imu_rebased": false,
+        "imu_online": true,
+        "host_monotonic_s": 303457.785528
+      },
+      {
+        "kind": "OPSR",
+        "device_tick_ms": 206194,
+        "uart_error_count": 0,
+        "last_uart_error": 0,
+        "rx_overflows": 1,
+        "stale_packets": 0,
+        "restart_failures": 0,
+        "diagnostic_drops": 14,
+        "host_monotonic_s": 303457.8394841
+      },
+      {
+        "kind": "OPSD",
+        "device_tick_ms": 208274,
+        "session_id": 4,
+        "ops_sequence": 41512,
+        "timestamp_ms": 207565,
+        "flags": 27,
+        "pose_valid": 1,
+        "valid_pose_age_ms": 2,
+        "crc_errors": 0,
+        "format_errors": 0,
+        "imu_rebased": false,
+        "imu_online": true,
+        "host_monotonic_s": 303459.8618818
+      },
+      {
+        "kind": "OPSR",
+        "device_tick_ms": 208274,
+        "uart_error_count": 0,
+        "last_uart_error": 0,
+        "rx_overflows": 1,
+        "stale_packets": 0,
+        "restart_failures": 0,
+        "diagnostic_drops": 14,
+        "host_monotonic_s": 303459.8793792
+      }
+    ],
+    "subcause_recorded": true
+  },
+  "transport_deltas": {
+    "crc_errors": 0,
+    "lost_packets": 0,
+    "duplicate_packets": 0,
+    "invalid_pose_frames": 0,
+    "device_restarts": 0,
+    "gui_queue_drops": 0,
+    "observer_errors": 0
+  },
+  "telemetry_frames": 288,
+  "max_device_tick_gap_ms": 21,
+  "final_ops": {
+    "x_cm": 15.357573509216309,
+    "y_cm": 14.7738618850708,
+    "yaw_deg": 11.334097862243652
+  },
+  "stop_zero_offset_commands_after_trun": [
+    {
+      "time_s": 4.852353900030721,
+      "command": "TABORT=3774468927"
+    },
+    {
+      "time_s": 4.863253100018483,
+      "command": "STOP"
+    }
+  ],
+  "flags27_has_imu_rebased": false,
+  "actual_session_change_observed": false,
+  "electrical_origin_proven": false,
+  "repeated_callback_is_separate_electrical_errors_proven": false,
+  "prior_queue_overflow_and_diagnostic_drop_counters": "1 and 14 already present in both pre-fault snapshots; no increase observed there",
+  "raw_file_sha256": {
+    "session.json": "be0ebadcfdd2d6b7f5a62c5f47cf5410a5dd04c153d69ed0de2eba38838fb984",
+    "events.jsonl": "e4b78389367ebdf6cfebc3b4b6bbef0e1d3e647fb0362d1513bea44ee64010f8",
+    "telemetry.csv": "3c168bc0ed313905e4fe5fa8c11c137efff410bd283008a18ef5ddc46cbc58cb",
+    "runs\\5a1fa3a116cf423eb2450d3894a6cb40\\metadata.json": "07f7ac7a3a7bb70501c9e6b0e7b176a8b8ca0633f824abeb3bafb3fc533b1e12",
+    "runs\\5a1fa3a116cf423eb2450d3894a6cb40\\plan.json": "7885c4847d33120338e0ea45da2a841fea9ad867089e205df8911cddf8c2e259",
+    "runs\\5a1fa3a116cf423eb2450d3894a6cb40\\telemetry.csv": "3c168bc0ed313905e4fe5fa8c11c137efff410bd283008a18ef5ddc46cbc58cb",
+    "runs\\5a1fa3a116cf423eb2450d3894a6cb40\\result.json": "61e20a54547bb6f0b9508d9a11fcb62a3ec326b095b66dabf22c72a3fb2e760d"
+  }
+}

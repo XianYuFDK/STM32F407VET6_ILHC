@@ -11,6 +11,9 @@ import competition_simulation as competition
 
 def runner_for(match, validity=lambda: True):
     sim = core.Simulator(queue.Queue(), queue.Queue())
+    # 参数一致性门禁不能用默认模拟器验证另一组实机参数。
+    for name,value in (match.get('chassis_control') or {}).items():
+        setattr(sim,name,value)
     sim.handle_line('ZERO')
     sim.hold = core.layout_to_field(*match['home'])
     sim.zval = 180+match['start_yaw']
@@ -104,7 +107,7 @@ class CompetitionFlowTests(unittest.TestCase):
             with self.subTest(zone=zone):
                 self.assertTrue(match['diagonal_docking'])
                 maneuvers = [s for s in match['stages'] if s['kind'] == 'MANEUVER']
-                self.assertEqual(maneuvers[0]['target'], tuple(self.data['competition']['staging'][str(zone)]))
+                self.assertEqual(maneuvers[0]['target'], competition.departure_reference(self.data,zone)[1])
                 self.assertEqual(maneuvers[-1]['target'], tuple(match['home']))
                 self.assertEqual(match['start_yaw'], 180)  # 初始车头仍+Y，界面0°。
                 headings = {round(p['field_yaw_deg'], 2) for l in match['legs'] for p in l['route']['trajectory']}

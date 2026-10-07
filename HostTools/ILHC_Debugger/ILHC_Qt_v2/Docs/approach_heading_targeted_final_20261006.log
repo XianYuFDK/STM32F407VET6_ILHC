@@ -1,0 +1,9 @@
+test_deadline_keeps_verified_route_and_cancellation_does_not_return_it (tests.test_approach_heading.ApproachHeadingTests.test_deadline_keeps_verified_route_and_cancellation_does_not_return_it) ... ok
+test_hardware_encodes_individual_lead_and_heading_flag (tests.test_approach_heading.ApproachHeadingTests.test_hardware_encodes_individual_lead_and_heading_flag) ... ok
+test_large_corner_finishes_heading_before_last_30mm (tests.test_approach_heading.ApproachHeadingTests.test_large_corner_finishes_heading_before_last_30mm) ... ok
+test_pass_gate_requires_orientation_and_still_advances_same_frame (tests.test_approach_heading.ApproachHeadingTests.test_pass_gate_requires_orientation_and_still_advances_same_frame) ... ok
+
+----------------------------------------------------------------------
+Ran 4 tests in 0.468s
+
+OK

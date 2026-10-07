@@ -1,0 +1,19 @@
+C:\Users\Yuzi\AppData\Local\Temp\ilhc-trajectory-bridge-lrtj3aow\test.c: In function 'Debug_ServiceGoto':
+C:\Users\Yuzi\AppData\Local\Temp\ilhc-trajectory-bridge-lrtj3aow\test.c:157:10: error: implicit declaration of function '__get_PRIMASK' [-Werror=implicit-function-declaration]
+  157 |   mask = __get_PRIMASK();
+      |          ^~~~~~~~~~~~~
+C:\Users\Yuzi\AppData\Local\Temp\ilhc-trajectory-bridge-lrtj3aow\test.c:158:3: error: implicit declaration of function '__disable_irq' [-Werror=implicit-function-declaration]
+  158 |   __disable_irq();
+      |   ^~~~~~~~~~~~~
+C:\Users\Yuzi\AppData\Local\Temp\ilhc-trajectory-bridge-lrtj3aow\test.c:161:19: error: implicit declaration of function '__enable_irq' [-Werror=implicit-function-declaration]
+  161 |   if (mask == 0U) __enable_irq();
+      |                   ^~~~~~~~~~~~
+cc1.exe: all warnings being treated as errors
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\Tests\hardware\test_trajectory_bridge.py", line 121, in <module>
+    subprocess.run(['gcc','-std=c99','-Wall','-Wextra','-Werror','-I',str(ROOT/'Hardware'),str(src),'-o',str(exe),'-lm'],check=True)
+    ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Yuzi\AppData\Local\Programs\Python\Python313\Lib\subprocess.py", line 579, in run
+    raise CalledProcessError(retcode, process.args,
+                             output=stdout, stderr=stderr)
+subprocess.CalledProcessError: Command '['gcc', '-std=c99', '-Wall', '-Wextra', '-Werror', '-I', 'E:\\STM32\\STM32F407VET6_ILHC\\Hardware', 'C:\\Users\\Yuzi\\AppData\\Local\\Temp\\ilhc-trajectory-bridge-lrtj3aow\\test.c', '-o', 'C:\\Users\\Yuzi\\AppData\\Local\\Temp\\ilhc-trajectory-bridge-lrtj3aow\\test.exe', '-lm']' returned non-zero exit status 1.

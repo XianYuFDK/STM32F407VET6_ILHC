@@ -1,0 +1,4 @@
+OPS真实C发送：极值文本、DMA忙/失败留存、OPSE/OPSX先于TSTAT、分片PC解析通过。
+OPS连续故障队列仍及时交付TSTAT，不饿死取消回复。
+Real USART1 sender + PC parser passed: legacy 19 Hz reproduced; CRC1 50/50 frames + 31 GET + 5 TSTAT, all chunk sizes; DMA busy/failure/max reply/legacy/text verified.
+DL-20真实C发送/解析: 50.0Hz位置、5.0Hz完整状态，2315.4B/s含100GET+50TSTAT+50CCTRL；2400B/s预算及DMA失败重试通过。

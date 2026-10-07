@@ -1,0 +1,71 @@
+test_deadline_keeps_verified_route_and_cancellation_does_not_return_it (tests.test_approach_heading.ApproachHeadingTests.test_deadline_keeps_verified_route_and_cancellation_does_not_return_it) ... ok
+test_hardware_encodes_individual_lead_and_heading_flag (tests.test_approach_heading.ApproachHeadingTests.test_hardware_encodes_individual_lead_and_heading_flag) ... ERROR
+test_large_corner_finishes_heading_before_last_30mm (tests.test_approach_heading.ApproachHeadingTests.test_large_corner_finishes_heading_before_last_30mm) ... ERROR
+test_pass_gate_requires_orientation_and_still_advances_same_frame (tests.test_approach_heading.ApproachHeadingTests.test_pass_gate_requires_orientation_and_still_advances_same_frame) ... ERROR
+test_delayed_motion_brakes_before_goal_and_retains_moving_gates (tests.test_adaptive_turn_fix.AdaptiveTurnFixTests.test_delayed_motion_brakes_before_goal_and_retains_moving_gates) ... ok
+test_obstacle_route_keeps_crane_goal_and_uses_one_rear_wheel_turn (tests.test_adaptive_turn_fix.AdaptiveTurnFixTests.test_obstacle_route_keeps_crane_goal_and_uses_one_rear_wheel_turn) ... ok
+test_verified_direct_incumbent_survives_lane_search_deadline (tests.test_adaptive_turn_fix.AdaptiveTurnFixTests.test_verified_direct_incumbent_survives_lane_search_deadline) ... ok
+test_exit_heading_latches_when_distance_jitters_across_lead (tests.test_real_control_fixes.RealControlFixTests.test_exit_heading_latches_when_distance_jitters_across_lead) ... ok
+test_missed_pivot_exit_does_not_keep_nonzero_rotation_at_zero_error (tests.test_real_control_fixes.RealControlFixTests.test_missed_pivot_exit_does_not_keep_nonzero_rotation_at_zero_error) ... ok
+test_motor_lag_and_pose_delay_finish_without_repeated_pivot_reversals (tests.test_real_control_fixes.RealControlFixTests.test_motor_lag_and_pose_delay_finish_without_repeated_pivot_reversals) ... ok
+test_terminal_wheel_straight_uses_low_speed_position_convergence (tests.test_real_control_fixes.RealControlFixTests.test_terminal_wheel_straight_uses_low_speed_position_convergence) ... ok
+test_disconnected_graph_reports_no_optimum (tests.test_route_optimality.GraphOracleTests.test_disconnected_graph_reports_no_optimum) ... ok
+test_exact_diagonal_and_turn_weighted_route_cost (tests.test_route_optimality.GraphOracleTests.test_exact_diagonal_and_turn_weighted_route_cost) ... ok
+test_incoming_direction_state_is_required_for_optimal_bend_cost (tests.test_route_optimality.GraphOracleTests.test_incoming_direction_state_is_required_for_optimal_bend_cost) ... ok
+test_all_costs_match_independent_exhaustive_simple_path_oracle (tests.test_route_optimality.OrderedSkeletonTests.test_all_costs_match_independent_exhaustive_simple_path_oracle) ... ok
+test_budget_does_not_claim_search_exhausted_and_cancel_is_observed (tests.test_route_optimality.OrderedSkeletonTests.test_budget_does_not_claim_search_exhausted_and_cancel_is_observed) ... ok
+test_budget_exhaustion_retains_safe_seed_without_false_optimality_claim (tests.test_route_optimality.OrderedSkeletonTests.test_budget_exhaustion_retains_safe_seed_without_false_optimality_claim) ... ok
+test_cancel_interrupts_actual_optimizer_without_returning_incumbent (tests.test_route_optimality.OrderedSkeletonTests.test_cancel_interrupts_actual_optimizer_without_returning_incumbent) ... ok
+test_controller_selection_beats_old_first_safe_and_compares_all_settings (tests.test_route_optimality.OrderedSkeletonTests.test_controller_selection_beats_old_first_safe_and_compares_all_settings) ... ok
+test_core_time_limit_is_distinct_from_user_cancel (tests.test_route_optimality.OrderedSkeletonTests.test_core_time_limit_is_distinct_from_user_cancel) ... ok
+test_deadline_retains_verified_incumbent_but_never_claims_optimum (tests.test_route_optimality.OrderedSkeletonTests.test_deadline_retains_verified_incumbent_but_never_claims_optimum) ... ok
+test_deadline_without_incumbent_and_explicit_cancel_refuse_a_plan (tests.test_route_optimality.OrderedSkeletonTests.test_deadline_without_incumbent_and_explicit_cancel_refuse_a_plan) ... ok
+test_dense_replay_cache_is_bounded_by_samples_not_only_route_count (tests.test_route_optimality.OrderedSkeletonTests.test_dense_replay_cache_is_bounded_by_samples_not_only_route_count) ... ok
+test_goal_aware_plan_can_disable_wheel_extension (tests.test_route_optimality.OrderedSkeletonTests.test_goal_aware_plan_can_disable_wheel_extension) ... ok
+test_missing_direct_edge_is_not_invented_by_collinear_compression (tests.test_route_optimality.OrderedSkeletonTests.test_missing_direct_edge_is_not_invented_by_collinear_compression) ... ok
+test_replay_cache_respects_parameter_constraint_changes_and_cancellation (tests.test_route_optimality.OrderedSkeletonTests.test_replay_cache_respects_parameter_constraint_changes_and_cancellation) ... ok
+test_rough_storage_uses_tail_and_outer_wheel_turn_with_terminal_work_heading (tests.test_route_optimality.OrderedSkeletonTests.test_rough_storage_uses_tail_and_outer_wheel_turn_with_terminal_work_heading) ... ok
+test_turn_state_lower_bound_matches_independent_dijkstra (tests.test_route_optimality.OrderedSkeletonTests.test_turn_state_lower_bound_matches_independent_dijkstra) ... ok
+test_upper_bound_prunes_only_provably_more_expensive_routes (tests.test_route_optimality.OrderedSkeletonTests.test_upper_bound_prunes_only_provably_more_expensive_routes) ... ok
+test_yaw_scoring_includes_first_integration_and_final_residual (tests.test_route_optimality.OrderedSkeletonTests.test_yaw_scoring_includes_first_integration_and_final_residual) ... ok
+
+======================================================================
+ERROR: test_hardware_encodes_individual_lead_and_heading_flag (tests.test_approach_heading.ApproachHeadingTests.test_hardware_encodes_individual_lead_and_heading_flag)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\tests\test_approach_heading.py", line 46, in test_hardware_encodes_individual_lead_and_heading_flag
+    old,scene=fixture();new=anticipate_route(old,scene)
+                            ~~~~~~~~~~~~~~~~^^^^^^^^^^^
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\approach_heading.py", line 83, in anticipate_route
+    updated['optimality'].update(base_graph_proven=updated['optimality'].get('proven',False),proven=False,
+    ~~~~~~~^^^^^^^^^^^^^^
+KeyError: 'optimality'
+
+======================================================================
+ERROR: test_large_corner_finishes_heading_before_last_30mm (tests.test_approach_heading.ApproachHeadingTests.test_large_corner_finishes_heading_before_last_30mm)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\tests\test_approach_heading.py", line 24, in test_large_corner_finishes_heading_before_last_30mm
+    old,scene=fixture();new=anticipate_route(old,scene)
+                            ~~~~~~~~~~~~~~~~^^^^^^^^^^^
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\approach_heading.py", line 83, in anticipate_route
+    updated['optimality'].update(base_graph_proven=updated['optimality'].get('proven',False),proven=False,
+    ~~~~~~~^^^^^^^^^^^^^^
+KeyError: 'optimality'
+
+======================================================================
+ERROR: test_pass_gate_requires_orientation_and_still_advances_same_frame (tests.test_approach_heading.ApproachHeadingTests.test_pass_gate_requires_orientation_and_still_advances_same_frame)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\tests\test_approach_heading.py", line 37, in test_pass_gate_requires_orientation_and_still_advances_same_frame
+    old,scene=fixture();program=anticipate_route(old,scene)['waypoint_program']
+                                ~~~~~~~~~~~~~~~~^^^^^^^^^^^
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\approach_heading.py", line 83, in anticipate_route
+    updated['optimality'].update(base_graph_proven=updated['optimality'].get('proven',False),proven=False,
+    ~~~~~~~^^^^^^^^^^^^^^
+KeyError: 'optimality'
+
+----------------------------------------------------------------------
+Ran 30 tests in 24.237s
+
+FAILED (errors=3)

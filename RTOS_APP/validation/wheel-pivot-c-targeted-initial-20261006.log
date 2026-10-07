@@ -1,0 +1,10 @@
+test_four_outer_corners_both_directions_use_real_c_pivot_controller (test_coordinate_batch.CoordinateFirmwareTests.test_four_outer_corners_both_directions_use_real_c_pivot_controller) ... ok
+test_pivot_center_mapping_and_final_arc_stop_use_real_motor_output (test_coordinate_batch.CoordinateFirmwareTests.test_pivot_center_mapping_and_final_arc_stop_use_real_motor_output) ... ok
+test_pivot_center_is_covered_by_crc_and_geometry_verification (test_coordinate_batch.CoordinateFirmwareTests.test_pivot_center_is_covered_by_crc_and_geometry_verification) ... ok
+test_new_pivot_batch_refuses_old_firmware_before_begin_or_points (test_coordinate_batch.CoordinateFirmwareTests.test_new_pivot_batch_refuses_old_firmware_before_begin_or_points) ... ok
+
+----------------------------------------------------------------------
+Ran 4 tests in 6.779s
+
+OK
+真实C四角指定圆心: [((2100, 2100), False, 10.1, 1.465), ((2100, 2100), True, 10.1, 1.465), ((300, 2100), False, 10.1, 1.465), ((300, 2100), True, 10.12, 1.465), ((300, 300), False, 10.12, 1.465), ((300, 300), True, 10.12, 1.465), ((2100, 300), False, 10.12, 1.465), ((2100, 300), True, 10.1, 1.465)]

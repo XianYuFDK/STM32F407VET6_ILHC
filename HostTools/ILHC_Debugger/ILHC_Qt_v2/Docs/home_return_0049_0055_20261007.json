@@ -1,0 +1,420 @@
+{
+  "source": "REAL",
+  "conclusion": "All four controllers reached reported OPS origin; physical return differs from reported pose",
+  "user_reported_same_physical_zero_from_prior_conversation": true,
+  "manual_correction_repeatability": "User confirmed all four corrections are approximately the same; no per-run manual measurements recorded",
+  "screenshot_after_manual": {
+    "x_mm": 14,
+    "y_mm": -51,
+    "yaw_deg": -0.6,
+    "position_norm_mm": 52.88667128870941
+  },
+  "screenshot_run_identity_verified": false,
+  "post_done_manual_motion_recorded": false,
+  "exact_encoder_or_imu_cause_proven": false,
+  "route_target_modified": false,
+  "runs": [
+    {
+      "folder": "20261007_004928_847148_REAL_64d0883a",
+      "run_id": "4ffb0abb45f24f949f430eba1a678426",
+      "status": "DONE",
+      "duration_s": 94.67892770003527,
+      "frames": 4721,
+      "initial_pose": {
+        "x_mm": 0.0,
+        "y_mm": 0.0,
+        "yaw_deg": 0.0
+      },
+      "final_pose": {
+        "x_mm": 0.22918222472071648,
+        "y_mm": 0.403561107814312,
+        "yaw_deg": -0.0056280759163200855,
+        "position_error_mm": 0.4640970371250518
+      },
+      "terminal_tstat": "TSTAT 3416820378 6 23 22 139570 0",
+      "target": [
+        0,
+        0,
+        139570,
+        0,
+        1,
+        0,
+        0,
+        2000,
+        0,
+        0
+      ],
+      "points": 23,
+      "nominal_length_mm": 13957.0,
+      "mapping": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "chassis_control": {
+        "kpx": 1.5,
+        "kpy": 1.5,
+        "kpz": 9.05,
+        "xyvmax": 930.0,
+        "zvmax": 750.0,
+        "xyvmin": 0.5,
+        "zvmin": 0.5
+      },
+      "ops_offset_inputs_mm": [
+        53.0,
+        -39.5
+      ],
+      "ops_offset_inputs_are_not_readback": true,
+      "sessions": [
+        6
+      ],
+      "fault_masks": {
+        "None": 1,
+        "2048": 8,
+        "512": 8
+      },
+      "recovered_gap_ms": [
+        10,
+        10,
+        10,
+        15,
+        15,
+        10,
+        5
+      ],
+      "hard_continuity_events": [],
+      "snapshot_counter_deltas": {
+        "uart_error_count": 29,
+        "rx_overflows": 0,
+        "stale_packets": 0,
+        "restart_failures": 0,
+        "diagnostic_drops": 1,
+        "ops_crc_errors": 1,
+        "ops_format_errors": 104
+      },
+      "host_transport_deltas": {
+        "crc_errors": 12,
+        "lost_packets": 13,
+        "slow_writes": 4,
+        "device_restarts": 0,
+        "gui_queue_drops": 0,
+        "observer_errors": 0
+      },
+      "commands_changing_origin_offset_or_manual_motion": [],
+      "final_mount_compensation_norm_mm": 0.00649293061328813,
+      "raw_file_sha256": {
+        "session.json": "51c4196362d16a92a73741f9a400997f81af8a328469306872b392898540ad65",
+        "events.jsonl": "cc131f392051ea709c5363cbe23f2ab7b025041c19cb072a62692f3746768139",
+        "telemetry.csv": "6d67e5d02ce05bb284042d84d3c70a8ac32f6dae101725c61687c163476b8052",
+        "runs\\4ffb0abb45f24f949f430eba1a678426\\metadata.json": "1830ad298b120e3781eb190d4e3e06c6e3a93534df060da2e8f8d19b251450d6",
+        "runs\\4ffb0abb45f24f949f430eba1a678426\\plan.json": "b2ef297f4c82deea525e1b13848102d9426fcb446c0756e80f1a8a86fb08e76f",
+        "runs\\4ffb0abb45f24f949f430eba1a678426\\telemetry.csv": "6d67e5d02ce05bb284042d84d3c70a8ac32f6dae101725c61687c163476b8052",
+        "runs\\4ffb0abb45f24f949f430eba1a678426\\result.json": "158c42fb8a4924c9a828cc2255733f388d77b2fe4e60a927d0bef44831f1c357"
+      }
+    },
+    {
+      "folder": "20261007_005132_363166_REAL_69a56e16",
+      "run_id": "09281a8b39614b5094fba81aab2e4295",
+      "status": "DONE",
+      "duration_s": 91.384285200038,
+      "frames": 4559,
+      "initial_pose": {
+        "x_mm": 0.0,
+        "y_mm": 0.0,
+        "yaw_deg": 0.0
+      },
+      "final_pose": {
+        "x_mm": 0.21013272926211357,
+        "y_mm": 0.45888829976320267,
+        "yaw_deg": -0.016064604744315147,
+        "position_error_mm": 0.5047120323181404
+      },
+      "terminal_tstat": "TSTAT 2286318932 6 23 22 139570 0",
+      "target": [
+        0,
+        0,
+        139570,
+        0,
+        1,
+        0,
+        0,
+        2000,
+        0,
+        0
+      ],
+      "points": 23,
+      "nominal_length_mm": 13957.0,
+      "mapping": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "chassis_control": {
+        "kpx": 1.5,
+        "kpy": 1.5,
+        "kpz": 9.05,
+        "xyvmax": 930.0,
+        "zvmax": 750.0,
+        "xyvmin": 0.5,
+        "zvmin": 0.5
+      },
+      "ops_offset_inputs_mm": [
+        53.0,
+        -39.5
+      ],
+      "ops_offset_inputs_are_not_readback": true,
+      "sessions": [
+        6
+      ],
+      "fault_masks": {
+        "512": 17,
+        "2048": 17,
+        "None": 3
+      },
+      "recovered_gap_ms": [
+        10,
+        5,
+        10,
+        10,
+        10,
+        10,
+        5,
+        5,
+        15,
+        20,
+        10,
+        5,
+        10,
+        10,
+        5,
+        10,
+        5
+      ],
+      "hard_continuity_events": [],
+      "snapshot_counter_deltas": {
+        "uart_error_count": 41,
+        "rx_overflows": 0,
+        "stale_packets": 0,
+        "restart_failures": 0,
+        "diagnostic_drops": 5,
+        "ops_crc_errors": 0,
+        "ops_format_errors": 138
+      },
+      "host_transport_deltas": {
+        "crc_errors": 10,
+        "lost_packets": 11,
+        "slow_writes": 2,
+        "device_restarts": 0,
+        "gui_queue_drops": 0,
+        "observer_errors": 0
+      },
+      "commands_changing_origin_offset_or_manual_motion": [],
+      "final_mount_compensation_norm_mm": 0.01853321902296101,
+      "raw_file_sha256": {
+        "session.json": "145fc3d09b6aa718b010424c2e6e9200fc11bcd33c17210c6c26af5b1a521c75",
+        "events.jsonl": "5b728c229e460b034d17c6bf9320bc05f26751df2d00a3570644eed4474e26a7",
+        "telemetry.csv": "0401d2d8950968e0fb93eb87fdae1d13e958fac17cef54f8362c0f5e9508f00d",
+        "runs\\09281a8b39614b5094fba81aab2e4295\\metadata.json": "0b5b5bceedec66fb22aa25a7baea47374391ef6b365e8c2363858ddb5d1c29b8",
+        "runs\\09281a8b39614b5094fba81aab2e4295\\plan.json": "2d26664205684dd0558686a2fbe2ed23368ed5ac070e2ea3369894235e181d62",
+        "runs\\09281a8b39614b5094fba81aab2e4295\\telemetry.csv": "0401d2d8950968e0fb93eb87fdae1d13e958fac17cef54f8362c0f5e9508f00d",
+        "runs\\09281a8b39614b5094fba81aab2e4295\\result.json": "e0b0ae27e1b8c1e6477233b414221bcf5fcfc699a6921b2d23dd74e93684d1c6"
+      }
+    },
+    {
+      "folder": "20261007_005333_756637_REAL_322e3a93",
+      "run_id": "f3a3dab5abde43a5b735628fddc9c586",
+      "status": "DONE",
+      "duration_s": 92.15347020002082,
+      "frames": 4604,
+      "initial_pose": {
+        "x_mm": 0.0,
+        "y_mm": 0.0,
+        "yaw_deg": 0.0
+      },
+      "final_pose": {
+        "x_mm": 0.4169701412320137,
+        "y_mm": 0.2734074927866459,
+        "yaw_deg": 0.004972377792000771,
+        "position_error_mm": 0.49861383433567635
+      },
+      "terminal_tstat": "TSTAT 922389092 6 23 22 139570 0",
+      "target": [
+        0,
+        0,
+        139570,
+        0,
+        1,
+        0,
+        0,
+        2000,
+        0,
+        0
+      ],
+      "points": 23,
+      "nominal_length_mm": 13957.0,
+      "mapping": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "chassis_control": {
+        "kpx": 1.5,
+        "kpy": 1.5,
+        "kpz": 9.05,
+        "xyvmax": 930.0,
+        "zvmax": 750.0,
+        "xyvmin": 0.5,
+        "zvmin": 0.5
+      },
+      "ops_offset_inputs_mm": [
+        53.0,
+        -39.5
+      ],
+      "ops_offset_inputs_are_not_readback": true,
+      "sessions": [
+        6
+      ],
+      "fault_masks": {
+        "512": 7,
+        "2048": 6
+      },
+      "recovered_gap_ms": [
+        10,
+        10,
+        15,
+        10,
+        11,
+        10
+      ],
+      "hard_continuity_events": [],
+      "snapshot_counter_deltas": {
+        "uart_error_count": 16,
+        "rx_overflows": 0,
+        "stale_packets": 0,
+        "restart_failures": 0,
+        "diagnostic_drops": 3,
+        "ops_crc_errors": 0,
+        "ops_format_errors": 83
+      },
+      "host_transport_deltas": {
+        "crc_errors": 4,
+        "lost_packets": 4,
+        "slow_writes": 1,
+        "device_restarts": 0,
+        "gui_queue_drops": 0,
+        "observer_errors": 0
+      },
+      "commands_changing_origin_offset_or_manual_motion": [],
+      "final_mount_compensation_norm_mm": 0.005736472725206915,
+      "raw_file_sha256": {
+        "session.json": "f06c7d0e2423edb56783c9fc9df7ed6253bf0c8f0e6ee0cbb3bc44da348a522a",
+        "events.jsonl": "39bb529c2dc4018ebd002c2994c9bb0c1212a68f1d1297a8babdda163e7722ef",
+        "telemetry.csv": "ef4b53726f81c162dd4be0b8ae6fc72ae15f1f560e4a5808243f1e5bfc293ce3",
+        "runs\\f3a3dab5abde43a5b735628fddc9c586\\metadata.json": "13a10a1a8dd73a54ba7349deec40d653253d0b82ecb6cc0f1ce89cca43e5849c",
+        "runs\\f3a3dab5abde43a5b735628fddc9c586\\plan.json": "f7d9de878720cb372efa548d52814842a87b4065503e9d2fc427f625009e1f71",
+        "runs\\f3a3dab5abde43a5b735628fddc9c586\\telemetry.csv": "ef4b53726f81c162dd4be0b8ae6fc72ae15f1f560e4a5808243f1e5bfc293ce3",
+        "runs\\f3a3dab5abde43a5b735628fddc9c586\\result.json": "f25bbc9ec7ba6f3e43b6cb4199de3e865dc46bc82b87648d74e8854423ee1865"
+      }
+    },
+    {
+      "folder": "20261007_005547_927416_REAL_12514cbe",
+      "run_id": "c24f5be5582c45738d564bef4319aba7",
+      "status": "DONE",
+      "duration_s": 93.24553369998466,
+      "frames": 4659,
+      "initial_pose": {
+        "x_mm": 0.0,
+        "y_mm": 0.0,
+        "yaw_deg": 0.0
+      },
+      "final_pose": {
+        "x_mm": 0.2167278714478016,
+        "y_mm": 0.46885617077350616,
+        "yaw_deg": -0.0012294340413063765,
+        "position_error_mm": 0.5165240353891482
+      },
+      "terminal_tstat": "TSTAT 3367356820 6 23 22 139570 0",
+      "target": [
+        0,
+        0,
+        139570,
+        0,
+        1,
+        0,
+        0,
+        2000,
+        0,
+        0
+      ],
+      "points": 23,
+      "nominal_length_mm": 13957.0,
+      "mapping": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "chassis_control": {
+        "kpx": 1.5,
+        "kpy": 1.5,
+        "kpz": 9.05,
+        "xyvmax": 930.0,
+        "zvmax": 750.0,
+        "xyvmin": 0.5,
+        "zvmin": 0.5
+      },
+      "ops_offset_inputs_mm": [
+        53.0,
+        -39.5
+      ],
+      "ops_offset_inputs_are_not_readback": true,
+      "sessions": [
+        6
+      ],
+      "fault_masks": {
+        "512": 4,
+        "2048": 4,
+        "None": 1
+      },
+      "recovered_gap_ms": [
+        15,
+        10,
+        10,
+        10
+      ],
+      "hard_continuity_events": [],
+      "snapshot_counter_deltas": {
+        "uart_error_count": 22,
+        "rx_overflows": 0,
+        "stale_packets": 0,
+        "restart_failures": 0,
+        "diagnostic_drops": 1,
+        "ops_crc_errors": 0,
+        "ops_format_errors": 56
+      },
+      "host_transport_deltas": {
+        "crc_errors": 4,
+        "lost_packets": 4,
+        "slow_writes": 1,
+        "device_restarts": 0,
+        "gui_queue_drops": 0,
+        "observer_errors": 0
+      },
+      "commands_changing_origin_offset_or_manual_motion": [],
+      "final_mount_compensation_norm_mm": 0.0014183586087965039,
+      "raw_file_sha256": {
+        "session.json": "22cb865f62692adaa5ea83a450be1296fa563f12518bb9fa8fb54bedcf34fb76",
+        "events.jsonl": "a20d310390ca1bff813c3f32d5576607588688018b67a8dfdf3ec5f8d5f9f9ed",
+        "telemetry.csv": "729f79aa2fabeb67f3c0bfa107e4861c62effd49fb5c5f2879f860ae4f7391db",
+        "runs\\c24f5be5582c45738d564bef4319aba7\\metadata.json": "744ad7ad75a69619cf6b1cb3783084f7f2add19f771c18ef5953b75a66e807e0",
+        "runs\\c24f5be5582c45738d564bef4319aba7\\plan.json": "ae4218d5f6b0ad5cf9d7e4efe691b00df13a882080d0cb5c8306c17b4db22053",
+        "runs\\c24f5be5582c45738d564bef4319aba7\\telemetry.csv": "729f79aa2fabeb67f3c0bfa107e4861c62effd49fb5c5f2879f860ae4f7391db",
+        "runs\\c24f5be5582c45738d564bef4319aba7\\result.json": "ba3010f74892ff80ec17cb6f7f6b62d17b23bf3aeb390c6694903fdec79b00a7"
+      }
+    }
+  ],
+  "screenshot_move_if_latest_done": {
+    "dx_mm": 13.783272128552198,
+    "dy_mm": -51.468856170773506,
+    "yaw_delta_deg": -0.5987705659586936
+  }
+}

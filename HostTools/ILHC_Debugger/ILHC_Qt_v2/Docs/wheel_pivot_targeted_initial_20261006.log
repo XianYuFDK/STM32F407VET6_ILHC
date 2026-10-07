@@ -1,0 +1,129 @@
+test_all_four_outer_corners_in_both_directions_execute_safe_pivots (tests.test_pivot_turns.PivotTurnsTests.test_all_four_outer_corners_in_both_directions_execute_safe_pivots) ... 
+  test_all_four_outer_corners_in_both_directions_execute_safe_pivots (tests.test_pivot_turns.PivotTurnsTests.test_all_four_outer_corners_in_both_directions_execute_safe_pivots) (route=[(2100, 1200), (2100, 2100), (1200, 2100)]) ... FAIL
+  test_all_four_outer_corners_in_both_directions_execute_safe_pivots (tests.test_pivot_turns.PivotTurnsTests.test_all_four_outer_corners_in_both_directions_execute_safe_pivots) (route=[(1200, 2100), (2100, 2100), (2100, 1200)]) ... FAIL
+  test_all_four_outer_corners_in_both_directions_execute_safe_pivots (tests.test_pivot_turns.PivotTurnsTests.test_all_four_outer_corners_in_both_directions_execute_safe_pivots) (route=[(1200, 2100), (300, 2100), (300, 1200)]) ... FAIL
+  test_all_four_outer_corners_in_both_directions_execute_safe_pivots (tests.test_pivot_turns.PivotTurnsTests.test_all_four_outer_corners_in_both_directions_execute_safe_pivots) (route=[(300, 1200), (300, 2100), (1200, 2100)]) ... FAIL
+  test_all_four_outer_corners_in_both_directions_execute_safe_pivots (tests.test_pivot_turns.PivotTurnsTests.test_all_four_outer_corners_in_both_directions_execute_safe_pivots) (route=[(300, 1200), (300, 300), (1200, 300)]) ... FAIL
+  test_all_four_outer_corners_in_both_directions_execute_safe_pivots (tests.test_pivot_turns.PivotTurnsTests.test_all_four_outer_corners_in_both_directions_execute_safe_pivots) (route=[(1200, 300), (300, 300), (300, 1200)]) ... FAIL
+  test_all_four_outer_corners_in_both_directions_execute_safe_pivots (tests.test_pivot_turns.PivotTurnsTests.test_all_four_outer_corners_in_both_directions_execute_safe_pivots) (route=[(1200, 300), (2100, 300), (2100, 1200)]) ... FAIL
+  test_all_four_outer_corners_in_both_directions_execute_safe_pivots (tests.test_pivot_turns.PivotTurnsTests.test_all_four_outer_corners_in_both_directions_execute_safe_pivots) (route=[(2100, 1200), (2100, 300), (1200, 300)]) ... FAIL
+test_arc_entry_and_exit_have_stricter_yaw_gate_than_ordinary_pass (tests.test_pivot_turns.PivotTurnsTests.test_arc_entry_and_exit_have_stricter_yaw_gate_than_ordinary_pass) ... ok
+test_automatic_click_planner_selects_all_four_corners_both_directions (tests.test_pivot_turns.PivotTurnsTests.test_automatic_click_planner_selects_all_four_corners_both_directions) ... ok
+test_backward_turns_use_rear_wheel_anchors (tests.test_pivot_turns.PivotTurnsTests.test_backward_turns_use_rear_wheel_anchors) ... ERROR
+test_cancel_even_after_successful_arc_replay_cannot_return_result (tests.test_pivot_turns.PivotTurnsTests.test_cancel_even_after_successful_arc_replay_cannot_return_result) ... ok
+test_center_motion_and_wheel_limits_with_nondefault_parameters (tests.test_pivot_turns.PivotTurnsTests.test_center_motion_and_wheel_limits_with_nondefault_parameters) ... ok
+test_malformed_center_or_old_schema_cannot_silently_run_as_chord (tests.test_pivot_turns.PivotTurnsTests.test_malformed_center_or_old_schema_cannot_silently_run_as_chord) ... ok
+test_no_new_motion_when_optimizer_budget_already_exhausted (tests.test_pivot_turns.PivotTurnsTests.test_no_new_motion_when_optimizer_budget_already_exhausted) ... ok
+test_wheel_body_sweep_in_narrow_corner_is_rejected_before_control (tests.test_pivot_turns.PivotTurnsTests.test_wheel_body_sweep_in_narrow_corner_is_rejected_before_control) ... ok
+test_body_error_and_four_wheel_mixing_translate_and_turn_together (tests.test_coordinate_navigation.CoordinateTests.test_body_error_and_four_wheel_mixing_translate_and_turn_together) ... ok
+test_both_start_zones_complete_without_arc_generator_or_dense_execution (tests.test_coordinate_navigation.CoordinateTests.test_both_start_zones_complete_without_arc_generator_or_dense_execution) ... ok
+test_cancel_during_acceptance_cannot_restore_old_control (tests.test_coordinate_navigation.CoordinateTests.test_cancel_during_acceptance_cannot_restore_old_control) ... ok
+test_changed_parameters_reject_stale_program_and_cancel_active (tests.test_coordinate_navigation.CoordinateTests.test_changed_parameters_reject_stale_program_and_cancel_active) ... ok
+test_chassis_axis_gains_compensation_and_angular_units (tests.test_coordinate_navigation.CoordinateTests.test_chassis_axis_gains_compensation_and_angular_units) ... ok
+test_coordinate_runtime_stall_keeps_control_and_stop_can_cancel (tests.test_coordinate_navigation.CoordinateTests.test_coordinate_runtime_stall_keeps_control_and_stop_can_cancel) ... ok
+test_coordinate_speed_uses_chassis_limit_without_old_250_cap (tests.test_coordinate_navigation.CoordinateTests.test_coordinate_speed_uses_chassis_limit_without_old_250_cap) ... ok
+test_every_chassis_parameter_affects_coordinate_command (tests.test_coordinate_navigation.CoordinateTests.test_every_chassis_parameter_affects_coordinate_command) ... ok
+test_final_stop_deadband_does_not_inject_yaw_pulses_or_teleport (tests.test_coordinate_navigation.CoordinateTests.test_final_stop_deadband_does_not_inject_yaw_pulses_or_teleport) ... ok
+test_invalid_program_and_control_are_rejected (tests.test_coordinate_navigation.CoordinateTests.test_invalid_program_and_control_are_rejected) ... ok
+test_lateral_limit_is_checked_during_replay (tests.test_coordinate_navigation.CoordinateTests.test_lateral_limit_is_checked_during_replay) ... ok
+test_mid_path_obstacle_rejected_even_if_waypoints_safe (tests.test_coordinate_navigation.CoordinateTests.test_mid_path_obstacle_rejected_even_if_waypoints_safe) ... ok
+test_nondefault_chassis_snapshot_is_shared_by_entire_match (tests.test_coordinate_navigation.CoordinateTests.test_nondefault_chassis_snapshot_is_shared_by_entire_match) ... ok
+test_parameter_change_during_acceptance_cannot_install_stale_tracker (tests.test_coordinate_navigation.CoordinateTests.test_parameter_change_during_acceptance_cannot_install_stale_tracker) ... ok
+test_pass_switches_while_moving_and_final_stop_settles (tests.test_coordinate_navigation.CoordinateTests.test_pass_switches_while_moving_and_final_stop_settles) ... ok
+test_same_coordinate_hold_and_heading_alignment (tests.test_coordinate_navigation.CoordinateTests.test_same_coordinate_hold_and_heading_alignment) ... ok
+test_shortest_angle_both_directions_across_180 (tests.test_coordinate_navigation.CoordinateTests.test_shortest_angle_both_directions_across_180) ... ok
+test_stop_and_map_change_cancel_without_residual_motion (tests.test_coordinate_navigation.CoordinateTests.test_stop_and_map_change_cancel_without_residual_motion) ... ok
+test_sub_rpm_commands_accumulate_and_stop_discards_residual (tests.test_coordinate_navigation.CoordinateTests.test_sub_rpm_commands_accumulate_and_stop_discards_residual) ... ok
+test_two_obstacle_zone2_return_uses_safe_mecanum_connector (tests.test_coordinate_navigation.CoordinateTests.test_two_obstacle_zone2_return_uses_safe_mecanum_connector) ... ok
+test_zero_control_reports_no_progress_instead_of_hanging (tests.test_coordinate_navigation.CoordinateTests.test_zero_control_reports_no_progress_instead_of_hanging) ... ok
+test_coordinate_click_executes_and_exports_coordinate_program (test_map_click_qt.MapClickQtTests.test_coordinate_click_executes_and_exports_coordinate_program) ... ok
+test_pivot_route_shows_center_and_runs_same_coordinate_controller (test_map_click_qt.MapClickQtTests.test_pivot_route_shows_center_and_runs_same_coordinate_controller) ... ok
+
+======================================================================
+ERROR: test_backward_turns_use_rear_wheel_anchors (tests.test_pivot_turns.PivotTurnsTests.test_backward_turns_use_rear_wheel_anchors)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\tests\test_pivot_turns.py", line 125, in test_backward_turns_use_rear_wheel_anchors
+    trial,metadata=pivot_turns.corner_trial(program,1,pivot_turns.wheel_geometry(self.scene),self.scene,lambda:False)
+                   ~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\pivot_turns.py", line 82, in corner_trial
+    raise ValueError('车头策略与指定圆心几何转角不一致')
+ValueError: 车头策略与指定圆心几何转角不一致
+
+======================================================================
+FAIL: test_all_four_outer_corners_in_both_directions_execute_safe_pivots (tests.test_pivot_turns.PivotTurnsTests.test_all_four_outer_corners_in_both_directions_execute_safe_pivots) (route=[(2100, 1200), (2100, 2100), (1200, 2100)])
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\tests\test_pivot_turns.py", line 72, in test_all_four_outer_corners_in_both_directions_execute_safe_pivots
+    self.assertLess(tracker.length,old['waypoint_program']['length_mm'])
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 1817.5670833226172 not less than 1800.0
+
+======================================================================
+FAIL: test_all_four_outer_corners_in_both_directions_execute_safe_pivots (tests.test_pivot_turns.PivotTurnsTests.test_all_four_outer_corners_in_both_directions_execute_safe_pivots) (route=[(1200, 2100), (2100, 2100), (2100, 1200)])
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\tests\test_pivot_turns.py", line 72, in test_all_four_outer_corners_in_both_directions_execute_safe_pivots
+    self.assertLess(tracker.length,old['waypoint_program']['length_mm'])
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 1817.5670833226172 not less than 1800.0
+
+======================================================================
+FAIL: test_all_four_outer_corners_in_both_directions_execute_safe_pivots (tests.test_pivot_turns.PivotTurnsTests.test_all_four_outer_corners_in_both_directions_execute_safe_pivots) (route=[(1200, 2100), (300, 2100), (300, 1200)])
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\tests\test_pivot_turns.py", line 72, in test_all_four_outer_corners_in_both_directions_execute_safe_pivots
+    self.assertLess(tracker.length,old['waypoint_program']['length_mm'])
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 1817.5670833226172 not less than 1800.0
+
+======================================================================
+FAIL: test_all_four_outer_corners_in_both_directions_execute_safe_pivots (tests.test_pivot_turns.PivotTurnsTests.test_all_four_outer_corners_in_both_directions_execute_safe_pivots) (route=[(300, 1200), (300, 2100), (1200, 2100)])
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\tests\test_pivot_turns.py", line 72, in test_all_four_outer_corners_in_both_directions_execute_safe_pivots
+    self.assertLess(tracker.length,old['waypoint_program']['length_mm'])
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 1817.5670833226172 not less than 1800.0
+
+======================================================================
+FAIL: test_all_four_outer_corners_in_both_directions_execute_safe_pivots (tests.test_pivot_turns.PivotTurnsTests.test_all_four_outer_corners_in_both_directions_execute_safe_pivots) (route=[(300, 1200), (300, 300), (1200, 300)])
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\tests\test_pivot_turns.py", line 72, in test_all_four_outer_corners_in_both_directions_execute_safe_pivots
+    self.assertLess(tracker.length,old['waypoint_program']['length_mm'])
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 1817.5670833226172 not less than 1800.0
+
+======================================================================
+FAIL: test_all_four_outer_corners_in_both_directions_execute_safe_pivots (tests.test_pivot_turns.PivotTurnsTests.test_all_four_outer_corners_in_both_directions_execute_safe_pivots) (route=[(1200, 300), (300, 300), (300, 1200)])
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\tests\test_pivot_turns.py", line 72, in test_all_four_outer_corners_in_both_directions_execute_safe_pivots
+    self.assertLess(tracker.length,old['waypoint_program']['length_mm'])
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 1817.5670833226172 not less than 1800.0
+
+======================================================================
+FAIL: test_all_four_outer_corners_in_both_directions_execute_safe_pivots (tests.test_pivot_turns.PivotTurnsTests.test_all_four_outer_corners_in_both_directions_execute_safe_pivots) (route=[(1200, 300), (2100, 300), (2100, 1200)])
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\tests\test_pivot_turns.py", line 72, in test_all_four_outer_corners_in_both_directions_execute_safe_pivots
+    self.assertLess(tracker.length,old['waypoint_program']['length_mm'])
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 1817.5670833226172 not less than 1800.0
+
+======================================================================
+FAIL: test_all_four_outer_corners_in_both_directions_execute_safe_pivots (tests.test_pivot_turns.PivotTurnsTests.test_all_four_outer_corners_in_both_directions_execute_safe_pivots) (route=[(2100, 1200), (2100, 300), (1200, 300)])
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\tests\test_pivot_turns.py", line 72, in test_all_four_outer_corners_in_both_directions_execute_safe_pivots
+    self.assertLess(tracker.length,old['waypoint_program']['length_mm'])
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 1817.5670833226172 not less than 1800.0
+
+----------------------------------------------------------------------
+Ran 32 tests in 37.029s
+
+FAILED (failures=8, errors=1)
+PC四角指定圆心: []

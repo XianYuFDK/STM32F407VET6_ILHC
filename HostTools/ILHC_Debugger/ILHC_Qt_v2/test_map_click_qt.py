@@ -110,21 +110,51 @@ class MapClickQtTests(unittest.TestCase):
         self.w.plan_optimize_check.setChecked(True)
         self.assertIsNone(self.w.planned_result)
         self.click_layout(330,1200);self.wait_plan()
-        self.assertEqual(self.w.planned_result['optimality']['policy'],'ORDERED_SAFE_SKELETON_THEN_REPLAY_TIME')
+        self.assertEqual(self.w.planned_result['optimality']['policy'],'VERIFIED_TIME_AND_YAW_COST')
         self.assert_no_command_sent()
 
-    def test_coordinate_click_executes_without_arcs_and_exports_program(self):
+    def test_pivot_route_shows_center_and_runs_same_coordinate_controller(self):
+        import competition_simulation as competition
+        from tests.test_pivot_turns import CORNERS,baseline
+        from pivot_turns import select_turns
+        data=competition.load_profile();scene=competition.collision_scene(data)
+        result=select_turns(baseline(CORNERS[0],scene),scene,lambda:False)
+        self.assertTrue(result.get('pivots'))
+        self.w.nav_map=data;self.w.map_view.set_navigation_map(data)
+        first=result['waypoint_program']['start']
+        self.w.sim.hold=(first['x_mm'],first['y_mm']);self.w.sim.zval=90-first['field_yaw_deg']
+        self.w.sim.make_frame(0)
+        context=self.w._prepare_plan(*CORNERS[0][-1])
+        self.assertIsNotNone(context)
+        accepted=self.w._finish_plan(result,context)
+        self.assertTrue(accepted['ok']);self.assertIn('麦轮支点',self.w.plan_text.toPlainText())
+        self.assertGreater(self.w.map_view.pivot_item.path().elementCount(),0)
+        self.w.sim.make_frame(0);self.w._toggle_follow()
+        self.assertIsNotNone(self.w.follow,self.w.map_status.text())
+        self.assertTrue(self.w.sim._nav_tracker.pivots)
+        for i in range(1500):
+            self.w.latest=self.w.sim.make_frame(i*.02);self.w.latest_received_monotonic=time.monotonic()
+            self.w._follow_step()
+            if self.w.follow is None:break
+        self.assertEqual(self.w.sim.navigation_snapshot()['tracking_status'],'COMPLETE',self.w.map_status.text())
+        self.w._clear_path()
+        self.assertEqual(self.w.map_view.pivot_item.path().elementCount(),0)
+        self.assert_no_command_sent()
+
+    def test_coordinate_click_executes_and_exports_coordinate_program(self):
         self.click_layout(330, 1200)
         self.wait_plan()
         result = self.w.planned_result
         self.assertIsNotNone(result, self.w.map_status.text())
         self.assertEqual(result['arcs'], [])
-        self.assertIn('无圆弧', self.w.plan_text.toPlainText())
+        self.assertIn('麦轮支点' if result.get('pivots') else '无圆弧', self.w.plan_text.toPlainText())
         path = Path(self.temp.name)/'coordinates.json'
         with patch.object(main.QFileDialog,'getSaveFileName',return_value=(str(path),'')):
             self.w._export_segments()
         program = main.json.loads(path.read_text(encoding='utf-8'))
         self.assertEqual(program['kind'], 'PC_COORDINATE_PROGRAM')
+        self.assertEqual(program['schema_version'],3 if result.get('pivots') else 2)
+        self.assertEqual(sum(p.get('motion') in ('PIVOT','WHEEL_PIVOT') for p in program['waypoints']),len(result.get('pivots',[])))
         self.assertNotIn('trajectory',program)
         self.w.sim.make_frame(0)
         self.w._toggle_follow()
@@ -258,6 +288,7 @@ class MapClickQtTests(unittest.TestCase):
 
     def test_continuous_arc_tracks_to_final_stop_and_draws_four_layers(self):
         result = self.start_continuous_arc()
+        log_path=self.w.run_journal.path;run_id=self.w.run_journal.active_run
         view, sim = self.w.map_view, self.w.sim
         self.assertEqual(view.skeleton_item.path().elementCount(), len(result['points']))
         self.assertGreater(view.path_item.path().elementCount(), 3)
@@ -287,6 +318,10 @@ class MapClickQtTests(unittest.TestCase):
                     break
         self.w._update_map_trail()
         self.assertIsNone(self.w.follow)
+        self.assertIsNone(self.w.run_journal.active_run)
+        self.w.run_journal._thread.join(timeout=2)
+        self.assertFalse(self.w.run_journal._thread.is_alive())
+        self.assertEqual(main.json.loads((log_path/'runs'/run_id/'result.json').read_text(encoding='utf-8'))['status'],'COMPLETE')
         self.assertIn('最终STOP', self.w.map_status.text())
         self.assertEqual(snap['settled_frames'], 10)
         self.assertEqual(snap['fault'], '')
@@ -314,6 +349,7 @@ class MapClickQtTests(unittest.TestCase):
     def test_one_key_complete_match_both_start_zones_and_real_json_export(self):
         for zone in (1, 2):
             runner = self.start_competition(zone)
+            log_path=self.w.run_journal.path;run_id=self.w.run_journal.active_run
             self.assertEqual(runner.display_code, '')
             self.assertGreater(self.w.map_view.skeleton_item.path().elementCount(), 10)
             self.assertGreater(self.w.map_view.path_item.path().elementCount(), 50)
@@ -326,6 +362,10 @@ class MapClickQtTests(unittest.TestCase):
                     if not runner.active:
                         break
             self.assertEqual(runner.status, 'COMPLETE', runner.reason)
+            self.assertIsNone(self.w.run_journal.active_run)
+            self.w.run_journal._thread.join(timeout=2)
+            self.assertFalse(self.w.run_journal._thread.is_alive())
+            self.assertEqual(main.json.loads((log_path/'runs'/run_id/'result.json').read_text(encoding='utf-8'))['status'],'COMPLETE')
             self.assertEqual((runner.grabs, runner.placements), (12, 12))
             self.assertEqual(runner.storage, {1: [1, 1], 2: [5, 5], 3: [6, 6]})
             self.assertEqual(core.field_to_layout(*self.w.sim.hold), tuple(runner.match['home']))

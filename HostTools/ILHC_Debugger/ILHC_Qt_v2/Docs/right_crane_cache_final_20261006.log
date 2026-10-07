@@ -1,0 +1,18 @@
+test_added_obstacle_forces_revalidation_and_safe_alternative (tests.test_right_crane_routes.RightCraneMatchTests.test_added_obstacle_forces_revalidation_and_safe_alternative) ... ok
+test_both_zones_actual_station_heading_and_quantized_batch_are_correct (tests.test_right_crane_routes.RightCraneMatchTests.test_both_zones_actual_station_heading_and_quantized_batch_are_correct) ... ok
+test_no_obstacles_use_disk_routes_and_new_code_keeps_correct_actions (tests.test_right_crane_routes.RightCraneMatchTests.test_no_obstacles_use_disk_routes_and_new_code_keeps_correct_actions) ... ok
+test_cli_and_qt_equivalent_integer_float_values_share_disk_routes (tests.test_right_crane_routes.RouteStoreTests.test_cli_and_qt_equivalent_integer_float_values_share_disk_routes) ... ok
+test_corrupted_or_cancelled_cache_cannot_supply_motion (tests.test_right_crane_routes.RouteStoreTests.test_corrupted_or_cancelled_cache_cannot_supply_motion) ... ok
+test_disk_roundtrip_and_returned_copy_cannot_mutate_saved_program (tests.test_right_crane_routes.RouteStoreTests.test_disk_roundtrip_and_returned_copy_cannot_mutate_saved_program) ... ok
+test_geometry_gain_margin_and_algorithm_changes_invalidate_cache (tests.test_right_crane_routes.RouteStoreTests.test_geometry_gain_margin_and_algorithm_changes_invalidate_cache) ... ok
+test_invalid_work_area_cannot_silently_use_old_heading (tests.test_right_crane_routes.WorkOrientationTests.test_invalid_work_area_cannot_silently_use_old_heading) ... ok
+test_right_vector_points_at_each_area_and_moves_with_station (tests.test_right_crane_routes.WorkOrientationTests.test_right_vector_points_at_each_area_and_moves_with_station) ... ok
+test_quick_targets_use_right_crane_heading_for_clearance_and_route (tests.test_right_crane_qt.RightCraneQtTests.test_quick_targets_use_right_crane_heading_for_clearance_and_route) ... ok
+test_simulation_preparation_preserves_dynamic_and_fixed_geometry (tests.test_right_crane_qt.RightCraneQtTests.test_simulation_preparation_preserves_dynamic_and_fixed_geometry) ... ok
+test_station_click_overrides_free_heading_but_ordinary_click_does_not (tests.test_right_crane_qt.RightCraneQtTests.test_station_click_overrides_free_heading_but_ordinary_click_does_not) ... ok
+test_one_key_complete_match_both_start_zones_and_real_json_export (test_map_click_qt.MapClickQtTests.test_one_key_complete_match_both_start_zones_and_real_json_export) ... ok
+
+----------------------------------------------------------------------
+Ran 13 tests in 9.718s
+
+OK

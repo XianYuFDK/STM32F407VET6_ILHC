@@ -12,12 +12,12 @@ from trajectory import validate_trajectory, generate_trajectory
 STOP, WAIT, ROTATE, ARC = 1, 2, 4, 8
 POINT = struct.Struct('<iiIhH')
 CAPACITY = 4096
-STATE_NAMES = {0:'IDLE',1:'RECEIVING',2:'VERIFYING',3:'READY',4:'RUNNING',5:'WAITING',6:'DONE',7:'CANCELLED',8:'FAULT'}
+STATE_NAMES = {0:'IDLE',1:'RECEIVING',2:'VERIFYING',3:'READY',4:'RUNNING',5:'WAITING',6:'DONE',7:'CANCELLED',8:'FAULT',9:'PAUSED'}
 ERRORS = {1:'上传头格式/容量错误',2:'点字段/范围错误',3:'点序号或重传内容错误',4:'点数或CRC不一致',
           5:'底盘未就绪/心跳过期',6:'上传中断超过3秒',7:'轨迹间隔/停靠/转头定义非法',8:'OPS定位过期/非法',
           9:'实际起点或车头未对齐',10:'180秒运行超时或控制调度超期',11:'OPS位置/航向跳变',
           12:'等待作业期间车辆移动',13:'车体偏差超过规划裕量',14:'5秒无进展',15:'STOP/其他运动接管',
-          16:'上位机失联',17:'OPS会话变化',19:'调试串口接收异常',20:'底盘参数与规划快照不一致，请重新回读规划'}
+          16:'上位机失联',17:'OPS保护：坐标系变化或接收恢复失败（详见OPS诊断）',19:'调试串口接收异常',20:'底盘参数与规划快照不一致，请重新回读规划'}
 
 
 def wrap(angle):
@@ -185,15 +185,17 @@ def make_path_batch(route, start, start_yaw, goal_yaw, mapping, scene, map_snaps
 
 class BatchUploader:
     """一次提交整批；分包ACK仅用于接收流控，所有点收到并校验后才发送TRUN。"""
-    def __init__(self, batch, send, *, clock=time.monotonic, valid=lambda:True):
+    def __init__(self, batch, send, *, clock=time.monotonic, valid=lambda:True, invalid_reason=None):
         self.batch,self.send,self.clock,self.valid=batch,send,clock,valid
+        self.invalid_reason=invalid_reason
         self.state='IDLE';self.reason='';self.warning='';self.received=self.sent=self.cursor=0
         self.progress=0;self.window=0;self.last_reply=self.last_query=clock()
         self.active=False;self.commands=[]
+        self.capabilities=0;self.pause_deadline=None
 
     def emit(self,line):
         if not self.valid():
-            self.cancel('地图、参数或连接已变化');return
+            self.cancel(self.invalid_reason() if self.invalid_reason else '地图、参数或连接已变化');return
         self.commands.append(line);self.send(line)
 
     def start(self):
@@ -236,14 +238,25 @@ class BatchUploader:
         caps=re.fullmatch(('CCAPS' if self.batch.get('coordinate') else 'TCAPS')+r' (\d+) (\d+) (\d+)',text)
         if caps and self.state=='CAPS':
             version,capacity,self.window=map(int,caps.groups())
-            if version!=1 or capacity<len(self.batch['points']) or not 1<=self.window<=3:
-                self.cancel('STM32版本/容量/窗口不兼容');return True
+            self.capabilities=version
+            minimum=max(self.batch.get('required_coordinate_caps',1),self.batch.get('coordinate_version',1))
+            compatible=version in (1,2,3,4,5,6,7,8,9) and version>=minimum if self.batch.get('coordinate') else version==1
+            if not compatible or capacity<len(self.batch['points']) or not 1<=self.window<=3:
+                self.cancel('STM32普通弯提前转向版本不匹配，需要更新CCAPS8固件' if minimum>=8 and version<8 else
+                    'STM32绕轮提前制动版本不匹配，需要更新CCAPS7固件' if minimum>=7 and version<7 else
+                    'STM32实机收敛控制版本不匹配，需要更新CCAPS6固件' if minimum>=6 and version<6 else
+                    'STM32不停车绕轮转弯版本不匹配，需要更新CCAPS5固件' if minimum>=5 and version<5 else
+                    'STM32连续麦轮支点版本不匹配，需要更新CCAPS4固件' if minimum>=4 and version<4 else
+                    'STM32轮心几何/麦轮支点版本不匹配，需要更新CCAPS3固件' if minimum>=3 and version<3 else
+                    'STM32不支持指定圆心协议，需要更新CCAPS2固件' if self.batch.get('coordinate_version',1)==2 and version<2
+                            else 'STM32版本/容量/窗口不兼容');return True
             self.state='BEGIN';self.last_reply=self.clock()
             b=self.batch
             begin=('CBEGIN' if b.get('coordinate') else 'TBEGIN')+'=%d,%d,%d,%08X,%d'%(
                 b['id'],len(b['points']),b['map_version'],b['crc'],b['margin_mm'])
             if b.get('coordinate'):
                 begin+=','+','.join(str(round(b['chassis_control'][core.SIM_PARAM_ATTRS[k]]*1000)) for k in core.CHASSIS_NAMES)
+                if b.get('coordinate_version',1)>=2:begin+=',%d'%b['coordinate_version']
             self.emit(begin)
             return True
         stat=re.fullmatch(r'TSTAT (\d+) (\d+) (\d+) (\d+) (\d+) (\d+)',text)
@@ -254,11 +267,11 @@ class BatchUploader:
             return False
         if not 0<=cursor<len(self.batch['points']) or not 0<=received<=self.sent or state not in STATE_NAMES:
             self.cancel('STM32状态字段不一致');return True
-        if state in (1,2,3) and self.state in ('STARTING','RUNNING','WAITING','RESUMING'):
+        if state in (1,2,3) and self.state in ('STARTING','RUNNING','WAITING','RESUMING','PAUSING','PAUSED','CONTINUING'):
             return True
-        if state in (2,3,4,5,6) and received!=len(self.batch['points']):
+        if state in (2,3,4,5,6,9) and received!=len(self.batch['points']):
             self.cancel('未完整接收却报告可运行/完成');return True
-        if state in (4,5) and self.state not in ('STARTING','RUNNING','WAITING','RESUMING'):
+        if state in (4,5,9) and self.state not in ('STARTING','RUNNING','WAITING','RESUMING','PAUSING','PAUSED','CONTINUING'):
             self.cancel('未发送TRUN却报告车辆已运行');return True
         if progress/10>self.batch['length_mm']+0.2:
             self.cancel('STM32弧长进度超过批次');return True
@@ -284,17 +297,33 @@ class BatchUploader:
                     self.state='UPLOADING';self._chunk()
         elif state==3 and self.state=='VERIFYING':
             self.state='STARTING';self.emit('TRUN=%d'%job)
-        elif state==4 and self.state in ('STARTING','RUNNING','WAITING','RESUMING'):
-            self.state='RUNNING'
-        elif state==5 and self.state in ('STARTING','RUNNING','WAITING','RESUMING'):
+        elif state==9 and self.state in ('RUNNING','WAITING','RESUMING','PAUSING','PAUSED'):
+            self.state='PAUSED';self.pause_deadline=None
+        elif state==4 and self.state in ('STARTING','RUNNING','WAITING','RESUMING','CONTINUING'):
+            self.state='RUNNING';self.pause_deadline=None
+        elif state==5 and self.state in ('STARTING','RUNNING','WAITING','RESUMING','CONTINUING'):
             if cursor not in self.batch['waits']:
                 self.cancel('STM32停在未知作业点');return True
-            if self.state!='RESUMING': self.state='WAITING'
+            if self.state!='RESUMING': self.state='WAITING';self.pause_deadline=None
         elif state==6:
-            if self.state not in ('RUNNING','STARTING','RESUMING') or cursor!=len(self.batch['points'])-1 or received!=len(self.batch['points']):
+            if self.state not in ('RUNNING','STARTING','RESUMING','PAUSING','CONTINUING') or cursor!=len(self.batch['points'])-1 or received!=len(self.batch['points']):
                 self.cancel('STM32完成状态不一致');return True
             self.state='DONE';self.active=False
         return True
+
+    def pause(self):
+        if not self.batch.get('coordinate') or self.capabilities < 9:
+            raise ValueError('车辆暂停需要 CCAPS9 固件，请更新 STM32')
+        if not self.active or self.state not in ('RUNNING', 'WAITING', 'RESUMING'):
+            raise ValueError('当前轨迹不能暂停')
+        self.state='PAUSING';self.pause_deadline=self.clock()+3
+        self.emit('TPAUSE=%d'%self.batch['id'])
+
+    def continue_run(self):
+        if not self.active or self.state!='PAUSED':
+            raise ValueError('车辆尚未确认暂停')
+        self.state='CONTINUING';self.pause_deadline=self.clock()+3
+        self.emit('TCONTINUE=%d'%self.batch['id'])
 
     def resume(self):
         if self.state!='WAITING' or not self.active:
@@ -305,8 +334,10 @@ class BatchUploader:
         if not self.active:
             return
         if not self.valid():
-            self.cancel('地图、参数或连接变化');return
+            self.cancel(self.invalid_reason() if self.invalid_reason else '地图、参数或连接变化');return
         now=self.clock()
+        if self.pause_deadline is not None and now>self.pause_deadline:
+            self.cancel('暂停/继续指令3秒未确认，已停止任务');return
         if now-self.last_reply>3:
             self.cancel('3秒未收到轨迹状态；整批已停止');return
         if now-self.last_query>.75:

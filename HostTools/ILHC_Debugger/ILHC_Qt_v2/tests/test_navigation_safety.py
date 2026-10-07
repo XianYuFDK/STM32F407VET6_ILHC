@@ -323,6 +323,7 @@ class UiLogicTests(unittest.TestCase):
         self.assertIsNone(self.w.planned_result)
 
     def test_mapping_change_invalidates_plan(self):
+        self.w.nav_map.pop('coordinate_reference',None)  # Legacy maps still support explicit mappings.
         self.plan();self.w.map_theta_spin.v=90;self.w._apply_map_mapping()
         self.assertEqual(self.w.planned_points,[])
 
@@ -499,7 +500,15 @@ class MapDataComplianceTests(unittest.TestCase):
         rb = self.MAP['rulebook']
         (cx, cy, r, name), = [c for c in self.MAP['circles'] if c[3] == '原料区圆盘']
         x0, y0, x1, y1 = self.MAP['bounds']
-        self.assertAlmostEqual(cy, y1)                    # 图纸：圆心压在场地边界上
+        calibration = self.MAP.get('station_calibration')
+        if calibration:
+            # 现场停靠与净空反算的设备位置覆盖名义边界中心假设。
+            station_y = self.MAP['competition']['stations']['raw'][1]
+            gap = calibration['clearance_measurements_mm']['raw']
+            self.assertAlmostEqual(cy-r-station_y-core.CAR_WIDTH_MM/2,gap)
+            self.assertFalse(self.MAP['geometry_verified'])
+        else:
+            self.assertAlmostEqual(cy, y1)
         lo, hi = rb['raw_turntable_center_from_right_mm']
         self.assertLessEqual(lo - 1e-6, x1 - cx)
         self.assertLessEqual(x1 - cx, hi + 1e-6)          # 位置必须落在规则允许区间内

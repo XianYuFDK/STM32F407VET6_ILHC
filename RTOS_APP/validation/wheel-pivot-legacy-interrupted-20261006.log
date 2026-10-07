@@ -1,0 +1,3 @@
+Trajectory parameter SET/GET, range and busy gates passed
+PASS: 16-field mapping, restore, IRQ boundaries, save ACK, fault isolation; no motion dependencies
+Param readback reply format, queue and gate tests passed

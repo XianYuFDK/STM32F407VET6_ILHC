@@ -1,0 +1,269 @@
+{
+  "source": "E:\\STM32\\STM32F407VET6_ILHC\\HostTools\\ILHC_Debugger\\ILHC_Qt_v2\\records\\runs\\20261007_023125_741650_REAL_278a34a4",
+  "raw_sha256": {
+    "events.jsonl": "a1cfa6e82a6fbd557df45f9050d2d706612917543abd2ca60bfc4af23f838560",
+    "runs\\e251180e57d14f10b69d26979eb3f992\\metadata.json": "7d5e18e8ceb21b7fcd776949e041c0715ba5600103e9f8830c7513fe3c791394",
+    "runs\\e251180e57d14f10b69d26979eb3f992\\plan.json": "23aa90b51271fc7175061c7e0de591ac1ac66c4875daa77414fdc6eae466e4ac",
+    "runs\\e251180e57d14f10b69d26979eb3f992\\result.json": "c5f8906468dd3ae935b2d079f912135ca0321dd7d5339d3b6c40a23c3d820720",
+    "runs\\e251180e57d14f10b69d26979eb3f992\\telemetry.csv": "e4013d01a97498833ed110812e607da8836bdf64db227772799b1936d2cb69e3",
+    "session.json": "d6278ff06ea70c5189430fe43f7b536415ccfa64fcc0715bca8447c04457e56d",
+    "telemetry.csv": "e4013d01a97498833ed110812e607da8836bdf64db227772799b1936d2cb69e3"
+  },
+  "raw_files_unchanged": true,
+  "event_counts": {
+    "RUN_START": 1,
+    "RX_BYTES": 307,
+    "TRANSPORT": 307,
+    "FRAME": 157,
+    "COMMAND_QUEUED": 7,
+    "UI_MESSAGE": 3,
+    "BATCH_STATE": 3,
+    "TX": 22,
+    "RX_TEXT": 7,
+    "PARAM": 3,
+    "OPS_DIAGNOSTIC": 2,
+    "RUN_END": 1,
+    "SESSION_END": 1
+  },
+  "new_batch_id": 1714162076,
+  "timeline": [
+    {
+      "time_s": 0.03415540000423789,
+      "event": "BATCH_STATE",
+      "details": {
+        "batch_id": 1714162076,
+        "state": "CAPS",
+        "cursor": 0,
+        "progress_mm": 0,
+        "received": 0,
+        "reason": ""
+      }
+    },
+    {
+      "time_s": 0.03448620002018288,
+      "event": "TX",
+      "details": {
+        "command": "CCAPS",
+        "successful": true,
+        "bytes_hex": "43434150530a",
+        "write_elapsed_s": 0.00022769998759031296
+      }
+    },
+    {
+      "time_s": 0.08573900000192225,
+      "event": "RX_TEXT",
+      "details": {
+        "text": "CCAPS 8 2048 3"
+      }
+    },
+    {
+      "time_s": 0.10228799999458715,
+      "event": "TX",
+      "details": {
+        "command": "CBEGIN=1714162076,21,4,337BC770,10,1500,1500,9050,930000,750000,500,500",
+        "successful": true,
+        "bytes_hex": "43424547494e3d313731343136323037362c32312c342c33333742433737302c31302c313530302c313530302c393035302c3933303030302c3735303030302c3530302c3530300a",
+        "write_elapsed_s": 0.00457659998210147
+      }
+    },
+    {
+      "time_s": 0.12373789999401197,
+      "event": "BATCH_STATE",
+      "details": {
+        "batch_id": 1714162076,
+        "state": "BEGIN",
+        "cursor": 0,
+        "progress_mm": 0,
+        "received": 0,
+        "reason": ""
+      }
+    },
+    {
+      "time_s": 0.16740460001165047,
+      "event": "RX_TEXT",
+      "details": {
+        "text": "TSTAT 158195773 6 23 22 139570 0"
+      }
+    },
+    {
+      "time_s": 0.8097471999935806,
+      "event": "TX",
+      "details": {
+        "command": "TSTATUS=1714162076",
+        "successful": true,
+        "bytes_hex": "545354415455533d313731343136323037360a",
+        "write_elapsed_s": 0.00010160001693293452
+      }
+    },
+    {
+      "time_s": 0.8849222999997437,
+      "event": "RX_TEXT",
+      "details": {
+        "text": "TSTAT 158195773 6 23 22 139570 0"
+      }
+    },
+    {
+      "time_s": 1.5610659000230953,
+      "event": "TX",
+      "details": {
+        "command": "TSTATUS=1714162076",
+        "successful": true,
+        "bytes_hex": "545354415455533d313731343136323037360a",
+        "write_elapsed_s": 7.380003808066249e-05
+      }
+    },
+    {
+      "time_s": 1.6073483999934979,
+      "event": "RX_TEXT",
+      "details": {
+        "text": "TSTAT 158195773 6 23 22 139570 0"
+      }
+    },
+    {
+      "time_s": 2.3721457000356168,
+      "event": "TX",
+      "details": {
+        "command": "TSTATUS=1714162076",
+        "successful": true,
+        "bytes_hex": "545354415455533d313731343136323037360a",
+        "write_elapsed_s": 9.360001422464848e-05
+      }
+    },
+    {
+      "time_s": 2.4048577999928966,
+      "event": "RX_TEXT",
+      "details": {
+        "text": "TSTAT 158195773 6 23 22 139570 0"
+      }
+    },
+    {
+      "time_s": 3.1267938000382856,
+      "event": "COMMAND_QUEUED",
+      "details": {
+        "command": "TABORT=1714162076"
+      }
+    },
+    {
+      "time_s": 3.1268118000007235,
+      "event": "COMMAND_QUEUED",
+      "details": {
+        "command": "STOP"
+      }
+    },
+    {
+      "time_s": 3.1268274000030942,
+      "event": "BATCH_STATE",
+      "details": {
+        "batch_id": 1714162076,
+        "state": "CANCELLED",
+        "cursor": 0,
+        "progress_mm": 0,
+        "received": 0,
+        "reason": "3秒未收到轨迹状态；整批已停止"
+      }
+    },
+    {
+      "time_s": 3.126867300015874,
+      "event": "RUN_END",
+      "details": {
+        "status": "CANCELLED",
+        "reason": "3秒未收到轨迹状态；整批已停止",
+        "validation_trigger": null,
+        "collision_trigger": null
+      }
+    }
+  ],
+  "native_reproduction": {
+    "blocked_upload_response": "TSTAT 17 6 51 50 10000 0",
+    "allowed_upload_response": "TSTAT 1714162076 1 0 0 0 0",
+    "scope": "Demonstrates gate behavior and valid CBEGIN fields; does not identify live gate flags."
+  },
+  "frame_count": 157,
+  "device_elapsed_s": 3.12,
+  "transport_first": {
+    "event": "TRANSPORT",
+    "sequence": 3,
+    "run_id": "e251180e57d14f10b69d26979eb3f992",
+    "monotonic": 313480.7662975,
+    "wall_time": 1791311491.942183,
+    "crc_errors": 0,
+    "lost_packets": 0,
+    "duplicate_packets": 0,
+    "invalid_pose_frames": 0,
+    "device_restarts": 0,
+    "gui_queue_drops": 0,
+    "observer_errors": 0,
+    "link_mode": "wired",
+    "tx_bytes": 282,
+    "slow_writes": 0,
+    "max_write_s": 0.00873120001051575
+  },
+  "transport_last": {
+    "event": "TRANSPORT",
+    "sequence": 816,
+    "run_id": "e251180e57d14f10b69d26979eb3f992",
+    "monotonic": 313483.8650872,
+    "wall_time": 1791311495.0409725,
+    "crc_errors": 0,
+    "lost_packets": 0,
+    "duplicate_packets": 0,
+    "invalid_pose_frames": 0,
+    "device_restarts": 0,
+    "gui_queue_drops": 0,
+    "observer_errors": 0,
+    "link_mode": "wired",
+    "tx_bytes": 517,
+    "slow_writes": 0,
+    "max_write_s": 0.00873120001051575
+  },
+  "related_runs": [
+    {
+      "folder": "20261007_022934_742109_REAL_0fc64382",
+      "final": {
+        "event": "RUN_END",
+        "sequence": 836,
+        "run_id": "323d1eaaa39c4296a0d6d7ebfd9aebc4",
+        "monotonic": 313382.3850371,
+        "wall_time": 1791311393.5609224,
+        "status": "CANCELLED",
+        "reason": "3秒未收到轨迹状态；整批已停止",
+        "validation_trigger": null,
+        "collision_trigger": null
+      },
+      "last_tstat": "TSTAT 158195773 6 23 22 139570 0"
+    },
+    {
+      "folder": "20261007_023008_993191_REAL_1309a967",
+      "final": {
+        "event": "RUN_END",
+        "sequence": 819,
+        "run_id": "27d4d0f952ff45829429877593929614",
+        "monotonic": 313400.9372993,
+        "wall_time": 1791311412.1131845,
+        "status": "CANCELLED",
+        "reason": "3秒未收到轨迹状态；整批已停止",
+        "validation_trigger": null,
+        "collision_trigger": null
+      },
+      "last_tstat": "TSTAT 158195773 6 23 22 139570 0"
+    },
+    {
+      "folder": "20261007_010413_202633_REAL_1f813300",
+      "final": {
+        "event": "RUN_END",
+        "sequence": 25964,
+        "run_id": "4583e28b8af84acc96aa46d857b96e68",
+        "monotonic": 308335.5666816,
+        "wall_time": 1791306346.7425668,
+        "status": "DONE",
+        "reason": "",
+        "validation_trigger": null,
+        "collision_trigger": null
+      },
+      "last_tstat": "TSTAT 158195773 6 23 22 139570 0"
+    }
+  ],
+  "analysis_report": "E:\\STM32\\STM32F407VET6_ILHC\\HostTools\\ILHC_Debugger\\ILHC_Qt_v2\\records\\runs\\20261007_023125_741650_REAL_278a34a4\\analysis.json",
+  "confirmed": "New batch never established; all replies are old DONE; no points/commit/run sent; PC cancels after 3s.",
+  "unknown": "Firmware did not log upload gate flags. Wheel disabled/fault, pending commands or competing controllers cannot be distinguished. Host TX success is not MCU acknowledgment."
+}

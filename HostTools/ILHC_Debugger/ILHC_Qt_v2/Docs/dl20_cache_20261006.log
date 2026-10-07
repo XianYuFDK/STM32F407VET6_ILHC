@@ -1,0 +1,387 @@
+precompute competition_map.json zone 1
+precompute competition_map.json zone 2
+precompute navigation_map.json zone 1
+precompute navigation_map.json zone 2
+precompute REAL parameters zone 1
+precompute REAL parameters zone 2
+{
+  "physical_motion_verified": false,
+  "nano_verified": false,
+  "refresh_static_routes": true,
+  "precompute": [
+    {
+      "map": "competition_map.json",
+      "zone": 1,
+      "seconds": 28.979258300038055
+    },
+    {
+      "map": "competition_map.json",
+      "zone": 2,
+      "seconds": 27.98930830002064
+    },
+    {
+      "map": "navigation_map.json",
+      "zone": 1,
+      "seconds": 28.55345370003488
+    },
+    {
+      "map": "navigation_map.json",
+      "zone": 2,
+      "seconds": 27.826925500005018
+    },
+    {
+      "map": "competition_map.json",
+      "zone": 1,
+      "control": {
+        "kpx": 1.5,
+        "kpy": 1.5,
+        "kpz": 9.05,
+        "xyvmax": 930.0,
+        "zvmax": 750.0,
+        "xyvmin": 0.5,
+        "zvmin": 0.5
+      },
+      "seconds": 30.11702740000328
+    },
+    {
+      "map": "competition_map.json",
+      "zone": 2,
+      "control": {
+        "kpx": 1.5,
+        "kpy": 1.5,
+        "kpz": 9.05,
+        "xyvmax": 930.0,
+        "zvmax": 750.0,
+        "xyvmin": 0.5,
+        "zvmin": 0.5
+      },
+      "seconds": 30.12220659997547
+    }
+  ],
+  "runs": [
+    {
+      "map": "competition_map.json",
+      "zone": 1,
+      "pass_kind": "DISK",
+      "plan_wall_s": 0.0823198999860324,
+      "batch_wall_s": 0.36433740000938997,
+      "point_count": 24,
+      "planning_stats": {
+        "search_calls": 0,
+        "static_hits": 6,
+        "revalidated_hits": 0,
+        "local_hits": 2
+      },
+      "modeled_round_s": 66.5200000000039,
+      "modeled_travel_s": 47.3
+    },
+    {
+      "map": "competition_map.json",
+      "zone": 1,
+      "pass_kind": "MEMORY",
+      "plan_wall_s": 0.0265769999823533,
+      "batch_wall_s": 0.4115716000087559,
+      "point_count": 24,
+      "planning_stats": {
+        "search_calls": 0,
+        "static_hits": 6,
+        "revalidated_hits": 0,
+        "local_hits": 2
+      },
+      "modeled_round_s": 66.5200000000039,
+      "modeled_travel_s": 47.3
+    },
+    {
+      "map": "competition_map.json",
+      "zone": 2,
+      "pass_kind": "DISK",
+      "plan_wall_s": 0.08558369998354465,
+      "batch_wall_s": 0.37739979999605566,
+      "point_count": 26,
+      "planning_stats": {
+        "search_calls": 0,
+        "static_hits": 6,
+        "revalidated_hits": 0,
+        "local_hits": 2
+      },
+      "modeled_round_s": 68.74000000000346,
+      "modeled_travel_s": 49.54
+    },
+    {
+      "map": "competition_map.json",
+      "zone": 2,
+      "pass_kind": "MEMORY",
+      "plan_wall_s": 0.02835949999280274,
+      "batch_wall_s": 0.4225834999815561,
+      "point_count": 26,
+      "planning_stats": {
+        "search_calls": 0,
+        "static_hits": 6,
+        "revalidated_hits": 0,
+        "local_hits": 2
+      },
+      "modeled_round_s": 68.74000000000346,
+      "modeled_travel_s": 49.54
+    },
+    {
+      "map": "navigation_map.json",
+      "zone": 1,
+      "pass_kind": "DISK",
+      "plan_wall_s": 0.11461839999537915,
+      "batch_wall_s": 0.36138899996876717,
+      "point_count": 25,
+      "planning_stats": {
+        "search_calls": 0,
+        "static_hits": 6,
+        "revalidated_hits": 0,
+        "local_hits": 2
+      },
+      "modeled_round_s": 67.0200000000038,
+      "modeled_travel_s": 47.76
+    },
+    {
+      "map": "navigation_map.json",
+      "zone": 1,
+      "pass_kind": "MEMORY",
+      "plan_wall_s": 0.02798289997735992,
+      "batch_wall_s": 0.3603698000079021,
+      "point_count": 25,
+      "planning_stats": {
+        "search_calls": 0,
+        "static_hits": 6,
+        "revalidated_hits": 0,
+        "local_hits": 2
+      },
+      "modeled_round_s": 67.0200000000038,
+      "modeled_travel_s": 47.76
+    },
+    {
+      "map": "navigation_map.json",
+      "zone": 2,
+      "pass_kind": "DISK",
+      "plan_wall_s": 0.08529040002031252,
+      "batch_wall_s": 0.3802793000359088,
+      "point_count": 26,
+      "planning_stats": {
+        "search_calls": 0,
+        "static_hits": 6,
+        "revalidated_hits": 0,
+        "local_hits": 2
+      },
+      "modeled_round_s": 68.74000000000346,
+      "modeled_travel_s": 49.54
+    },
+    {
+      "map": "navigation_map.json",
+      "zone": 2,
+      "pass_kind": "MEMORY",
+      "plan_wall_s": 0.029672299977391958,
+      "batch_wall_s": 0.3697035000077449,
+      "point_count": 26,
+      "planning_stats": {
+        "search_calls": 0,
+        "static_hits": 6,
+        "revalidated_hits": 0,
+        "local_hits": 2
+      },
+      "modeled_round_s": 68.74000000000346,
+      "modeled_travel_s": 49.54
+    },
+    {
+      "map": "competition_map.json",
+      "zone": 1,
+      "pass_kind": "OBSTACLES",
+      "obstacles": [
+        [
+          700,
+          1200
+        ]
+      ],
+      "plan_wall_s": 0.3877919999649748,
+      "planning_stats": {
+        "search_calls": 0,
+        "static_hits": 0,
+        "revalidated_hits": 6,
+        "local_hits": 2
+      },
+      "modeled_round_s": 68.18000000000357
+    },
+    {
+      "map": "competition_map.json",
+      "zone": 2,
+      "pass_kind": "OBSTACLES",
+      "obstacles": [
+        [
+          700,
+          1200
+        ]
+      ],
+      "plan_wall_s": 0.3785354999708943,
+      "planning_stats": {
+        "search_calls": 0,
+        "static_hits": 0,
+        "revalidated_hits": 6,
+        "local_hits": 2
+      },
+      "modeled_round_s": 68.74000000000346
+    },
+    {
+      "map": "competition_map.json",
+      "zone": 1,
+      "pass_kind": "OBSTACLES",
+      "obstacles": [
+        [
+          1200,
+          1700
+        ],
+        [
+          220,
+          700
+        ],
+        [
+          220,
+          1700
+        ],
+        [
+          700,
+          220
+        ]
+      ],
+      "plan_wall_s": 1.385242099990137,
+      "planning_stats": {
+        "search_calls": 3,
+        "static_hits": 0,
+        "revalidated_hits": 3,
+        "local_hits": 2
+      },
+      "modeled_round_s": 80.66000000000109
+    },
+    {
+      "map": "competition_map.json",
+      "zone": 2,
+      "pass_kind": "OBSTACLES",
+      "obstacles": [
+        [
+          1200,
+          1700
+        ],
+        [
+          220,
+          700
+        ],
+        [
+          220,
+          1700
+        ],
+        [
+          700,
+          220
+        ]
+      ],
+      "plan_wall_s": 1.4092095000087284,
+      "planning_stats": {
+        "search_calls": 4,
+        "static_hits": 0,
+        "revalidated_hits": 2,
+        "local_hits": 2
+      },
+      "modeled_round_s": 80.1200000000012
+    },
+    {
+      "map": "competition_map.json",
+      "zone": 1,
+      "pass_kind": "OBSTACLES",
+      "obstacles": [
+        [
+          1200,
+          1200
+        ],
+        [
+          297,
+          294
+        ]
+      ],
+      "plan_wall_s": 1.9322879000101238,
+      "planning_stats": {
+        "search_calls": 2,
+        "static_hits": 0,
+        "revalidated_hits": 4,
+        "local_hits": 2
+      },
+      "modeled_round_s": 100.47999999999715
+    },
+    {
+      "map": "competition_map.json",
+      "zone": 2,
+      "pass_kind": "OBSTACLES",
+      "obstacles": [
+        [
+          1200,
+          1200
+        ],
+        [
+          297,
+          294
+        ]
+      ],
+      "plan_wall_s": 2.116034399950877,
+      "planning_stats": {
+        "search_calls": 3,
+        "static_hits": 0,
+        "revalidated_hits": 3,
+        "local_hits": 2
+      },
+      "modeled_round_s": 103.95999999999646
+    },
+    {
+      "map": "competition_map.json",
+      "zone": 1,
+      "pass_kind": "REAL_PARAMETERS",
+      "chassis_control": {
+        "kpx": 1.5,
+        "kpy": 1.5,
+        "kpz": 9.05,
+        "xyvmax": 930.0,
+        "zvmax": 750.0,
+        "xyvmin": 0.5,
+        "zvmin": 0.5
+      },
+      "planning_stats": {
+        "search_calls": 0,
+        "static_hits": 6,
+        "revalidated_hits": 0,
+        "local_hits": 2
+      },
+      "point_count": 23,
+      "modeled_round_s": 83.32000000000056
+    },
+    {
+      "map": "competition_map.json",
+      "zone": 2,
+      "pass_kind": "REAL_PARAMETERS",
+      "chassis_control": {
+        "kpx": 1.5,
+        "kpy": 1.5,
+        "kpz": 9.05,
+        "xyvmax": 930.0,
+        "zvmax": 750.0,
+        "xyvmin": 0.5,
+        "zvmin": 0.5
+      },
+      "planning_stats": {
+        "search_calls": 0,
+        "static_hits": 6,
+        "revalidated_hits": 0,
+        "local_hits": 2
+      },
+      "point_count": 24,
+      "modeled_round_s": 85.1600000000002
+    }
+  ],
+  "algorithm": "c86449dd0455d771037ab03fb731fb73576973d7a14f3922c8120025015c2c88",
+  "platform": "Windows-11-10.0.26200-SP0",
+  "python": "3.13.2",
+  "numpy": "2.2.4",
+  "shapely": "2.1.2",
+  "qt_imported": false
+}

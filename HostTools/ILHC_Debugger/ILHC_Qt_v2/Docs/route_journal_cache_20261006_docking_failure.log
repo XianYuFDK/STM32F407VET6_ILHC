@@ -1,0 +1,9 @@
+precompute competition_map.json zone 1
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\Docs\audit_route_journal_20261006.py", line 88, in <module>
+    main()
+    ~~~~^^
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\Docs\audit_route_journal_20261006.py", line 48, in main
+    assert runner.status == 'COMPLETE', runner.reason
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 须先在安全停车区旋转，再做固定航向平移

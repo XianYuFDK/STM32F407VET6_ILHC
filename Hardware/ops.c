@@ -50,6 +50,12 @@ static uint32_t s_processing_tick;
 static uint8_t s_processing_rx;
 static uint16_t            s_parse_len;              /* 解析缓冲有效长度      */
 static volatile uint8_t    s_rx_recover;             /* USART2 错误恢复请求   */
+/* 短时传输错误独立于坐标系变化；期限锚定错误前最后有效帧，不被重试续期。 */
+static volatile uint8_t s_transport_pending;
+static volatile uint32_t s_rx_fault_epoch;
+static uint32_t s_transport_tick, s_transport_session, s_transport_timestamp;
+static uint16_t s_transport_seq;
+static uint32_t s_transport_uart_error;
 static uint8_t             s_continuity_lost;
 static uint32_t            s_last_frame_tick;
 static uint8_t             s_session_pending;        /* 新会话等待首个有效位姿 */
@@ -58,11 +64,93 @@ static OPS_Data_t          s_ops;                    /* 解析结果            
  *   s_mount_x_mm : X=左右，+ 为车左，+60 = 装在中心左侧 60mm
  *   s_mount_y_mm : Y=前后，+ 为车头，-50 = 装在中心后方 50mm
  * 默认值即实车安装：车后 50mm、车左 60mm。 */
-static float s_mount_x_mm = 60.0f;
-static float s_mount_y_mm = -50.0f;
+static float s_mount_x_mm = 53.0f;
+static float s_mount_y_mm = -39.5f;
 static float s_reference_yaw; /* 首个有效帧航向，建立未清零坐标参考 */
 static float s_origin_yaw;    /* ZERO时航向，与原始零点成对保存 */
 static volatile uint8_t    s_new_flag;               /* 新数据标志            */
+
+#define OPS_FAULT_SLOTS 4U
+static OPS_Fault_t s_faults[OPS_FAULT_SLOTS];
+static volatile uint8_t s_fault_read, s_fault_write, s_fault_count;
+static volatile uint32_t s_fault_id, s_diagnostic_drops;
+static volatile uint32_t s_uart_errors, s_last_uart_error, s_stale_packets, s_restart_failures;
+
+/* IRQ内仅冻结整数快照；格式化/发送在通信任务中执行。 */
+static void OPS_RecordFault(uint32_t reason, const OPS_Frame_t *frame,
+                            uint32_t gap, uint32_t rx_age, uint32_t uart_error)
+{
+  uint32_t mask = __get_PRIMASK(), now;
+  OPS_Fault_t *fault;
+  __disable_irq();
+  now = HAL_GetTick();
+  ++s_fault_id;
+  if (s_fault_count == OPS_FAULT_SLOTS) ++s_diagnostic_drops;
+  else {
+    fault = &s_faults[s_fault_write];
+    fault->id=s_fault_id; fault->reason=reason; fault->tick=now;
+    fault->previous_session=s_ops.session_id;
+    fault->previous_timestamp=s_ops.timestamp_ms;
+    fault->session=frame?frame->session_id:s_ops.session_id;
+    fault->timestamp=frame?frame->timestamp_ms:s_ops.timestamp_ms;
+    fault->seq=frame?frame->seq:s_ops.seq;
+    fault->flags=frame?frame->flags:s_ops.frame.flags;
+    fault->gap_ms=gap; fault->valid_age_ms=now-s_ops.last_update_tick;
+    fault->rx_age_ms=rx_age; fault->uart_error=uart_error;
+    fault->crc_errors=s_ops.crc_errors;
+    fault->rx_overflows=app_rx_overflows[APP_RX_OPS];
+    s_fault_write=(uint8_t)((s_fault_write+1U)%OPS_FAULT_SLOTS);
+    ++s_fault_count;
+  }
+  if (!mask) __enable_irq();
+}
+
+uint8_t OPS_PeekFault(OPS_Fault_t *fault)
+{
+  uint32_t mask=__get_PRIMASK(); uint8_t found;
+  __disable_irq(); found=s_fault_count!=0U;
+  if(found && fault) *fault=s_faults[s_fault_read];
+  if(!mask) __enable_irq();
+  return found;
+}
+
+void OPS_FaultSent(uint32_t id)
+{
+  uint32_t mask=__get_PRIMASK(); __disable_irq();
+  if(s_fault_count && s_faults[s_fault_read].id==id) {
+    s_fault_read=(uint8_t)((s_fault_read+1U)%OPS_FAULT_SLOTS); --s_fault_count;
+  }
+  if(!mask) __enable_irq();
+}
+
+void OPS_GetDiagnostics(OPS_Diagnostics_t *snapshot)
+{
+  uint32_t mask=__get_PRIMASK(); __disable_irq();
+  snapshot->tick=HAL_GetTick(); snapshot->session=s_ops.session_id;
+  snapshot->seq=s_ops.seq; snapshot->timestamp=s_ops.timestamp_ms;
+  snapshot->flags=s_ops.frame.flags; snapshot->pose_valid=s_ops.pose_valid;
+  snapshot->valid_age_ms=snapshot->tick-s_ops.last_update_tick;
+  snapshot->crc_errors=s_ops.crc_errors; snapshot->format_errors=s_ops.format_errors;
+  snapshot->uart_errors=s_uart_errors; snapshot->last_uart_error=s_last_uart_error;
+  snapshot->rx_overflows=app_rx_overflows[APP_RX_OPS];
+  snapshot->stale_packets=s_stale_packets; snapshot->restart_failures=s_restart_failures;
+  snapshot->diagnostic_drops=s_diagnostic_drops;
+  if(!mask) __enable_irq();
+}
+
+uint8_t OPS_RecoveryPending(void)
+{
+  uint32_t mask=__get_PRIMASK(); uint8_t pending;
+  __disable_irq();
+  if(s_transport_pending && (uint32_t)(HAL_GetTick()-s_transport_tick)>200U) {
+    OPS_RecordFault(OPS_FAULT_RECOVERY_TIMEOUT,NULL,HAL_GetTick()-s_transport_tick,0U,s_transport_uart_error);
+    s_transport_pending=0U;
+    s_ops.pose_valid=0U; s_ops.session_changed=1U;
+  }
+  pending=s_transport_pending;
+  if(!mask) __enable_irq();
+  return pending;
+}
 
 /* CRC8：生成多项式 G(x)=x^8+x^5+x^4+1，初值 0xFF（DJI RM CRC8 查表） */
 static const uint8_t s_crc8_table[256] =
@@ -433,14 +521,18 @@ void OPS_ServiceRx(void)
  */
 void OPS_Init(void)
 {
+  s_transport_pending=0U; s_rx_fault_epoch=0U;
+  s_fault_read=s_fault_write=s_fault_count=0U;
+  s_fault_id=s_diagnostic_drops=0U;
+  s_uart_errors=s_last_uart_error=s_stale_packets=s_restart_failures=0U;
   memset(&s_ops, 0, sizeof(s_ops));
   s_parse_len = 0U;
   s_rx_recover = 0U;
   s_session_pending = 0U;
   s_continuity_lost = 0U;
   s_last_frame_tick = 0U;
-  s_mount_x_mm = 60.0f;
-  s_mount_y_mm = -50.0f;
+  s_mount_x_mm = 53.0f;
+  s_mount_y_mm = -39.5f;
   s_reference_yaw = s_origin_yaw = 0.0f;
   s_ops.status = OPS_STATUS_IDLE;
   s_new_flag  = 0U;
@@ -598,6 +690,7 @@ uint8_t OPS_IsZeroEnabled(void)
  */
 uint8_t OPS_ConsumeSessionChanged(void)
 {
+  (void)OPS_RecoveryPending(); /* 即使没有新报文，也按原200ms在线窗口取消。 */
   uint32_t primask = __get_PRIMASK();
   uint8_t changed;
 
@@ -650,9 +743,12 @@ static uint32_t OPS_ReceiveTick(void)
 static void OPS_PublishFrame(const OPS_Frame_t *frame, uint8_t pose_valid)
 {
   uint8_t session_changed = 0U;
+  uint32_t rx_epoch=s_rx_fault_epoch, mask;
 
   if (frame->header == OPS_FRAME_HEADER_V2)
   {
+    uint32_t reason=0U;
+    uint32_t gap=(uint32_t)(OPS_ReceiveTick()-s_last_frame_tick);
     if (s_ops.frame_count != 0U && frame->session_id == s_ops.session_id &&
         frame->seq == s_ops.seq && frame->timestamp_ms == s_ops.timestamp_ms)
       return; /* 重复帧无论间隔多久均不能刷新在线时刻。 */
@@ -666,6 +762,10 @@ static void OPS_PublishFrame(const OPS_Frame_t *frame, uint8_t pose_valid)
       if (s_ops.session_id != 0U)
       {
         session_changed = 1U;
+        if(s_ops.session_id!=frame->session_id) reason|=OPS_FAULT_SESSION_ID;
+        if((int32_t)(frame->timestamp_ms-s_ops.timestamp_ms)<0) reason|=OPS_FAULT_TIMESTAMP_BACK;
+        if(gap>200U) reason|=OPS_FAULT_FRAME_GAP;
+        OPS_RecordFault(reason,frame,gap,HAL_GetTick()-OPS_ReceiveTick(),0U);
       }
       if (s_ops.session_id != frame->session_id ||
           (int32_t)(frame->timestamp_ms - s_ops.timestamp_ms) < 0)
@@ -678,6 +778,8 @@ static void OPS_PublishFrame(const OPS_Frame_t *frame, uint8_t pose_valid)
   }
   else if (s_ops.session_id != 0U)
   {
+    OPS_RecordFault(OPS_FAULT_PROTOCOL_V1,frame,
+                    OPS_ReceiveTick()-s_last_frame_tick,HAL_GetTick()-OPS_ReceiveTick(),0U);
     /* 从 V2 回落到无 session 的 V1 流，按一次会话切换处理。 */
     s_ops.session_id = 0U;
     s_session_pending = 1U;
@@ -688,11 +790,32 @@ static void OPS_PublishFrame(const OPS_Frame_t *frame, uint8_t pose_valid)
   if (frame->header == OPS_FRAME_HEADER_V2 && s_session_pending == 0U &&
       s_ops.valid_count != 0U && (frame->flags & OPS_FLAG_IMU_REBASED) != 0U)
   {
+    OPS_RecordFault(OPS_FAULT_IMU_REBASED,frame,0U,HAL_GetTick()-OPS_ReceiveTick(),0U);
     s_continuity_lost = 1U;
     session_changed = 1U;
   }
   if (s_continuity_lost != 0U) pose_valid = 0U;
   s_ops.frame_count++;
+
+  /* 阻止错误ISR在发布中途抢占后，让错误前的旧包重新变为在线。 */
+  mask=__get_PRIMASK(); __disable_irq();
+  if(rx_epoch!=s_rx_fault_epoch || s_rx_recover) pose_valid=0U;
+  if(session_changed || s_ops.session_changed) s_transport_pending=0U;
+  if(s_transport_pending) {
+    if((uint32_t)(HAL_GetTick()-s_transport_tick)>200U) {
+      OPS_RecordFault(OPS_FAULT_RECOVERY_TIMEOUT,frame,HAL_GetTick()-s_transport_tick,0U,s_transport_uart_error);
+      s_transport_pending=0U; session_changed=1U; pose_valid=0U;
+    } else if(pose_valid && frame->header==OPS_FRAME_HEADER_V2 &&
+              frame->session_id==s_transport_session &&
+              (int16_t)(frame->seq-s_transport_seq)>0 &&
+              (int32_t)(frame->timestamp_ms-s_transport_timestamp)>0 &&
+              (uint32_t)(frame->timestamp_ms-s_transport_timestamp)<=200U &&
+              !(frame->flags&OPS_FLAG_IMU_REBASED)) {
+      OPS_RecordFault(OPS_FAULT_RECOVERED,frame,HAL_GetTick()-s_transport_tick,
+                      HAL_GetTick()-OPS_ReceiveTick(),s_transport_uart_error);
+      s_transport_pending=0U;
+    } else pose_valid=0U;
+  }
 
   if (pose_valid != 0U)
   {
@@ -725,6 +848,7 @@ static void OPS_PublishFrame(const OPS_Frame_t *frame, uint8_t pose_valid)
   {
     s_ops.session_changed = 1U;
   }
+  if(!mask) __enable_irq();
 }
 
 /**
@@ -890,10 +1014,13 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
   if (Size > sizeof(s_rx_buf)) Size = (uint16_t)sizeof(s_rx_buf);
   memcpy(s_rx_copy, s_rx_buf, Size);
   if (OPS_RestartReceive() != HAL_OK) {
+    ++s_restart_failures;
+    OPS_RecordFault(OPS_FAULT_RX_RESTART,NULL,0U,0U,huart->ErrorCode);
     s_ops.pose_valid = 0U; s_ops.session_changed = 1U;
     RTOS_APP_NotifyControl(); RTOS_APP_NotifyComm(); return;
   }
   if (Size && !APP_RX_Push(APP_RX_OPS, s_rx_copy, Size, HAL_GetTick())) {
+    OPS_RecordFault(OPS_FAULT_RX_OVERFLOW,NULL,0U,0U,huart->ErrorCode);
     /* 队满时禁止继续使用旧定位；完整解析和恢复交给任务。 */
     s_ops.pose_valid = 0U; s_ops.session_changed = 1U;
     RTOS_APP_NotifyControl();
@@ -910,6 +1037,7 @@ void OPS_ProcessPending(void)
     return;
   }
   if (APP_RX_Fault(APP_RX_OPS)) {
+    OPS_RecordFault(OPS_FAULT_RX_QUEUE,NULL,0U,0U,0U);
     APP_RX_Reset(APP_RX_OPS); s_parse_len = 0U;
     s_ops.pose_valid = 0U; s_ops.session_changed = 1U;
     ++s_ops.error_count;
@@ -917,6 +1045,8 @@ void OPS_ProcessPending(void)
   }
   if (!APP_RX_Take(APP_RX_OPS, &packet)) return;
   if ((uint32_t)(HAL_GetTick() - packet.tick) > 200U) {
+    ++s_stale_packets;
+    OPS_RecordFault(OPS_FAULT_RX_STALE,NULL,0U,HAL_GetTick()-packet.tick,0U);
     APP_RX_Reset(APP_RX_OPS); s_parse_len = 0U;
     s_ops.pose_valid = 0U; s_ops.session_changed = 1U;
     RTOS_APP_NotifyControl(); return;
@@ -936,9 +1066,28 @@ void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart)
 {
   if (huart->Instance == USART2)
   {
+    ++s_uart_errors; s_last_uart_error=huart->ErrorCode;
+    ++s_rx_fault_epoch;
+    if(!s_transport_pending) {
+      OPS_RecordFault(OPS_FAULT_UART,NULL,0U,0U,huart->ErrorCode);
+      if(s_ops.pose_valid && s_ops.valid_count && s_ops.frame.header==OPS_FRAME_HEADER_V2 &&
+         s_ops.frame.session_id && !s_continuity_lost && !s_session_pending && !s_ops.session_changed &&
+         (uint32_t)(HAL_GetTick()-s_ops.last_update_tick)<=200U) {
+        s_transport_pending=1U; s_transport_tick=s_ops.last_update_tick;
+        s_transport_session=s_ops.frame.session_id;
+        s_transport_timestamp=s_ops.frame.timestamp_ms; s_transport_seq=s_ops.frame.seq;
+        s_transport_uart_error=huart->ErrorCode;
+      } else s_ops.session_changed=1U;
+    } else s_transport_uart_error|=huart->ErrorCode;
     s_ops.error_count++;
     s_rx_recover = 1U;
-    s_ops.pose_valid = 0U; s_ops.session_changed = 1U;
+    s_ops.pose_valid = 0U;
+    /* HAL已负责DMA中止；在任务恢复之前屏蔽并清接收错误，防重复IRQ洪泛。 */
+    __HAL_UART_DISABLE_IT(huart,UART_IT_ERR);
+    __HAL_UART_DISABLE_IT(huart,UART_IT_PE);
+    __HAL_UART_DISABLE_IT(huart,UART_IT_IDLE);
+    __HAL_UART_DISABLE_IT(huart,UART_IT_RXNE);
+    __HAL_UART_CLEAR_PEFLAG(huart);
     RTOS_APP_NotifyControl(); RTOS_APP_NotifyComm();
   }
 }

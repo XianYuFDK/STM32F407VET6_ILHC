@@ -1,0 +1,3 @@
+OPS protocol: V2 flags/CRC16, split stream, noise resync, CRC retry, V1 and session passed
+OPS任务接收：ISR不解析、分包、接收时间、过期、溢出、DMA重启失败与失效唤醒通过
+OPS短错恢复：暂停/20ms续行/200ms期限/重复与无效帧/重挂失败/真会话回退重置/序号时间回绕通过

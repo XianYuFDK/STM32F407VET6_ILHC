@@ -1013,13 +1013,13 @@ class DebuggerTests(unittest.TestCase):
 
     def test_offset_apply_stops_manual_and_sends_pair(self):
         w = self.window
-        self.assertEqual(w.ops_offset_x.value(), 60)
-        self.assertEqual(w.ops_offset_y.value(), -50)
+        self.assertEqual(w.ops_offset_x.value(), 53.0)
+        self.assertEqual(w.ops_offset_y.value(), -39.5)
         w._manual_start((0, 0, 1))
         w.ops_offset_y.setValue(-52.5)
         w._apply_ops_offset()
         self.assertIsNone(w.manual_vector)
-        self.assertEqual(w.line_q.get_nowait(), "OPSOFFSET=60.0,-52.5")
+        self.assertEqual(w.line_q.get_nowait(), "OPSOFFSET=53.0,-52.5")
         self.assertEqual(w.urgent_q.get_nowait(), "STOP")
 
     def test_offset_file_roundtrip_and_invalid(self):
@@ -1447,7 +1447,7 @@ class VisionPageTests(unittest.TestCase):
         w = self.window
         self.assertEqual(w.page_names[8], "视觉跟踪")
         self.assertEqual(w.vision_page_index, 8)
-        self.assertEqual(w.page_names[-1], "轨迹调参")
+        self.assertEqual(w.page_names[-1], "视觉跟踪")
         self.assertEqual(w.stack.count(), len(w.pages))
         self.assertEqual(w.page_names[:8], ["总览", "实时波形", "比赛地图", "底盘调参",
                                             "DM 电机", "数据记录", "命令终端", "28 / 35 步进"])

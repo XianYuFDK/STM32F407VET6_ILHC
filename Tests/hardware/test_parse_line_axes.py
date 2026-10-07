@@ -66,6 +66,7 @@ static volatile uint8_t s_wheel_req;
 static int16_t s_zdt_args[3];
 static volatile uint8_t s_zdt_active, s_zdt_req, s_zdt_text_mode;
 static uint8_t s_telemetry_crc;
+static uint8_t s_wire_started,s_full_sent;
 static volatile uint8_t s_dm_enable_req, s_dm_disable_req, s_dm_zero_req;
 static uint32_t tick, mask;
 #define DEBUG_GOTO_MOVE 1U
@@ -112,6 +113,10 @@ int main(void) {
   /* CRC1 negotiation only selects transport; VOFA keeps third-party compatibility. */
   s_zdt_text_mode=1;strcpy(line,"TELEM=1");Debug_ParseLine(line);
   assert(s_telemetry_crc==1 && s_zdt_text_mode==0 && !s_manual_active && !s_goto_active);
+  s_wire_started=s_full_sent=1;strcpy(line,"TELEM=2");Debug_ParseLine(line);
+  assert(s_telemetry_crc==2 && !s_wire_started && !s_full_sent && !s_manual_active && !s_goto_active);
+  s_wire_started=s_full_sent=1;Debug_ParseLine(line);
+  assert(s_wire_started && s_full_sent); /* 幂等补发不制造全帧突发。 */
   strcpy(line,"VOFA");Debug_ParseLine(line);assert(s_telemetry_crc==0 && !s_zdt_text_mode);
 
   /* MANUAL：X(左右),Y(前后),W 原序暂存。 */

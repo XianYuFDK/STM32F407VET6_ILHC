@@ -1,0 +1,37 @@
+{
+  "runner_pid": 48760,
+  "started": "2026-10-06T01:43:45.858345",
+  "jobs": {
+    "coordinate_c": {
+      "pid": 32596,
+      "log": "E:\\STM32\\STM32F407VET6_ILHC\\RTOS_APP\\validation\\smooth-wheel-pivot-c-background-final-20261006.log",
+      "status": "finished",
+      "returncode": 1,
+      "elapsed_seconds": 57.818
+    },
+    "legacy_c": {
+      "pid": 41092,
+      "log": "E:\\STM32\\STM32F407VET6_ILHC\\RTOS_APP\\validation\\smooth-wheel-pivot-legacy-background-final-20261006.log",
+      "status": "finished",
+      "returncode": 0,
+      "elapsed_seconds": 57.012
+    },
+    "qt": {
+      "pid": 7876,
+      "log": "E:\\STM32\\STM32F407VET6_ILHC\\HostTools\\ILHC_Debugger\\ILHC_Qt_v2\\Docs\\smooth_wheel_pivot_qt_background_final_20261006.log",
+      "status": "finished",
+      "returncode": 1,
+      "elapsed_seconds": 404.977
+    },
+    "headless": {
+      "pid": 14712,
+      "log": "E:\\STM32\\STM32F407VET6_ILHC\\HostTools\\ILHC_Debugger\\ILHC_Qt_v2\\Docs\\smooth_wheel_pivot_headless_background_final_20261006.log",
+      "status": "finished",
+      "returncode": 0,
+      "elapsed_seconds": 157.633
+    }
+  },
+  "complete": true,
+  "finished": "2026-10-06T01:50:30.844206",
+  "returncode": 1
+}

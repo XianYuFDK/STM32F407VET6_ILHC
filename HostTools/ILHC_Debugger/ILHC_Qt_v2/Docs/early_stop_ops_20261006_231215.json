@@ -1,0 +1,47 @@
+{
+  "source_directory": "E:\\STM32\\STM32F407VET6_ILHC\\HostTools\\ILHC_Debugger\\ILHC_Qt_v2\\records\\runs\\20261006_230837_613905_REAL_b96ec2f4",
+  "source_run_id": "ea884cc7ca944ccfb0686b09bb18b482",
+  "pc_version": "2.1.18",
+  "coordinate_caps": 8,
+  "batch_id": 95942926,
+  "point_count": 29,
+  "start_requested_local": "2026-10-06T23:12:16.266893+08:00",
+  "cancel_observed_local": "2026-10-06T23:12:21.257090+08:00",
+  "seconds_after_trun": 4.990196999977343,
+  "terminal_tstat": "TSTAT 95942926 7 29 1 2193 17",
+  "reported_progress_mm": 219.3,
+  "cursor": 1,
+  "reason": "STM32 OPS protection; error code 17 groups several subcauses",
+  "precise_ops_subcause_recorded": false,
+  "initial_stop_point_mm": [
+    150,
+    150
+  ],
+  "next_goal_mm": [
+    150,
+    70
+  ],
+  "next_yaw_deg": 90,
+  "telemetry_frames": 295,
+  "max_device_tick_gap_ms": 20,
+  "transport_deltas": {
+    "crc_errors": 0,
+    "lost_packets": 0,
+    "duplicate_packets": 0,
+    "invalid_pose_frames": 0,
+    "device_restarts": 0,
+    "gui_queue_drops": 0,
+    "observer_errors": 0
+  },
+  "new_stop_zero_offset_commands": [],
+  "canceled_before_pc_tabort": true,
+  "raw_file_sha256": {
+    "session.json": "be452de8d089b842c4f0f1fc34d71e3acf0108765d26e8a43733c8245a2ad955",
+    "events.jsonl": "cea99f0ea139cef168dde14ab77bcd4743599428e99c1939c31edb7445a91c36",
+    "telemetry.csv": "5f7d05975e9bfbeebf38b44e85b65dcd00b430de881e3ce023d47a5aa1cb4f4d",
+    "runs\\ea884cc7ca944ccfb0686b09bb18b482\\metadata.json": "bd5a7fd50009a6f08bce78518c7b74511dcd5bc59c192d14d9ffa3ada8379915",
+    "runs\\ea884cc7ca944ccfb0686b09bb18b482\\plan.json": "4a93249d2be5273ef2da659025e70c299217492056482b2555a9deb60f72529f",
+    "runs\\ea884cc7ca944ccfb0686b09bb18b482\\telemetry.csv": "5f7d05975e9bfbeebf38b44e85b65dcd00b430de881e3ce023d47a5aa1cb4f4d",
+    "runs\\ea884cc7ca944ccfb0686b09bb18b482\\result.json": "12a0e5af48bd010f0634a46a265d48e1f5048eb52d86d1eba7396788bafd98bd"
+  }
+}

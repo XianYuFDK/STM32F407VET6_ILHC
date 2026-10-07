@@ -4,7 +4,7 @@
  * @brief   USART1 调试模块（VOFA+ 调参）
  *
  *          - USART1：PA9=TX，PA10=RX，115200/8N1
- *          - TX：DMA发送24通道；VOFA选择JustFloat，TELEM=1选择CRC1可靠遥测
+ *          - TX：VOFA选择JustFloat；TELEM=1为有线CRC1；TELEM=2为DL-20分频CRC2
  *          - RX：DMA 空闲中断接收 ASCII 命令，可在线调节底盘 / DM 电机参数
  *
  *          VOFA+ 使用方式：
@@ -17,7 +17,7 @@
  *                          STOP / ZERO
  *                          VTRACK=1..6（按颜色居中跟踪）/ VTRACK=0（停止）
  *                          PING（上位机运行心跳）
- *                          VOFA（第三方JustFloat）/ TELEM=1（配套PC的序号/时间/CRC32）
+ *                          VOFA / TELEM=1（24通道50Hz）/ TELEM=2（OPS50Hz、完整状态5Hz）
  *                          DMID=3 / DMEN / DMOFF / DMZERO
  *                          DMMODE=1 (MIT) / DMMODE=2 (位置速度)
  *                          DMPOS=3.14 / DMVEL=2 / DMKP=2 / DMKD=1 / DMTOR=0.5

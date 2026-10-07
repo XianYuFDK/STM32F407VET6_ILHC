@@ -1,6 +1,7 @@
 #ifndef TRAJECTORY_BUFFER_H
 #define TRAJECTORY_BUFFER_H
 #include <stdint.h>
+#include "mecanum_geometry.h"
 
 /* 整批点在运行前缓存于SRAM；每点16字节，绝不写Flash。 */
 #define TRAJ_CAPACITY 4096U
@@ -11,6 +12,9 @@
 #define TRAJ_WAIT 2U
 #define TRAJ_ROTATE 4U
 #define TRAJ_ARC 8U
+#define TRAJ_PIVOT 16U
+#define TRAJ_WHEEL_PIVOT 32U
+#define TRAJ_APPROACH_HEADING 64U /* 普通点完成车头后才允许放行，不增加停车等待 */
 #define TRAJ_IDLE 0U
 #define TRAJ_RECEIVING 1U
 #define TRAJ_VERIFYING 2U
@@ -20,6 +24,7 @@
 #define TRAJ_DONE 6U
 #define TRAJ_CANCELLED 7U
 #define TRAJ_FAULT 8U
+#define TRAJ_PAUSED 9U
 
 /* 坐标为OPS零点坐标：X左、Y前；yaw零点朝前、逆时针正。 */
 typedef struct {
@@ -51,6 +56,8 @@ uint8_t Traj_ParseLine(const char *line, uint32_t now, uint8_t upload_allowed);
 void Traj_Cancel(uint8_t reason);
 uint8_t Traj_Busy(void);
 uint8_t Traj_OutputAllowed(void);
+/* 接收恢复期间保留点位、清速度与停稳计时，并推进控制时钟；不延长总运行期限。 */
+void Traj_Hold(uint32_t now);
 /* 后续真实塔吊任务完成后调用：只释放匹配批次/站点的WAIT，不能恢复已取消路径。 */
 uint8_t Traj_CompleteStation(uint32_t batch_id, uint16_t point_index);
 /* 任务计算OPS世界速度mm/s、角速度deg/s；返回1输出速度，2必须停车，0无输出。 */

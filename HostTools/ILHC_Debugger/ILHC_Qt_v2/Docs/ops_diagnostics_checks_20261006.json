@@ -1,0 +1,81 @@
+{
+  "complete": true,
+  "transport": "JDY-31 Bluetooth SPP",
+  "physical_motion_verified": false,
+  "flashed": false,
+  "serial_connected": false,
+  "python_310_syntax_files": 11,
+  "pc_tests": 38,
+  "native": {
+    "test_ops_protocol.py": {
+      "returncode": 0,
+      "elapsed_s": 1.15,
+      "log": "RTOS_APP\\validation\\ops-diagnostics-test_ops_protocol-20261006.log"
+    },
+    "test_ops_axis_direction.py": {
+      "returncode": 0,
+      "elapsed_s": 1.086,
+      "log": "RTOS_APP\\validation\\ops-diagnostics-test_ops_axis_direction-20261006.log"
+    },
+    "test_ops_zero_frame.py": {
+      "returncode": 0,
+      "elapsed_s": 1.076,
+      "log": "RTOS_APP\\validation\\ops-diagnostics-test_ops_zero_frame-20261006.log"
+    },
+    "test_ops_offset.py": {
+      "returncode": 0,
+      "elapsed_s": 1.059,
+      "log": "RTOS_APP\\validation\\ops-diagnostics-test_ops_offset-20261006.log"
+    },
+    "test_debug_telemetry.py": {
+      "returncode": 0,
+      "elapsed_s": 1.342,
+      "log": "RTOS_APP\\validation\\ops-diagnostics-test_debug_telemetry-20261006.log"
+    },
+    "test_debug_rx_recovery.py": {
+      "returncode": 0,
+      "elapsed_s": 1.074,
+      "log": "RTOS_APP\\validation\\ops-diagnostics-test_debug_rx_recovery-20261006.log"
+    },
+    "test_parse_line_axes.py": {
+      "returncode": 0,
+      "elapsed_s": 1.091,
+      "log": "RTOS_APP\\validation\\ops-diagnostics-test_parse_line_axes-20261006.log"
+    },
+    "test_trajectory_bridge.py": {
+      "returncode": 0,
+      "elapsed_s": 1.056,
+      "log": "RTOS_APP\\validation\\ops-diagnostics-test_trajectory_bridge-20261006.log"
+    }
+  },
+  "build_metrics": {
+    "errors": 0,
+    "warnings": 0,
+    "flash_bytes": 82276,
+    "ram_bytes": 97472
+  },
+  "firmware": {
+    "path": "E:\\STM32\\STM32F407VET6_ILHC\\MDK-ARM\\build\\STM32F407VET6_ILHC\\STM32F407VET6_ILHC_v2.1.18_OPS_DIAG_CCAPS8.hex",
+    "sha256": "5daf3139b8b57b23013a27478d993463d59e5f2ff2ef61704d3a580ec41046a6"
+  },
+  "old_firmware_sha256": "f483bf7eec67621534052b6873b5fd843a7185ac10121bc643527291b11f3cf9",
+  "algorithm": "ba1e0b99663a9e9d9f497f11e6db09c51858a357bb265a1f93e54e76aca06df1",
+  "static_routes": 36,
+  "original_raw_file_sha256": {
+    "session.json": "be452de8d089b842c4f0f1fc34d71e3acf0108765d26e8a43733c8245a2ad955",
+    "events.jsonl": "cea99f0ea139cef168dde14ab77bcd4743599428e99c1939c31edb7445a91c36",
+    "telemetry.csv": "5f7d05975e9bfbeebf38b44e85b65dcd00b430de881e3ce023d47a5aa1cb4f4d",
+    "runs\\ea884cc7ca944ccfb0686b09bb18b482\\metadata.json": "bd5a7fd50009a6f08bce78518c7b74511dcd5bc59c192d14d9ffa3ada8379915",
+    "runs\\ea884cc7ca944ccfb0686b09bb18b482\\plan.json": "4a93249d2be5273ef2da659025e70c299217492056482b2555a9deb60f72529f",
+    "runs\\ea884cc7ca944ccfb0686b09bb18b482\\telemetry.csv": "5f7d05975e9bfbeebf38b44e85b65dcd00b430de881e3ce023d47a5aa1cb4f4d",
+    "runs\\ea884cc7ca944ccfb0686b09bb18b482\\result.json": "12a0e5af48bd010f0634a46a265d48e1f5048eb52d86d1eba7396788bafd98bd"
+  },
+  "user_mount_offsets": [
+    "static float s_mount_x_mm = 53.0f;",
+    "static float s_mount_y_mm = -39.5f;",
+    "s_mount_x_mm = 53.0f;",
+    "s_mount_y_mm = -39.5f;"
+  ],
+  "initial_telemetry_fixture_failure": "uint16_t extraction support fixed; initial log retained",
+  "precise_historical_subcause_recoverable": false
+}

@@ -1,0 +1,66 @@
+{
+  "pid": 19828,
+  "started": "2026-10-06T18:19:39.421286+08:00",
+  "complete": true,
+  "jobs": {
+    "cache": {
+      "status": "finished_after_retry",
+      "returncode": 0,
+      "log": "E:\\STM32\\STM32F407VET6_ILHC\\HostTools\\ILHC_Debugger\\ILHC_Qt_v2\\Docs\\real_control_fix_cache_retry_20261006.log",
+      "first_attempt": {
+        "pid": 33984,
+        "status": "finished",
+        "log": "E:\\STM32\\STM32F407VET6_ILHC\\HostTools\\ILHC_Debugger\\ILHC_Qt_v2\\Docs\\real_control_fix_cache_20261006.log",
+        "returncode": 1,
+        "elapsed_s": 178.372
+      },
+      "fixture_correction": "测试模拟器未同步自定义实机七参数，已同步夹具参数；保留一致性门禁。",
+      "retry_finished": "2026-10-06T18:39:03.594232+08:00"
+    },
+    "headless": {
+      "pid": 54616,
+      "status": "finished",
+      "log": "E:\\STM32\\STM32F407VET6_ILHC\\HostTools\\ILHC_Debugger\\ILHC_Qt_v2\\Docs\\real_control_fix_headless_20261006.log",
+      "returncode": 0,
+      "elapsed_s": 180.332
+    },
+    "qt": {
+      "pid": 20788,
+      "status": "finished",
+      "log": "E:\\STM32\\STM32F407VET6_ILHC\\HostTools\\ILHC_Debugger\\ILHC_Qt_v2\\Docs\\real_control_fix_qt_20261006.log",
+      "returncode": 0,
+      "elapsed_s": 182.451
+    },
+    "coordinate_c": {
+      "status": "finished_after_retry",
+      "returncode": 0,
+      "log": "E:\\STM32\\STM32F407VET6_ILHC\\HostTools\\ILHC_Debugger\\ILHC_Qt_v2\\Docs\\real_control_fix_coordinate_c_retry_20261006.log",
+      "first_attempt": {
+        "pid": 66096,
+        "status": "finished",
+        "log": "E:\\STM32\\STM32F407VET6_ILHC\\HostTools\\ILHC_Debugger\\ILHC_Qt_v2\\Docs\\real_control_fix_coordinate_c_20261006.log",
+        "returncode": 1,
+        "elapsed_s": 34.668
+      },
+      "fixture_correction": "有执行延迟不一定错过出口，5Hz快照也可能漏掉短暂恢复；改为确定性注入10mm错位，验证恢复和不放宽通过门。",
+      "retry_finished": "2026-10-06T18:39:11.511597+08:00"
+    },
+    "legacy_c": {
+      "pid": 18672,
+      "status": "finished",
+      "log": "E:\\STM32\\STM32F407VET6_ILHC\\HostTools\\ILHC_Debugger\\ILHC_Qt_v2\\Docs\\real_control_fix_legacy_c_20261006.log",
+      "returncode": 0,
+      "elapsed_s": 65.335
+    }
+  },
+  "finished": "2026-10-06T18:30:20.588592+08:00",
+  "returncode": 0,
+  "finished_after_retry": "2026-10-06T18:41:11.971912+08:00",
+  "artifact_checks": {
+    "python310_syntax_files": 19,
+    "route_hashes": 26,
+    "algorithm": "54666397f6747baa3f4e087dca14f44a410ea668ca755fddb5c001378dbb99c7",
+    "hex_sha256": "9897299aa6b47ac73645b5102ebefdbf621805bea8d7fb9f836edc10bbe4b53f",
+    "default_and_actual_parameter_modeled_runs": 16
+  }
+}

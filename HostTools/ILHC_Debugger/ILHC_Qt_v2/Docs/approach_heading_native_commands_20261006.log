@@ -1,0 +1,3 @@
+ParseLine unified X/Y protocol passed:
+  GOTO/GOTOHOLD/OPSOFFSET/MANUAL use X=left,Y=front directly
+  KPX->mKpx, KPY->mKpy

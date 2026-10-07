@@ -1,0 +1,107 @@
+{
+  "status": "PASSED",
+  "algorithm": "d9f2ddc8842ddc582a26c631f69214284e7d125e848d592fe7284669b0418d37",
+  "unit_qt_tests": 19,
+  "model_rounds": 12,
+  "physical_motion_verified": false,
+  "firmware_changed": false,
+  "wire_checks": [
+    {
+      "map": "competition_map.json",
+      "control": "DEFAULT",
+      "mode": "MOVING",
+      "points": 20,
+      "wheel_pivots": 0,
+      "stops": 12
+    },
+    {
+      "map": "competition_map.json",
+      "control": "REAL",
+      "mode": "MOVING",
+      "points": 20,
+      "wheel_pivots": 0,
+      "stops": 12
+    },
+    {
+      "map": "competition_map.json",
+      "control": "DEFAULT",
+      "mode": "WHEEL",
+      "points": 23,
+      "wheel_pivots": 1,
+      "stops": 12
+    },
+    {
+      "map": "competition_map.json",
+      "control": "REAL",
+      "mode": "WHEEL",
+      "points": 25,
+      "wheel_pivots": 3,
+      "stops": 12
+    },
+    {
+      "map": "competition_map.json",
+      "control": "DEFAULT",
+      "mode": "STOP_TURN",
+      "points": 30,
+      "wheel_pivots": 0,
+      "stops": 30
+    },
+    {
+      "map": "competition_map.json",
+      "control": "REAL",
+      "mode": "STOP_TURN",
+      "points": 30,
+      "wheel_pivots": 0,
+      "stops": 30
+    },
+    {
+      "map": "navigation_map.json",
+      "control": "DEFAULT",
+      "mode": "MOVING",
+      "points": 20,
+      "wheel_pivots": 0,
+      "stops": 12
+    },
+    {
+      "map": "navigation_map.json",
+      "control": "REAL",
+      "mode": "MOVING",
+      "points": 20,
+      "wheel_pivots": 0,
+      "stops": 12
+    },
+    {
+      "map": "navigation_map.json",
+      "control": "DEFAULT",
+      "mode": "WHEEL",
+      "points": 23,
+      "wheel_pivots": 1,
+      "stops": 12
+    },
+    {
+      "map": "navigation_map.json",
+      "control": "REAL",
+      "mode": "WHEEL",
+      "points": 25,
+      "wheel_pivots": 3,
+      "stops": 12
+    },
+    {
+      "map": "navigation_map.json",
+      "control": "DEFAULT",
+      "mode": "STOP_TURN",
+      "points": 30,
+      "wheel_pivots": 0,
+      "stops": 30
+    },
+    {
+      "map": "navigation_map.json",
+      "control": "REAL",
+      "mode": "STOP_TURN",
+      "points": 30,
+      "wheel_pivots": 0,
+      "stops": 30
+    }
+  ],
+  "routes": 72
+}

@@ -1,0 +1,96 @@
+
+RUN: C:\Users\Yuzi\AppData\Local\Programs\Python\Python313\python.exe main.py --selftest
+[1] FrameParser 基本解析 ...
+    ok
+[2] payload 内嵌帧尾 (+inf) ...
+    ok
+[3] Simulator 参数/DM/视觉 ...
+    ok
+[4] 场地禁区 ...
+    ok
+[5] 四轮使能/失能闸门 ...
+    ok
+[6] A* 路径规划 ...
+    ok
+全部核心自检通过 ✔
+
+RUN: C:\Users\Yuzi\AppData\Local\Programs\Python\Python313\python.exe -m unittest tests.test_navigation_safety tests.test_map_click_regression tests.test_navigation_audit_fixes tests.test_arc_smoothing tests.test_trajectory tests.test_continuous_tracking tests.test_competition_simulation tests.test_mecanum_planning tests.test_hardware_trajectory tests.test_home_return tests.test_trajectory_settings tests.test_segment_route tests.test_coordinate_navigation tests.test_mixed_telemetry tests.test_crc_telemetry tests.test_competition_profile tests.test_route_optimality tests.test_click_planning tests.test_pivot_turns -v
+test_adjacent_legal_rectangles_must_be_unioned (tests.test_navigation_safety.CoreSafetyTests.test_adjacent_legal_rectangles_must_be_unioned) ... ok
+test_bounded_runtime (tests.test_navigation_safety.CoreSafetyTests.test_bounded_runtime) ... ok
+test_cancelled_search (tests.test_navigation_safety.CoreSafetyTests.test_cancelled_search) ... ok
+test_clearance_single_point_and_empty_obstacles (tests.test_navigation_safety.CoreSafetyTests.test_clearance_single_point_and_empty_obstacles) ... ok
+test_clearance_uses_custom_scene (tests.test_navigation_safety.CoreSafetyTests.test_clearance_uses_custom_scene) ... ok
+test_coarse_grid_edge_cannot_jump_over_cylinder (tests.test_navigation_safety.CoreSafetyTests.test_coarse_grid_edge_cannot_jump_over_cylinder) ... ok
+test_concave_lane_sweep_cannot_cut_corner (tests.test_navigation_safety.CoreSafetyTests.test_concave_lane_sweep_cannot_cut_corner) ... ok
+test_continuous_clearance_cannot_skip_midpoint (tests.test_navigation_safety.CoreSafetyTests.test_continuous_clearance_cannot_skip_midpoint) ... ok
+test_default_material_goal_rejected (tests.test_navigation_safety.CoreSafetyTests.test_default_material_goal_rejected) ... ok
+test_empty_whitelist_rejected (tests.test_navigation_safety.CoreSafetyTests.test_empty_whitelist_rejected) ... ok
+test_first_and_last_connectors_checked (tests.test_navigation_safety.CoreSafetyTests.test_first_and_last_connectors_checked) ... ok
+test_fixed_body_is_checked_and_hardware_gate_stays_closed (tests.test_navigation_safety.CoreSafetyTests.test_fixed_body_is_checked_and_hardware_gate_stays_closed) ... ok
+test_fixed_rect_not_disc_and_diagonal_corner (tests.test_navigation_safety.CoreSafetyTests.test_fixed_rect_not_disc_and_diagonal_corner) ... ok
+test_independent_dijkstra_40_scenes (tests.test_navigation_safety.CoreSafetyTests.test_independent_dijkstra_40_scenes)
+独立参照：**状态=(格, 航向)** 的 Dijkstra，与 plan() 同一套动作代价。 ... ok
+test_legal_region_not_just_absence_of_obstacles (tests.test_navigation_safety.CoreSafetyTests.test_legal_region_not_just_absence_of_obstacles) ... ok
+test_nondivisible_grid_cannot_escape_wall (tests.test_navigation_safety.CoreSafetyTests.test_nondivisible_grid_cannot_escape_wall) ... ok
+test_nonfinite_and_invalid_inputs_return_failure_not_exception (tests.test_navigation_safety.CoreSafetyTests.test_nonfinite_and_invalid_inputs_return_failure_not_exception) ... ok
+test_pad_only_plan_is_not_car_execution_approval (tests.test_navigation_safety.CoreSafetyTests.test_pad_only_plan_is_not_car_execution_approval) ... ok
+test_raw_connectors_and_cost_are_included (tests.test_navigation_safety.CoreSafetyTests.test_raw_connectors_and_cost_are_included) ... ok
+test_self_intersecting_map_rejected (tests.test_navigation_safety.CoreSafetyTests.test_self_intersecting_map_rejected) ... ok
+test_simplification_cannot_fallback_to_bad_adjacent_edge (tests.test_navigation_safety.CoreSafetyTests.test_simplification_cannot_fallback_to_bad_adjacent_edge) ... ok
+test_start_equals_goal_no_division_by_zero (tests.test_navigation_safety.CoreSafetyTests.test_start_equals_goal_no_division_by_zero) ... ok
+test_swept_polygon_not_just_corners (tests.test_navigation_safety.CoreSafetyTests.test_swept_polygon_not_just_corners) ... ok
+test_two_point_simplification_checks_segment (tests.test_navigation_safety.CoreSafetyTests.test_two_point_simplification_checks_segment) ... ok
+test_vehicle_centre_on_outer_boundary_rejected (tests.test_navigation_safety.CoreSafetyTests.test_vehicle_centre_on_outer_boundary_rejected) ... ok
+test_whole_body_outside_boundary (tests.test_navigation_safety.CoreSafetyTests.test_whole_body_outside_boundary) ... ok
+test_cost_weights_are_applied_per_action (tests.test_navigation_safety.HeadingPlanTests.test_cost_weights_are_applied_per_action) ... ok
+test_forbidding_strafe_turns_instead (tests.test_navigation_safety.HeadingPlanTests.test_forbidding_strafe_turns_instead)
+禁横移 + 有转向空间时改用原地转向；操作区多边形可放开横移。 ... ok
+test_raised_lateral_cost_never_increases_lateral_distance (tests.test_navigation_safety.HeadingPlanTests.test_raised_lateral_cost_never_increases_lateral_distance)
+提高横移系数后，同一对起终点的横移总距离不会增加（需求 6）。 ... ok
+test_start_heading_must_match_footprint (tests.test_navigation_safety.HeadingPlanTests.test_start_heading_must_match_footprint)
+车体朝向与起始航向不一致必须显式拒绝，不能静默换朝向求解。 ... ok
+test_steps_report_x_y_heading_action (tests.test_navigation_safety.HeadingPlanTests.test_steps_report_x_y_heading_action)
+回溯必须给出 x,y,heading,action，且动作与"当时航向"自洽；没有圆弧。 ... ok
+test_every_segment_is_axis_aligned (tests.test_navigation_safety.ManhattanPlanTests.test_every_segment_is_axis_aligned)
+覆盖：同侧直达、需绕行、端点不在网格上、同列、长对角。 ... ok
+test_obstacles_keep_right_angles_and_clearance (tests.test_navigation_safety.ManhattanPlanTests.test_obstacles_keep_right_angles_and_clearance) ... ok
+test_simplification_keeps_right_angles_and_never_lengthens (tests.test_navigation_safety.ManhattanPlanTests.test_simplification_keeps_right_angles_and_never_lengthens)
+共线合并只删同方向中间点：直角保留、长度不变、航点数不增加。 ... ok
+test_hardcoded_quick_target_removed_and_still_illegal (tests.test_navigation_safety.MapDataComplianceTests.test_hardcoded_quick_target_removed_and_still_illegal)
+旧写死坐标必须已删除，且在同一模型下仍判非法（防止校验被放松）。 ... ok
+test_map_matches_rulebook_dimensions (tests.test_navigation_safety.MapDataComplianceTests.test_map_matches_rulebook_dimensions) ... ok
+test_quick_targets_are_legal_for_every_heading (tests.test_navigation_safety.MapDataComplianceTests.test_quick_targets_are_legal_for_every_heading) ... ok
+test_turntable_declared_position_and_radius (tests.test_navigation_safety.MapDataComplianceTests.test_turntable_declared_position_and_radius) ... ok
+test_corner_and_turn_are_not_the_same_thing (tests.test_navigation_safety.PathAxesTests.test_corner_and_turn_are_not_the_same_thing)
+几何角点未必有转向；原地转向也未必留角点。 ... ok
+test_diagonal_segment_is_rejected (tests.test_navigation_safety.PathAxesTests.test_diagonal_segment_is_rejected) ... ok
+test_l_shape_has_two_segments_and_one_left_corner (tests.test_navigation_safety.PathAxesTests.test_l_shape_has_two_segments_and_one_left_corner) ... ok
+test_line_has_two_segments_and_no_corner (tests.test_navigation_safety.PathAxesTests.test_line_has_two_segments_and_no_corner) ... ok
+test_only_duplicate_points_are_dropped (tests.test_navigation_safety.PathAxesTests.test_only_duplicate_points_are_dropped)
+geometry_axes 的压缩只有"删重复点"这一条：共线中间点在这里**不**删。 ... ok
+test_real_plan_segments_keep_ledger_semantics (tests.test_navigation_safety.PathAxesTests.test_real_plan_segments_keep_ledger_semantics)
+真实规划：每段/每角都来自台账，折线严格轴对齐。 ... ok
+test_u_shape_keeps_axis_alignment (tests.test_navigation_safety.PathAxesTests.test_u_shape_keeps_axis_alignment)
+∩ 形（右→上→左）是连续两次左转；∪ 形才是两次右转。 ... ok
+test_z_shape_has_three_segments_and_two_opposite_corners (tests.test_navigation_safety.PathAxesTests.test_z_shape_has_three_segments_and_two_opposite_corners) ... ok
+test_circle_table_is_phi50 (tests.test_navigation_safety.SimulatedObstacleTests.test_circle_table_is_phi50) ... ok
+test_placement_rejects_conflicts_and_edge (tests.test_navigation_safety.SimulatedObstacleTests.test_placement_rejects_conflicts_and_edge) ... ok
+test_plan_must_avoid_simulated_obstacle (tests.test_navigation_safety.SimulatedObstacleTests.test_plan_must_avoid_simulated_obstacle) ... ok
+test_random_placement_is_legal_and_reports_shortfall (tests.test_navigation_safety.SimulatedObstacleTests.test_random_placement_is_legal_and_reports_shortfall) ... ok
+test_random_placement_keeps_clear_of_given_area (tests.test_navigation_safety.SimulatedObstacleTests.test_random_placement_keeps_clear_of_given_area) ... ok
+test_limit_zero_matches_the_old_hard_forbid (tests.test_navigation_safety.StrafeRunLimitTests.test_limit_zero_matches_the_old_hard_forbid)
+上限 0 与 allow_strafe=False 必须等价（同一约束的两种写法）。 ... ok
+test_long_continuous_strafe_is_cut_to_the_limit (tests.test_navigation_safety.StrafeRunLimitTests.test_long_continuous_strafe_is_cut_to_the_limit)
+转向很贵时规划器本来会一口气横移 1450mm；加上限后必须切成一节一节。 ... ok
+test_no_limit_keeps_the_previous_behaviour (tests.test_navigation_safety.StrafeRunLimitTests.test_no_limit_keeps_the_previous_behaviour)
+不设上限时结果与"给了个足够大的上限"完全一致（默认行为没变）。 ... ok
+test_operation_area_is_exempt_from_the_limit (tests.test_navigation_safety.StrafeRunLimitTests.test_operation_area_is_exempt_from_the_limit)
+操作区（strafe_polygons）内不受上限约束，横移额度不占。 ... ok
+test_raising_the_limit_never_increases_cost (tests.test_navigation_safety.StrafeRunLimitTests.test_raising_the_limit_never_increases_cost)
+上限放宽＝可行集变大：最优代价单调不增，可行解不会反而消失。 ... ok
+test_short_strafe_lets_the_car_leave_the_start_pocket (tests.test_navigation_safety.StrafeRunLimitTests.test_short_strafe_lets_the_car_leave_the_start_pocket)
+出启停区角落要横移 150mm：上限 500mm 时照常可用，0 才是完全禁横移。 ... ok
+test_steps_ledger_carries_the_running_strafe_length (tests.test_navigation_safety.StrafeRunLimitTests.test_steps_ledger_carries_the_running_strafe_length)
+台账每步的 strafe_run_mm 必须与动作自洽，且不超上限（非操作区）。 ... ok
+test_actual_motion_guard_cancels_collision (tests.test_navigation_safety.UiLogicTests.test_actual_motion_guard_cancels_collision) ... ok
+test_actual_start_drift_requires_replan (tests.test_navigation_safety.UiLogicTests.test_actual_start_drift_requires_replan) ... ok

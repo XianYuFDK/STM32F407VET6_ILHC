@@ -1,0 +1,82 @@
+{
+  "physical_motion_verified": false,
+  "nano_verified": false,
+  "python_310_syntax_files": 40,
+  "initial_validation": {
+    "pid": 69588,
+    "complete": true,
+    "jobs": {
+      "coordinate_c": {
+        "pid": 3596,
+        "status": "finished",
+        "log": "E:\\STM32\\STM32F407VET6_ILHC\\HostTools\\ILHC_Debugger\\ILHC_Qt_v2\\Docs\\approach_heading_coordinate_c_20261006.log",
+        "returncode": 0,
+        "elapsed_s": 92.278
+      },
+      "headless": {
+        "pid": 24504,
+        "status": "finished",
+        "log": "E:\\STM32\\STM32F407VET6_ILHC\\HostTools\\ILHC_Debugger\\ILHC_Qt_v2\\Docs\\approach_heading_headless_20261006.log",
+        "returncode": 1,
+        "elapsed_s": 258.253
+      },
+      "qt": {
+        "pid": 30200,
+        "status": "finished",
+        "log": "E:\\STM32\\STM32F407VET6_ILHC\\HostTools\\ILHC_Debugger\\ILHC_Qt_v2\\Docs\\approach_heading_qt_20261006.log",
+        "returncode": 0,
+        "elapsed_s": 216.253
+      },
+      "legacy_c": {
+        "pid": 5696,
+        "status": "finished",
+        "log": "E:\\STM32\\STM32F407VET6_ILHC\\HostTools\\ILHC_Debugger\\ILHC_Qt_v2\\Docs\\approach_heading_legacy_c_20261006.log",
+        "returncode": 0,
+        "elapsed_s": 56.168
+      },
+      "native_commands": {
+        "pid": 66012,
+        "status": "finished",
+        "log": "E:\\STM32\\STM32F407VET6_ILHC\\HostTools\\ILHC_Debugger\\ILHC_Qt_v2\\Docs\\approach_heading_native_commands_20261006.log",
+        "returncode": 0,
+        "elapsed_s": 1.178
+      },
+      "native_bridge": {
+        "pid": 34704,
+        "status": "finished",
+        "log": "E:\\STM32\\STM32F407VET6_ILHC\\HostTools\\ILHC_Debugger\\ILHC_Qt_v2\\Docs\\approach_heading_native_bridge_20261006.log",
+        "returncode": 0,
+        "elapsed_s": 1.166
+      }
+    },
+    "returncode": 1
+  },
+  "final_headless": {
+    "complete": true,
+    "returncode": 0,
+    "elapsed_s": 193.0611871,
+    "log": "Docs/approach_heading_headless_final_20261006.log"
+  },
+  "tests": {
+    "core_selftests": 6,
+    "headless": 368,
+    "qt": 197,
+    "native_coordinate": 21,
+    "legacy_c": 16
+  },
+  "firmware": {
+    "path": "E:\\STM32\\STM32F407VET6_ILHC\\MDK-ARM\\build\\STM32F407VET6_ILHC\\STM32F407VET6_ILHC_v2.1.18_APPROACH_CCAPS8.hex",
+    "sha256": "f483bf7eec67621534052b6873b5fd843a7185ac10121bc643527291b11f3cf9"
+  },
+  "static_routes": 36,
+  "complete_modeled_matches": 21,
+  "closed_run_file_sha256": {
+    "plan.json": "e7b75405bad522223da25cbab8164e5e023d01afb7b9bfd25c8d3549c02e6b62",
+    "metadata.json": "4dad0e4f2aad4b91d2c725eb4ddaa14e16b270efede68110dbc50be74b032fdc",
+    "result.json": "b7a1f683fa92b9b554ec65159b649eb7dbaaa141a8b77808883710b8c6d25393",
+    "telemetry.csv": "e8ab2bcc1385e520b060d409cd1da368958327a9b5e6b0f093c10fc5cf12504b"
+  },
+  "algorithm": "ba1e0b99663a9e9d9f497f11e6db09c51858a357bb265a1f93e54e76aca06df1",
+  "complete": true,
+  "resolved": true
+}

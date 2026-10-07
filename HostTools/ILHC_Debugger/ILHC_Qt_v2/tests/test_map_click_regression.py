@@ -81,7 +81,7 @@ class MapClickRegressionTests(unittest.TestCase):
         self.w._goto_home()
         self.wait_result()
         self.assertTrue(self.w.planned_result['ok'])
-        self.assertEqual(self.w._planned_context['goal'], core.ZONE_CENTER[2])
+        self.assertEqual(core.layout_to_field(*self.w._planned_context['goal']), (0,0))
         self.assert_no_motion()
 
     def test_invalid_goal_shows_rejection_instead_of_silent_click(self):

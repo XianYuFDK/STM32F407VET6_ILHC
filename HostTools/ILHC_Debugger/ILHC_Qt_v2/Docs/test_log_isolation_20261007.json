@@ -1,0 +1,86 @@
+{
+  "test_records": [
+    {
+      "name": "20261007_171107_791011_REAL_5539cf36",
+      "event_sha256": "f9b63529bf682a322ff97a925354b6d34ffc5b090a55a39b5ffb3179d519aad1",
+      "reason": "17:11 HardwareQtTests OnlineWorkerStub; no port, baud or received serial bytes"
+    },
+    {
+      "name": "20261007_171109_301255_REAL_26c66dad",
+      "event_sha256": "2b54e96ef2592d1fbd2396d9ceb32f6687bac85894883b9adbb5b4c9f82a906f",
+      "reason": "17:11 HardwareQtTests OnlineWorkerStub; no port, baud or received serial bytes"
+    },
+    {
+      "name": "20261007_171109_530952_REAL_47bd6720",
+      "event_sha256": "f90d1886f900e73a78f840f1fcb7de2f347cbba2c888e631f9801925e60b7a75",
+      "reason": "17:11 HardwareQtTests OnlineWorkerStub; no port, baud or received serial bytes"
+    },
+    {
+      "name": "20261007_171110_233465_REAL_08a24655",
+      "event_sha256": "fbec76d2586fc0a73c6959150c8513fd5827f3d27a05fb52b2bf5ae04ad48bc3",
+      "reason": "17:11 HardwareQtTests OnlineWorkerStub; no port, baud or received serial bytes"
+    },
+    {
+      "name": "20261007_171110_241353_REAL_b6750ef8",
+      "event_sha256": "747b101e51fe88aa290d1a71c04f75a6617d0b4f7939de0201fcd862f4e5315e",
+      "reason": "17:11 HardwareQtTests OnlineWorkerStub; no port, baud or received serial bytes"
+    },
+    {
+      "name": "20261007_171110_673033_REAL_afb06d22",
+      "event_sha256": "25eba7efbd77b2747d061d8f92f596a31c85dcf99a0f95fd652ae1a203d52d27",
+      "reason": "17:11 HardwareQtTests OnlineWorkerStub; no port, baud or received serial bytes"
+    },
+    {
+      "name": "20261007_171112_541953_REAL_a36ed40c",
+      "event_sha256": "27d404a0ba20d4d5f697e188d6031829ce9efe6804157f1e6e63faf8affa2712",
+      "reason": "17:11 HardwareQtTests OnlineWorkerStub; no port, baud or received serial bytes"
+    },
+    {
+      "name": "20261007_171112_785965_REAL_7360a1d4",
+      "event_sha256": "2e3340fc2f21ae49b21fa3e649014d92b4b9616243d5f761bbb4e8c628dbf7a7",
+      "reason": "17:11 HardwareQtTests OnlineWorkerStub; no port, baud or received serial bytes"
+    },
+    {
+      "name": "20261007_171123_862118_REAL_334dfc6c",
+      "event_sha256": "8924f820152a76cbc82a7e4ec134ce98b34b907aa8a9735a262ceb39ae14d6cc",
+      "reason": "17:11 HardwareQtTests OnlineWorkerStub; no port, baud or received serial bytes"
+    },
+    {
+      "name": "20261007_171125_107969_REAL_d2c2cd95",
+      "event_sha256": "6d64e8a714db5610776fa8329b7fa580880d73866499c1f1b2172a9cc9abc4d6",
+      "reason": "17:11 HardwareQtTests OnlineWorkerStub; no port, baud or received serial bytes"
+    },
+    {
+      "name": "20261007_171125_631866_REAL_271b937c",
+      "event_sha256": "f321832359ff08154489d637747b5123bb543fb3c447a5f9de8cd9f02daf403d",
+      "reason": "17:11 HardwareQtTests OnlineWorkerStub; no port, baud or received serial bytes"
+    },
+    {
+      "name": "20261007_171126_047191_REAL_4ec1ec45",
+      "event_sha256": "317dc13ec75a6e8790b7eaf9dfdd51cf568684297594977a3a4b1f9503365186",
+      "reason": "17:11 HardwareQtTests OnlineWorkerStub; no port, baud or received serial bytes"
+    },
+    {
+      "name": "20261007_171126_510097_REAL_538616b0",
+      "event_sha256": "1f3f4cf020b04cad1c9859fdafc473b2474d24148644f9fded1dbd184e18f194",
+      "reason": "17:11 HardwareQtTests OnlineWorkerStub; no port, baud or received serial bytes"
+    },
+    {
+      "name": "20261007_171126_958721_REAL_fbd762c9",
+      "event_sha256": "c4626b8331ddfc5c3e459de57efa2aba407d8007c6daf8b5fa924860a29a87e0",
+      "reason": "17:11 HardwareQtTests OnlineWorkerStub; no port, baud or received serial bytes"
+    },
+    {
+      "name": "20261007_171127_263805_REAL_ad01d132",
+      "event_sha256": "89ee7ab88a35a9342ff8bf8ef0bf4219d8648731878fa7b1c6018fc560dbac23",
+      "reason": "17:11 HardwareQtTests OnlineWorkerStub; no port, baud or received serial bytes"
+    }
+  ],
+  "real_records_preserved": [
+    "20261007_171108_535015_REAL_3008fc97"
+  ],
+  "archive": "records/test_artifacts/20261007_1711",
+  "isolated_test_cases_passed": 29,
+  "new_real_log_directories_during_test": 0,
+  "archive_hash_verified": true
+}

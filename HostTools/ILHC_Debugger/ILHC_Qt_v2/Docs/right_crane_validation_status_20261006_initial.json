@@ -1,0 +1,30 @@
+{
+  "pid": 20648,
+  "started": "2026-10-06T14:19:56.230426+08:00",
+  "complete": true,
+  "jobs": {
+    "headless": {
+      "pid": 69028,
+      "status": "finished",
+      "log": "E:\\STM32\\STM32F407VET6_ILHC\\HostTools\\ILHC_Debugger\\ILHC_Qt_v2\\Docs\\right_crane_headless_20261006.log",
+      "returncode": 1,
+      "elapsed_s": 70.744
+    },
+    "qt": {
+      "pid": 49504,
+      "status": "finished",
+      "log": "E:\\STM32\\STM32F407VET6_ILHC\\HostTools\\ILHC_Debugger\\ILHC_Qt_v2\\Docs\\right_crane_qt_20261006.log",
+      "returncode": 1,
+      "elapsed_s": 127.783
+    },
+    "coordinate_c": {
+      "pid": 72512,
+      "status": "finished",
+      "log": "E:\\STM32\\STM32F407VET6_ILHC\\HostTools\\ILHC_Debugger\\ILHC_Qt_v2\\Docs\\right_crane_coordinate_c_20261006.log",
+      "returncode": 1,
+      "elapsed_s": 17.85
+    }
+  },
+  "finished": "2026-10-06T14:23:32.613617+08:00",
+  "returncode": 1
+}

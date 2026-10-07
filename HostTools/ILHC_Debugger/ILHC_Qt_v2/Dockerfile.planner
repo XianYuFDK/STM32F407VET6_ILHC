@@ -1,0 +1,9 @@
+# CPU规划器：ARM64/x86均可构建，不加载Qt或JetPack的CUDA依赖。
+FROM python:3.10-slim-bullseye
+WORKDIR /opt/ilhc
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 OPENBLAS_NUM_THREADS=1
+COPY requirements-planner.txt ./
+RUN python -m pip install --no-cache-dir --only-binary=:all: -r requirements-planner.txt
+COPY *.py *.json ./
+COPY precomputed_routes ./precomputed_routes
+ENTRYPOINT ["python", "planner_cli.py"]

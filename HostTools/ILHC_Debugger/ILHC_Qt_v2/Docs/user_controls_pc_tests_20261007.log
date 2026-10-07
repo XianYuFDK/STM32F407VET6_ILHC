@@ -1,0 +1,42 @@
+test_logging_disabled_no_files_and_toggle_closes_current (tests.test_user_controls.UserControlsTests.test_logging_disabled_no_files_and_toggle_closes_current) ... ok
+test_parameter_readback_hydrates_and_preserves_edit (tests.test_user_controls.UserControlsTests.test_parameter_readback_hydrates_and_preserves_edit) ... ok
+test_sim_pause_freezes_and_continues_same_goal (tests.test_user_controls.UserControlsTests.test_sim_pause_freezes_and_continues_same_goal) ... ok
+test_work_points_cm_atomic_validation_and_save (tests.test_user_controls.UserControlsTests.test_work_points_cm_atomic_validation_and_save) ... ok
+test_actual_controller_snapshot_is_separate_from_reconstructed_heading_and_expires (tests.test_run_journal.JournalTests.test_actual_controller_snapshot_is_separate_from_reconstructed_heading_and_expires) ... ok
+test_analysis_matches_progress_and_fields_without_crossing_paths (tests.test_run_journal.JournalTests.test_analysis_matches_progress_and_fields_without_crossing_paths) ... ok
+test_capture_before_gui_queue_overflow_crc_rejection_and_raw_bytes (tests.test_run_journal.JournalTests.test_capture_before_gui_queue_overflow_crc_rejection_and_raw_bytes) ... ok
+test_disk_failure_does_not_raise_on_observer_or_write_motion (tests.test_run_journal.JournalTests.test_disk_failure_does_not_raise_on_observer_or_write_motion) ... ok
+test_full_queue_still_saves_end_without_waiting_for_writer (tests.test_run_journal.JournalTests.test_full_queue_still_saves_end_without_waiting_for_writer) ... ok
+test_idle_creates_no_files_and_finished_run_cannot_grow (tests.test_run_journal.JournalTests.test_idle_creates_no_files_and_finished_run_cannot_grow) ... ok
+test_serial_short_write_is_failure_not_success (tests.test_run_journal.JournalTests.test_serial_short_write_is_failure_not_success) ... ok
+test_sessions_and_runs_separate_and_nan_is_explicit_null (tests.test_run_journal.JournalTests.test_sessions_and_runs_separate_and_nan_is_explicit_null) ... ok
+test_simulation_uses_model_time_not_fast_offline_host_time (tests.test_run_journal.JournalTests.test_simulation_uses_model_time_not_fast_offline_host_time) ... ok
+test_waiting_station_does_not_use_next_leg_as_active_target (tests.test_run_journal.JournalTests.test_waiting_station_does_not_use_next_leg_as_active_target) ... ok
+test_wrap_clock_rollover_restart_and_irregular_device_timing (tests.test_run_journal.JournalTests.test_wrap_clock_rollover_restart_and_irregular_device_timing) ... ok
+setUpClass (tests.test_hardware_trajectory.MatchPackingTests) ... ERROR
+test_incomplete_ready_and_old_firmware_capacity_fail_closed (tests.test_hardware_trajectory.UploaderTests.test_incomplete_ready_and_old_firmware_capacity_fail_closed) ... ok
+test_invalid_context_preserves_specific_reason_and_stop_before_run (tests.test_hardware_trajectory.UploaderTests.test_invalid_context_preserves_specific_reason_and_stop_before_run) ... ok
+test_invalid_session_and_timeout_cancel (tests.test_hardware_trajectory.UploaderTests.test_invalid_session_and_timeout_cancel) ... ok
+test_old_batch_and_stale_upload_reply_cannot_rewind (tests.test_hardware_trajectory.UploaderTests.test_old_batch_and_stale_upload_reply_cannot_rewind) ... ok
+test_rotation_center_fault_names_phase_and_keeps_stop (tests.test_hardware_trajectory.UploaderTests.test_rotation_center_fault_names_phase_and_keeps_stop) ... ok
+test_status_parser_preserves_identical_progress_replies (tests.test_hardware_trajectory.UploaderTests.test_status_parser_preserves_identical_progress_replies) ... ok
+test_upload_all_before_run_then_resume_does_not_resend (tests.test_hardware_trajectory.UploaderTests.test_upload_all_before_run_then_resume_does_not_resend) ... ok
+
+======================================================================
+ERROR: setUpClass (tests.test_hardware_trajectory.MatchPackingTests)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\tests\test_hardware_trajectory.py", line 97, in setUpClass
+    cls.match=competition.compile_match(cls.data)
+              ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\competition_simulation.py", line 545, in compile_match
+    travel('raw', '第%d批：前往原料区' % batch_i)
+    ~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\competition_simulation.py", line 531, in travel
+    raise ValueError(label+'：右侧塔吊作业航向调整不安全：'+why)
+ValueError: 第1批：前往原料区：右侧塔吊作业航向调整不安全：原料区圆盘
+
+----------------------------------------------------------------------
+Ran 22 tests in 2.187s
+
+FAILED (errors=1)

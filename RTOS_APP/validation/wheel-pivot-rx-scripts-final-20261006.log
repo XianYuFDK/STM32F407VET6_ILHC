@@ -1,0 +1,6 @@
+USART1 RX recovery tests passed
+Real USART1 sender + PC parser passed: legacy 19 Hz reproduced; CRC1 50/50 frames + 31 GET + 5 TSTAT, all chunk sizes; DMA busy/failure/max reply/legacy/text verified.
+ParseLine unified X/Y protocol passed:
+  GOTO/GOTOHOLD/OPSOFFSET/MANUAL use X=left,Y=front directly
+  KPX->mKpx, KPY->mKpy
+PASS: task ownership, creation failure, ISR startup, queue faults, STOP deadline, overrun/wrap, RX budget, Flash unlock, 1Hz stats

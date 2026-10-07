@@ -1,5 +1,6 @@
 """提取真实USART1恢复/接收函数，用HAL替身验证异常重试与TX隔离。"""
 from pathlib import Path
+import re
 import subprocess
 import tempfile
 
@@ -33,13 +34,13 @@ code = r'''
 #define HAL_DMA_STATE_ABORT 2
 #define HAL_UART_ERROR_CB_ID 1
 #define DMA_IT_HT 1
-#define DEBUG_LINE_SIZE 64U
+#define DEBUG_LINE_SIZE ACTUAL_LINE_SIZE
 #define USART1 ((void *)1)
 typedef struct {int State;} DMA_HandleTypeDef;
 typedef struct {void *Instance; int gState; DMA_HandleTypeDef *hdmarx;} UART_HandleTypeDef;
 static DMA_HandleTypeDef dma;
 static UART_HandleTypeDef huart1 = {USART1, HAL_UART_STATE_READY, &dma};
-static uint8_t s_rx[256], s_rx_copy[256], s_line[64], s_rx_callbacks_ready, s_line_discard;
+static uint8_t s_rx[256], s_rx_copy[256], s_line[DEBUG_LINE_SIZE], s_rx_callbacks_ready, s_line_discard;
 static volatile uint8_t s_rx_recover;
 static uint16_t s_line_len;
 static char s_fast_line[16];
@@ -57,7 +58,7 @@ static int parse_calls, inject_error;
 static uint32_t trajectory_cancels;
 static void Traj_Cancel(uint8_t reason) {assert(reason==19U||reason==15U);trajectory_cancels++;}
 static uint8_t Debug_TrajectoryRx(const char *line) {(void)line;return 0;}
-static char parsed[64];
+static char parsed[DEBUG_LINE_SIZE];
 static void DebugUsart_ErrorCallback(UART_HandleTypeDef *);
 void DebugUsart_RxEventCallback(UART_HandleTypeDef *, uint16_t);
 static uint32_t __get_PRIMASK(void) {return mask;}
@@ -82,6 +83,8 @@ static int HAL_UARTEx_ReceiveToIdle_DMA(UART_HandleTypeDef *h,uint8_t *p,uint16_
 #define __HAL_DMA_DISABLE_IT(h,it) (++ht_disabled)
 static void Debug_ParseLine(char *line) {++parse_calls;strcpy(parsed,line);}
 '''
+line_size=re.search(r'^#define DEBUG_LINE_SIZE\s+(\d+U)',source,re.M).group(1)
+code=code.replace('ACTUAL_LINE_SIZE',line_size)
 queue_source=(Path(__file__).resolve().parents[2]/'RTOS_APP/app_rx.c').read_text(encoding='utf-8').replace('#include "main.h"','')
 code+=queue_source+'\n'
 for name in ('Debug_StrCaseCmp','Debug_ResetRxStream','DebugUsart_ErrorCallback','DebugUsart_StartRx','DebugUsart_ServiceRx','Debug_FastSafetyByte','DebugUsart_RxEventCallback','DebugUsart_ProcessPending'):
@@ -118,9 +121,19 @@ int main(void) {
  inject_error=1;DebugUsart_StartRx();assert(s_rx_recover);
  DebugUsart_ServiceRx();assert(!s_rx_recover);
  mask=1;DebugUsart_StartRx();assert(mask==1);mask=0;
+ /* 合法91B圆心点和106B参数批次头分包后完整送入解析器。旧96B会截断批次头。 */
+ const char *pivot="CPOINT=4294967295,2047,-100000,-100000,-18000,10000000,19,-18000,1000,20000,-100000,-100000";
+ const char *begin="CBEGIN=4294967295,2048,4294967295,FFFFFFFF,100,50000,50000,50000,3000000,3000000,100000,100000,2";
+ const char *commands[2]={pivot,begin};char piece[DEBUG_LINE_SIZE];
+ for(unsigned j=0;j<2;j++) {
+  before=parse_calls;memcpy(piece,commands[j],48);piece[48]=0;receive(piece);
+  strcpy(piece,commands[j]+48);strcat(piece,"\n");receive(piece);
+  assert(parse_calls==before+1&&!strcmp(parsed,commands[j])&&!s_line_discard);
+ }
  /* 超长命令整行丢弃，尾部STOP不能被误识别；恢复之后新命令仍正常。 */
  before=parse_calls;
- receive("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxSTOP\n");
+ char oversized[DEBUG_LINE_SIZE+6];memset(oversized,'x',DEBUG_LINE_SIZE);
+ strcpy(oversized+DEBUG_LINE_SIZE,"STOP\n");receive(oversized);
  assert(parse_calls==before && !s_line_discard && trajectory_cancels>0);
  receive("PING\n");assert(parse_calls==before+1 && !strcmp(parsed,"PING"));
  /* STOP清除积压动作；分包、大小写与前导空格均走快速通道。 */

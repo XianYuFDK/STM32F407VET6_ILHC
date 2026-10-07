@@ -1,0 +1,21 @@
+test_activation_guard_keeps_keyboard_remote_in_detached_window (test_debugger.DebuggerTests.test_activation_guard_keeps_keyboard_remote_in_detached_window) ... ok
+test_astar_detour_is_collision_free (test_debugger.DebuggerTests.test_astar_detour_is_collision_free)
+绕行路径的每一段都必须避开（按车体膨胀后的）禁区，且余量可报告。 ... ok
+test_astar_finer_grid_keeps_path_clean (test_debugger.DebuggerTests.test_astar_finer_grid_keeps_path_clean) ... ok
+test_astar_reports_sealed_corridors (test_debugger.DebuggerTests.test_astar_reports_sealed_corridors)
+膨胀到把 40cm 走廊封死时，必须报"没有可行路径"而不是硬穿。 ... ok
+test_astar_straight_when_unobstructed (test_debugger.DebuggerTests.test_astar_straight_when_unobstructed) ... ok
+test_cancel_clears_unsent_commands (test_debugger.DebuggerTests.test_cancel_clears_unsent_commands) ... ok
+test_car_icon_basis_matches_actual_travel (test_debugger.DebuggerTests.test_car_icon_basis_matches_actual_travel)
+不依赖任何角度约定：指令 (左, 前) 的位移方向必须与图标自身基一致。 ... ok
+test_car_icon_is_scaled_car_body (test_debugger.DebuggerTests.test_car_icon_is_scaled_car_body)
+地图上的车必须是 28cm×26cm 的真实轮廓，车心落在映射位置上。 ... ok
+test_clockwise_view_and_click_inverse (test_debugger.DebuggerTests.test_clockwise_view_and_click_inverse) ... ok
+test_console_command_updates_wheel_state (test_debugger.DebuggerTests.test_console_command_updates_wheel_state) ... ok
+test_continuous_latest_velocity_has_priority_without_backlog (test_debugger.DebuggerTests.test_continuous_latest_velocity_has_priority_without_backlog) ... ok
+test_corrupt_crc_pose_never_reaches_map_or_raw_runtime_samples (test_debugger.DebuggerTests.test_corrupt_crc_pose_never_reaches_map_or_raw_runtime_samples) ... ok
+test_detached_page_keeps_rendering_while_other_page_selected (test_debugger.DebuggerTests.test_detached_page_keeps_rendering_while_other_page_selected) ... ok
+test_detached_window_is_not_owned_by_main_window (test_debugger.DebuggerTests.test_detached_window_is_not_owned_by_main_window)
+独立窗口不能挂主窗口做父级。 ... ok
+test_detached_window_topmost_and_close_returns_page (test_debugger.DebuggerTests.test_detached_window_topmost_and_close_returns_page) ... ok
+test_field_target_yaw_is_inverse_of_readout (test_debugger.DebuggerTests.test_field_target_yaw_is_inverse_of_readout)

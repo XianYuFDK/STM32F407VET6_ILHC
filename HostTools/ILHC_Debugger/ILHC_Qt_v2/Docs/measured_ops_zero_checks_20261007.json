@@ -1,0 +1,43 @@
+{
+  "status": "PASSED",
+  "origin_changes_complete": true,
+  "algorithm": "0fcf2104f925153c3ce0a23590159b71b1374d9703b6977537134b421ee9e5b3",
+  "route_count": 24,
+  "full_model_rounds": 8,
+  "physical_motion_verified": false,
+  "firmware_changed": false,
+  "serial_opened": false,
+  "nano_verified": false,
+  "test_groups": [
+    {
+      "count": 106,
+      "result": "PASS",
+      "modules": "measured_ops_origin,station_calibration,navigation_safety,home_return"
+    },
+    {
+      "count": 36,
+      "result": "PASS",
+      "modules": "measured_ops_origin,station_calibration_qt,competition_profile,map_click_regression"
+    },
+    {
+      "count": 34,
+      "result": "PASS",
+      "modules": "hardware_trajectory_qt,run_journal_qt"
+    },
+    {
+      "count": 10,
+      "result": "PASS",
+      "modules": "measured_ops_origin; final status text check"
+    }
+  ],
+  "test_count_note": "Groups overlap; do not sum as unique tests",
+  "files": {
+    "main.py": "47ba165c2984216747237824603c2bac59cbf070b8b878c410aa861229d9d383",
+    "core.py": "b6b304589ebab662388f9dc4168a87afc2776abc94902c2eff9794823ef9aa12",
+    "competition_simulation.py": "dec39038c80d41d03c2ffe9cfa16ce15ccc2d9526c2542ba5439a6f3a42cf0ff",
+    "competition_map.json": "42af87bfb68a0e340efa16b79784c59d960e720ed7801f2aa7bf342f8bbb0fe8",
+    "navigation_map.json": "7f2f61f4043506d63cde971f3b45018e274c0e0b8edc9ea4964c95ae6161ef0d",
+    "tests/test_measured_ops_origin.py": "56306a70c5d4e772b03a45d238e24117ca8cc4fe8f3240d761119c6315dd534b",
+    "precomputed_routes/manifest.json": "15b5c94cf1f8b67d2f0e704e48996997b76f03111984d70150d67a4f2a873277"
+  }
+}

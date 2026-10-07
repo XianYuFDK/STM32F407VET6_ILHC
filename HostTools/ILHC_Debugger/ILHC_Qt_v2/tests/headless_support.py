@@ -27,7 +27,7 @@ klass = ast.ClassDef(name='WindowMethods', bases=[], keywords=[],
 SAFE_IMPORT_ROOTS = {
     '__future__', 'argparse', 'copy', 'concurrent', 'csv', 'faulthandler',
     'html', 'json', 'logging', 'math', 'os', 'queue', 'sys', 'threading',
-    'time', 'traceback', 'pathlib', 'numpy', 'core', 'navigation_planner',
+    'time', 'traceback', 'pathlib', 'numpy', 'core', 'navigation_planner', 'run_journal', 'ops_diagnostics',
 }
 
 def _production_imports(statements):
@@ -71,6 +71,7 @@ class Widget:
     def set_navigation_map(self,v): self.navigation_map=v
     def set_trajectory(self,v): self.trajectory=v
     def set_skeleton(self,v): self.skeleton=v
+    def set_pivots(self,v): self.pivots=v
     def set_reference(self,v): self.reference=v
     def set_target(self,*v): self.points=v
     def set_sim_obstacles(self,v): self.obstacles=v
@@ -80,11 +81,18 @@ class Widget:
 
 def make_window():
     w=WindowMethods.__new__(WindowMethods)
+    # 假控件逻辑夹具禁用文件记录；真正接收端/Qt日志另做专项验收。
+    from run_journal import RunJournal
+    w.run_journal=RunJournal(ROOT/'records'/'unused_test_journal',core.CHANNELS)
+    w._journal_source=None;w._journal_warning=''
+    w._ensure_run_journal=lambda:False
     w.line_q=core.CommandQueue(); w.urgent_q=queue.Queue(); w.frame_q=queue.Queue()
     w.worker=None; w.sim=core.Simulator(w.frame_q,w.line_q,w.urgent_q)
     w.sim.handle_line('ZERO'); w.sim.make_frame(0.0)
     w.latest=(0.0,)*24; w.latest_t=0.0; w.latest_received_monotonic=time.monotonic()
     w.map_ox=w.map_oy=w.map_theta=0.0
+    w.traj_ring=core.RingBuffer(100,2)
+    w._map_trail_ring=core.RingBuffer(100,2)
     w.map_target=None; w.planned_points=[]; w.planned_result=None; w._planned_context=None
     w.sim_obstacles=[]          # 模拟障碍：运行时演示物体，不写进地图数据
     w.follow=None; w.wheel_state=True; w.send_count=0

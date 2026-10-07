@@ -1,0 +1,7 @@
+test_pivot_center_mapping_and_final_arc_stop_use_real_motor_output (test_coordinate_batch.CoordinateFirmwareTests.test_pivot_center_mapping_and_final_arc_stop_use_real_motor_output) ... ok
+test_pivot_center_is_covered_by_crc_and_geometry_verification (test_coordinate_batch.CoordinateFirmwareTests.test_pivot_center_is_covered_by_crc_and_geometry_verification) ... ok
+
+----------------------------------------------------------------------
+Ran 2 tests in 2.957s
+
+OK

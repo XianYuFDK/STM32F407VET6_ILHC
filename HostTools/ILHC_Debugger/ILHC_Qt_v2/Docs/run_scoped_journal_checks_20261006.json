@@ -1,0 +1,38 @@
+{
+  "complete": true,
+  "physical_motion_verified": false,
+  "firmware_changed": false,
+  "historical_logs_deleted": false,
+  "checks": {
+    "completion_final": {
+      "tests": 17,
+      "log": "Docs\\run_scoped_journal_completion_final_20261006.log",
+      "sha256": "c74da8e15c1b6a14b6693b10826dd4c40c587cecaa262edfa1428ca0277a71e9",
+      "returncode": 0
+    },
+    "qt_regression": {
+      "tests": 74,
+      "log": "Docs\\run_scoped_journal_qt_regression_20261006.log",
+      "sha256": "cbf454aa8608e2e7098d1fa9461fe17e4fecb3cf1dfcef52aa3109a1644e6acf",
+      "returncode": 0
+    },
+    "logic_regression": {
+      "tests": 157,
+      "log": "Docs\\run_scoped_journal_logic_regression_20261006.log",
+      "sha256": "2fc56ea861ef816528adba85fb92546ffa45214913ae0f96e64f9b2100631e4f",
+      "returncode": 0
+    }
+  },
+  "python_310_syntax_files": 5,
+  "algorithm": "ba1e0b99663a9e9d9f497f11e6db09c51858a357bb265a1f93e54e76aca06df1",
+  "static_routes": 36,
+  "firmware_sha256": "f483bf7eec67621534052b6873b5fd843a7185ac10121bc643527291b11f3cf9",
+  "closed_real_run_sha256_unchanged": true,
+  "initial_failure": {
+    "log": "Docs/run_scoped_journal_completion_20261006.log",
+    "tests": 2,
+    "errors": 1,
+    "reason": "legacy ArcSegment plan JSON serialization",
+    "resolved_by": "completion_final"
+  }
+}

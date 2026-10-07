@@ -40,7 +40,8 @@
 
 /* --------------------------- 调试参数 ------------------------------ */
 #define DEBUG_RX_SIZE     256U
-#define DEBUG_LINE_SIZE   96U
+/* Coordinate headers with seven parameters can reach 106 bytes (CCAPS2). */
+#define DEBUG_LINE_SIZE   128U
 #define DEBUG_VOFA_TAIL0  0x00U
 #define DEBUG_VOFA_TAIL1  0x00U
 #define DEBUG_VOFA_TAIL2  0x80U
@@ -117,18 +118,25 @@ static uint8_t s_line[DEBUG_LINE_SIZE];
 static uint16_t s_line_len;
 static uint8_t s_line_discard;
 static uint8_t s_traj_reply_last;
+static uint8_t s_ops_fault_part, s_ops_snapshot_part, s_ops_fault_defer;
+static uint32_t s_ops_fault_token, s_ops_snapshot_tick;
+static OPS_Diagnostics_t s_ops_snapshot;
 /* 接收异常只置位，恢复在默认任务执行；禁止中断内等待DMA停止。 */
 static volatile uint8_t s_rx_recover;
 static uint8_t s_rx_callbacks_ready;
 
-/* CRC1: A5 5A 01 18 + seq_u32 + tick_ms_u32 + 24 floats + CRC32/IEEE.
- * One reply (<=100B) plus telemetry (112B) fits a 20ms slot at 115200 8N1.
- * This buffer stays owned by DMA until gState becomes READY. */
+/* CRC1：24浮点；CRC2：三个OPS浮点或24浮点，序号/时间/CRC32独立。
+ * 串口115200能装下一个应答+全帧，但DL-20无线层只有3300B/s，另限总预算。
+ * DMA在gState恢复READY前独占缓冲。默认CRC2，VOFA/TELEM=1可显式切换。 */
 #define DEBUG_REPLY_MAX 100U
 #define DEBUG_CRC_FRAME_LEN (16U + 4U * DEBUG_VOFA_CHANNELS)
 static uint8_t s_tx[DEBUG_REPLY_MAX + DEBUG_CRC_FRAME_LEN];
-static uint8_t s_telemetry_crc;
+static uint8_t s_telemetry_crc=2U;
 static uint32_t s_telemetry_seq;
+/* DL-20无线净速率最高3300B/s；预留上行与无线确认余量。
+ * 高频仅发送三个OPS浮点数，完整24通道每200ms发送。 */
+static uint32_t s_wire_credit, s_wire_tick, s_full_tick;
+static uint8_t s_wire_started, s_full_sent;
 static uint8_t s_tx_busy_seen;
 static uint32_t s_tx_busy_tick;
 volatile uint32_t debug_tx_recoveries, debug_tx_errors;
@@ -1187,6 +1195,7 @@ static void Debug_ServiceGoto(void)
 
   if (OPS_IsOnline(DEBUG_OPS_TIMEOUT_MS) == 0U)
   {
+    if(OPS_RecoveryPending()) { Debug_ChassisStop(); return; }
     s_goto_active = 0U;
     Debug_ChassisStop();
     return;
@@ -1529,6 +1538,15 @@ static void Debug_ParseLine(char *line)
   {
     s_zdt_text_mode = 0U;
     s_telemetry_crc = 0U;
+    return;
+  }
+  if (Debug_StrCaseCmp(line, "TELEM=2") == 0U)
+  {
+    s_zdt_text_mode = 0U;
+    if(s_telemetry_crc!=2U) {
+      s_wire_started=s_full_sent=0U;
+    }
+    s_telemetry_crc = 2U;
     return;
   }
   if (Debug_StrCaseCmp(line, "TELEM=1") == 0U)
@@ -1915,15 +1933,20 @@ static void Debug_ServiceTrajectory(void)
   allowed=(uint8_t)(Debug_WheelReady() && !s_stop_req && !s_zero_req && !s_offset_req &&
     (uint32_t)(HAL_GetTick()-s_host_last_tick)<=DEBUG_HOST_TIMEOUT_MS);
   if(!Traj_Busy()) return;
+  if(OPS_RecoveryPending()) {
+    Traj_Hold(HAL_GetTick()); Debug_ChassisStop(); return;
+  }
   Debug_SyncChassisParameters();
   MecanumControl_GetPose(&pose.x,&pose.y,&pose.yaw);
   pose.sequence=ops->valid_count;pose.pose_tick=ops->last_update_tick;
   if(!OPS_IsOnline(DEBUG_OPS_TIMEOUT_MS)) pose.pose_tick=HAL_GetTick()-201U;
   action=Traj_Step(HAL_GetTick(),&pose,allowed,velocity);
   /* 计算期间STOP可以抢占；最后再检查状态，不提交被取消的旧速度。 */
-  if(action==1U && Traj_OutputAllowed() && Debug_WheelReady() && !s_stop_req && !s_zero_req && !s_offset_req)
+  if(action==1U && Traj_OutputAllowed() && Debug_WheelReady() && !s_stop_req && !s_zero_req && !s_offset_req &&
+     OPS_IsOnline(DEBUG_OPS_TIMEOUT_MS))
     MecanumControl_MoveWorldVelocity(velocity[0],velocity[1],velocity[2],pose.yaw);
-  else if(action==2U || (action==1U && !Traj_OutputAllowed())) Debug_ChassisStop();
+  else if(action==2U || (action==1U && (!Traj_OutputAllowed() || !OPS_IsOnline(DEBUG_OPS_TIMEOUT_MS))))
+    Debug_ChassisStop();
 }
 
 
@@ -2180,22 +2203,72 @@ static uint32_t Debug_TelemetryCrc(const uint8_t *data, uint32_t len)
   return crc ^ 0xFFFFFFFFUL;
 }
 
+/* 每行最坏值仍<100B，可与112B遥测共用212B缓冲/无线突发桶。 */
+static uint16_t Debug_OpsFaultReply(char *out, uint16_t max)
+{
+  OPS_Fault_t fault;
+  if(!OPS_PeekFault(&fault)) return 0U;
+  if(s_ops_fault_token!=fault.id) { s_ops_fault_token=fault.id; s_ops_fault_part=0U; }
+  if(!s_ops_fault_part)
+    return (uint16_t)snprintf(out,max,"OPSE %lu %lu %lu %lu %lu %lu %lu %lu\r\n",
+      (unsigned long)fault.id,(unsigned long)fault.reason,(unsigned long)fault.tick,
+      (unsigned long)fault.previous_session,(unsigned long)fault.session,
+      (unsigned long)fault.previous_timestamp,(unsigned long)fault.timestamp,(unsigned long)fault.seq);
+  return (uint16_t)snprintf(out,max,"OPSX %lu %lu %lu %lu %lu %lu %lu %lu\r\n",
+    (unsigned long)fault.id,(unsigned long)fault.flags,(unsigned long)fault.gap_ms,
+    (unsigned long)fault.valid_age_ms,(unsigned long)fault.rx_age_ms,(unsigned long)fault.uart_error,
+    (unsigned long)fault.crc_errors,(unsigned long)fault.rx_overflows);
+}
+
+static uint16_t Debug_OpsSnapshotReply(char *out, uint16_t max, uint32_t now)
+{
+  if(!s_ops_snapshot_part) {
+    if((uint32_t)(now-s_ops_snapshot_tick)<2000U) return 0U;
+    OPS_GetDiagnostics(&s_ops_snapshot); s_ops_snapshot_part=1U;
+  }
+  if(s_ops_snapshot_part==1U)
+    return (uint16_t)snprintf(out,max,"OPSD %lu %lu %lu %lu %lu %lu %lu %lu %lu\r\n",
+      (unsigned long)s_ops_snapshot.tick,(unsigned long)s_ops_snapshot.session,(unsigned long)s_ops_snapshot.seq,
+      (unsigned long)s_ops_snapshot.timestamp,(unsigned long)s_ops_snapshot.flags,(unsigned long)s_ops_snapshot.pose_valid,
+      (unsigned long)s_ops_snapshot.valid_age_ms,(unsigned long)s_ops_snapshot.crc_errors,(unsigned long)s_ops_snapshot.format_errors);
+  return (uint16_t)snprintf(out,max,"OPSR %lu %lu %lu %lu %lu %lu %lu\r\n",
+    (unsigned long)s_ops_snapshot.tick,(unsigned long)s_ops_snapshot.uart_errors,(unsigned long)s_ops_snapshot.last_uart_error,
+    (unsigned long)s_ops_snapshot.rx_overflows,(unsigned long)s_ops_snapshot.stale_packets,
+    (unsigned long)s_ops_snapshot.restart_failures,(unsigned long)s_ops_snapshot.diagnostic_drops);
+}
+
 /* 只由通信任务调用；不产生轮速/CAN动作，也不访问Flash。 */
 void DebugUsart_Send(void)
 {
   float data[DEBUG_VOFA_CHANNELS];
   float user_x, user_y, err_x, err_y;
   DmJ4310Feedback_t dmFb;
-  uint32_t i, len, primask;
+  uint32_t i, len, primask, channels=DEBUG_VOFA_CHANNELS, frame_len, now;
   uint32_t payload_offset, tick, crc;
   uint16_t reply_len = 0U;
-  uint8_t reply_kind = 0U, telemetry = 0U;
+  uint8_t reply_kind = 0U, telemetry = 0U, reply_last=s_traj_reply_last;
   TrajReply_t token;
   /* DMA忙时不改写在途缓冲；底盘由独立任务照常运行。 */
   if (huart1.gState != HAL_UART_STATE_READY) return;
+  now=HAL_GetTick();
+  if(s_telemetry_crc==2U) {
+    if(!s_wire_started) {
+      s_wire_credit=212000U;s_wire_tick=now;s_wire_started=1U;
+    } else {
+      uint32_t elapsed=(uint32_t)(now-s_wire_tick);
+      /* 信用单位B*1000，桶仅容纳一个最大帧，不积累停顿后的突发。 */
+      s_wire_credit=elapsed>=100U?212000U:
+          (s_wire_credit+elapsed*2400U>212000U?212000U:s_wire_credit+elapsed*2400U);
+      s_wire_tick=now;
+    }
+    if(s_full_sent && (uint32_t)(now-s_full_tick)<200U) channels=3U;
+  }
+  frame_len=16U+4U*channels;
 
   /* 整批应答与遥测交替，避免连续上传占满TX导致PC误判定位失联。 */
-  if(!s_traj_reply_last || (s_telemetry_crc && s_ack_read==s_ack_write)) {
+  reply_len=s_ops_fault_defer&&!s_ops_fault_part?0U:Debug_OpsFaultReply((char *)s_tx,DEBUG_REPLY_MAX);
+  if(reply_len) reply_kind=3U; /* 两段冻结现场先于取消TSTAT，日志关闭前收到。 */
+  if(!reply_len && (s_ops_fault_defer || !s_traj_reply_last || (s_telemetry_crc && s_ack_read==s_ack_write))) {
     reply_len=Traj_PeekReply((char *)s_tx,DEBUG_REPLY_MAX,&token);
     if(reply_len) reply_kind=1U;
   }
@@ -2255,13 +2328,30 @@ void DebugUsart_Send(void)
       memcpy(s_tx, reply, reply_len);
     }
   }
+  /* 持续故障时每完成一对诊断让出一个状态回复，避免取消TSTAT饥饿。 */
+  if(!reply_len) {
+    reply_len=Debug_OpsFaultReply((char *)s_tx,DEBUG_REPLY_MAX);
+    if(reply_len) reply_kind=3U;
+  }
+  if(!reply_len) {
+    reply_len=Debug_OpsSnapshotReply((char *)s_tx,DEBUG_REPLY_MAX,now);
+    if(reply_len) reply_kind=4U;
+  }
   len=reply_len;
+  if(s_telemetry_crc==2U && !s_zdt_text_mode &&
+     s_wire_credit<((uint32_t)reply_len+frame_len)*1000U) {
+    /* 应答留在原邮箱/队列，优先新的定位，不重发旧遥测。 */
+    reply_len=0U;reply_kind=0U;len=0U;
+    s_traj_reply_last=reply_last;
+  }
+  if(s_telemetry_crc==2U && s_wire_credit<
+     (s_zdt_text_mode?(uint32_t)reply_len:frame_len)*1000U) return;
   if (s_zdt_text_mode || (!s_telemetry_crc && reply_len)) goto submit;
   telemetry=1U;
   payload_offset=(uint32_t)reply_len;
   if (s_telemetry_crc) {
     s_tx[payload_offset]=0xA5U; s_tx[payload_offset+1U]=0x5AU;
-    s_tx[payload_offset+2U]=1U; s_tx[payload_offset+3U]=DEBUG_VOFA_CHANNELS;
+    s_tx[payload_offset+2U]=s_telemetry_crc; s_tx[payload_offset+3U]=(uint8_t)channels;
     tick=HAL_GetTick();
     memcpy(s_tx+payload_offset+4U,&s_telemetry_seq,4U);
     memcpy(s_tx+payload_offset+8U,&tick,4U);
@@ -2313,11 +2403,11 @@ void DebugUsart_Send(void)
   data[22] = s_dm_kd;
   data[23] = s_dm_torque;
 
-  for (i = 0U; i < DEBUG_VOFA_CHANNELS; ++i)
+  for (i = 0U; i < channels; ++i)
   {
     memcpy(&s_tx[payload_offset + 4U * i], &data[i], 4U);
   }
-  len=payload_offset+4U*DEBUG_VOFA_CHANNELS;
+  len=payload_offset+4U*channels;
   if (s_telemetry_crc) {
     crc=Debug_TelemetryCrc(s_tx+reply_len,len-reply_len);
     memcpy(s_tx+len,&crc,4U);
@@ -2329,12 +2419,24 @@ void DebugUsart_Send(void)
 submit:
   if (!len) return;
   if (HAL_UART_Transmit_DMA(&huart1, s_tx, (uint16_t)len) == HAL_OK) {
+    if(s_telemetry_crc==2U) {
+      s_wire_credit-=len*1000U;
+      if(telemetry && channels==DEBUG_VOFA_CHANNELS) { s_full_tick=now;s_full_sent=1U; }
+    }
     if (reply_kind==1U) {
-      Traj_ReplySent(&token); s_traj_reply_last=1U;
+      Traj_ReplySent(&token); s_traj_reply_last=1U; s_ops_fault_defer=0U;
     } else if (reply_kind==2U)
       s_ack_read=(uint8_t)((s_ack_read+1U)%16U);
+    else if(reply_kind==3U) {
+      if(!s_ops_fault_part) s_ops_fault_part=1U;
+      else { OPS_FaultSent(s_ops_fault_token); s_ops_fault_part=0U; s_ops_fault_defer=1U; }
+    } else if(reply_kind==4U) {
+      if(s_ops_snapshot_part==1U) s_ops_snapshot_part=2U;
+      else { s_ops_snapshot_part=0U; s_ops_snapshot_tick=now; }
+    }
     if (telemetry && s_telemetry_crc) ++s_telemetry_seq;
   } else {
+    if(s_telemetry_crc==2U) s_traj_reply_last=reply_last;
     ++debug_tx_errors;
   }
 }

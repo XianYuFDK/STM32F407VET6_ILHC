@@ -1,0 +1,18 @@
+test_hold_during_motion_preserves_point_and_resumes (__main__.RecoveryHoldTests.test_hold_during_motion_preserves_point_and_resumes) ... ok
+test_hold_clears_final_stop_settle_window (__main__.RecoveryHoldTests.test_hold_clears_final_stop_settle_window) ... FAIL
+test_hold_cannot_restore_canceled_batch (__main__.RecoveryHoldTests.test_hold_cannot_restore_canceled_batch) ... ok
+test_legacy_dense_trajectory_resumes_after_hold (__main__.RecoveryHoldTests.test_legacy_dense_trajectory_resumes_after_hold) ... ok
+
+======================================================================
+FAIL: test_hold_clears_final_stop_settle_window (__main__.RecoveryHoldTests.test_hold_clears_final_stop_settle_window)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\Tests\hardware\test_ops_trajectory_hold.py", line 46, in test_hold_clears_final_stop_settle_window
+    self.assertEqual(self.e.status()[1],4)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 8 != 4
+
+----------------------------------------------------------------------
+Ran 4 tests in 2.061s
+
+FAILED (failures=1)

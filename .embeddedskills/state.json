@@ -12,21 +12,21 @@
     "action": "build",
     "project": "MDK-ARM",
     "config": "STM32F407VET6_ILHC",
-    "log_dir": "RTOS_APP/validation/station-stop-build-20261005",
+    "log_dir": "RTOS_APP/validation/user-controls-20261007",
     "artifacts": {
       "hex_file": "MDK-ARM/build/STM32F407VET6_ILHC/STM32F407VET6_ILHC.hex",
       "axf_file": "MDK-ARM/build/STM32F407VET6_ILHC/STM32F407VET6_ILHC.axf",
       "flash_file": "MDK-ARM/build/STM32F407VET6_ILHC/STM32F407VET6_ILHC.hex",
       "debug_file": "MDK-ARM/build/STM32F407VET6_ILHC/STM32F407VET6_ILHC.axf",
       "build_dir": "MDK-ARM/build/STM32F407VET6_ILHC",
-      "log_file": "RTOS_APP/validation/station-stop-build-20261005/MDK-ARM-STM32F407VET6_ILHC-build.log"
+      "log_file": "RTOS_APP/validation/user-controls-20261007/MDK-ARM-STM32F407VET6_ILHC-build.log"
     },
     "hex_file": "MDK-ARM/build/STM32F407VET6_ILHC/STM32F407VET6_ILHC.hex",
     "axf_file": "MDK-ARM/build/STM32F407VET6_ILHC/STM32F407VET6_ILHC.axf",
     "flash_file": "MDK-ARM/build/STM32F407VET6_ILHC/STM32F407VET6_ILHC.hex",
     "debug_file": "MDK-ARM/build/STM32F407VET6_ILHC/STM32F407VET6_ILHC.axf",
     "build_dir": "MDK-ARM/build/STM32F407VET6_ILHC",
-    "log_file": "RTOS_APP/validation/station-stop-build-20261005/MDK-ARM-STM32F407VET6_ILHC-build.log",
-    "timestamp": "2026-10-05T18:55:41+08:00"
+    "log_file": "RTOS_APP/validation/user-controls-20261007/MDK-ARM-STM32F407VET6_ILHC-build.log",
+    "timestamp": "2026-10-07T21:06:27+08:00"
   }
 }

@@ -1,0 +1,522 @@
+{
+  "status": "PASSED",
+  "physical_motion_verified": false,
+  "nano_verified": false,
+  "platform": "Windows-11-10.0.26200-SP0",
+  "algorithm": "0fcf2104f925153c3ce0a23590159b71b1374d9703b6977537134b421ee9e5b3",
+  "runs": [
+    {
+      "map": "competition_map.json",
+      "control": "DEFAULT",
+      "zone": 1,
+      "initial_plan_s": 26.91843040002277,
+      "initial_planning_stats": {
+        "search_calls": 6,
+        "static_hits": 0,
+        "revalidated_hits": 0,
+        "local_hits": 2
+      },
+      "disk_plan_s": 0.07057009998243302,
+      "memory_plan_s": 0.025756600021850318,
+      "cached_search_calls": 0,
+      "batch_s": 0.3448538000229746,
+      "point_count": 20,
+      "modeled_round_s": 61.760000000004055,
+      "work_stops": [
+        {
+          "station": "raw",
+          "error_mm": 0.4822105396788907,
+          "yaw_error_deg": 0.005677796448480876
+        },
+        {
+          "station": "rough",
+          "error_mm": 0.48760148178770674,
+          "yaw_error_deg": 0.053597182879684624
+        },
+        {
+          "station": "storage",
+          "error_mm": 0.4778084999419347,
+          "yaw_error_deg": 0.10059774481482009
+        },
+        {
+          "station": "raw",
+          "error_mm": 0.4710072867210715,
+          "yaw_error_deg": 9.094947017729282e-13
+        },
+        {
+          "station": "rough",
+          "error_mm": 0.4849012170310509,
+          "yaw_error_deg": 0.05359718287934356
+        },
+        {
+          "station": "storage",
+          "error_mm": 0.48471981301062755,
+          "yaw_error_deg": 0.09491994836770346
+        }
+      ],
+      "rough_to_storage_skeleton": [
+        [
+          1200.0,
+          250.0
+        ],
+        [
+          350.0,
+          250.0
+        ],
+        [
+          350.0,
+          1150.0
+        ]
+      ]
+    },
+    {
+      "map": "competition_map.json",
+      "control": "DEFAULT",
+      "zone": 2,
+      "initial_plan_s": 0.025699100049678236,
+      "initial_planning_stats": {
+        "search_calls": 0,
+        "static_hits": 6,
+        "revalidated_hits": 0,
+        "local_hits": 2
+      },
+      "disk_plan_s": 0.04519590002018958,
+      "memory_plan_s": 0.027300299960188568,
+      "cached_search_calls": 0,
+      "batch_s": 0.3471640999778174,
+      "point_count": 20,
+      "modeled_round_s": 61.760000000004055,
+      "work_stops": [
+        {
+          "station": "raw",
+          "error_mm": 0.4822105396788907,
+          "yaw_error_deg": 0.005677796448480876
+        },
+        {
+          "station": "rough",
+          "error_mm": 0.48760148178770674,
+          "yaw_error_deg": 0.053597182879684624
+        },
+        {
+          "station": "storage",
+          "error_mm": 0.4778084999419347,
+          "yaw_error_deg": 0.10059774481482009
+        },
+        {
+          "station": "raw",
+          "error_mm": 0.4710072867210715,
+          "yaw_error_deg": 9.094947017729282e-13
+        },
+        {
+          "station": "rough",
+          "error_mm": 0.4849012170310509,
+          "yaw_error_deg": 0.05359718287934356
+        },
+        {
+          "station": "storage",
+          "error_mm": 0.48471981301062755,
+          "yaw_error_deg": 0.09491994836770346
+        }
+      ],
+      "rough_to_storage_skeleton": [
+        [
+          1200.0,
+          250.0
+        ],
+        [
+          350.0,
+          250.0
+        ],
+        [
+          350.0,
+          1150.0
+        ]
+      ]
+    },
+    {
+      "map": "competition_map.json",
+      "control": "REAL",
+      "zone": 1,
+      "initial_plan_s": 27.71181120001711,
+      "initial_planning_stats": {
+        "search_calls": 6,
+        "static_hits": 0,
+        "revalidated_hits": 0,
+        "local_hits": 2
+      },
+      "disk_plan_s": 0.1263042999780737,
+      "memory_plan_s": 0.04950530000496656,
+      "cached_search_calls": 0,
+      "batch_s": 0.6046705000335351,
+      "point_count": 21,
+      "modeled_round_s": 84.06000000000041,
+      "work_stops": [
+        {
+          "station": "raw",
+          "error_mm": 0.48448319772778703,
+          "yaw_error_deg": 0.005677796447571382
+        },
+        {
+          "station": "rough",
+          "error_mm": 0.49316512936468626,
+          "yaw_error_deg": 0.0031807815955744445
+        },
+        {
+          "station": "storage",
+          "error_mm": 0.49175166670281917,
+          "yaw_error_deg": 0.009753001649812632
+        },
+        {
+          "station": "raw",
+          "error_mm": 0.4875083842626291,
+          "yaw_error_deg": 0.005677796446434513
+        },
+        {
+          "station": "rough",
+          "error_mm": 0.4976925949690041,
+          "yaw_error_deg": 0.0024970148525653713
+        },
+        {
+          "station": "storage",
+          "error_mm": 0.4970131607137506,
+          "yaw_error_deg": 0.004075205201559129
+        }
+      ],
+      "rough_to_storage_skeleton": [
+        [
+          1200.0,
+          250.0
+        ],
+        [
+          350.0,
+          250.0
+        ],
+        [
+          350.0,
+          1150.0
+        ]
+      ]
+    },
+    {
+      "map": "competition_map.json",
+      "control": "REAL",
+      "zone": 2,
+      "initial_plan_s": 0.049587199988309294,
+      "initial_planning_stats": {
+        "search_calls": 0,
+        "static_hits": 6,
+        "revalidated_hits": 0,
+        "local_hits": 2
+      },
+      "disk_plan_s": 0.09170809999341145,
+      "memory_plan_s": 0.051154399989172816,
+      "cached_search_calls": 0,
+      "batch_s": 0.6544022999587469,
+      "point_count": 21,
+      "modeled_round_s": 84.06000000000041,
+      "work_stops": [
+        {
+          "station": "raw",
+          "error_mm": 0.48448319772778703,
+          "yaw_error_deg": 0.005677796447571382
+        },
+        {
+          "station": "rough",
+          "error_mm": 0.49316512936468626,
+          "yaw_error_deg": 0.0031807815955744445
+        },
+        {
+          "station": "storage",
+          "error_mm": 0.49175166670281917,
+          "yaw_error_deg": 0.009753001649812632
+        },
+        {
+          "station": "raw",
+          "error_mm": 0.4875083842626291,
+          "yaw_error_deg": 0.005677796446434513
+        },
+        {
+          "station": "rough",
+          "error_mm": 0.4976925949690041,
+          "yaw_error_deg": 0.0024970148525653713
+        },
+        {
+          "station": "storage",
+          "error_mm": 0.4970131607137506,
+          "yaw_error_deg": 0.004075205201559129
+        }
+      ],
+      "rough_to_storage_skeleton": [
+        [
+          1200.0,
+          250.0
+        ],
+        [
+          350.0,
+          250.0
+        ],
+        [
+          350.0,
+          1150.0
+        ]
+      ]
+    },
+    {
+      "map": "navigation_map.json",
+      "control": "DEFAULT",
+      "zone": 1,
+      "initial_plan_s": 0.10032269998919219,
+      "initial_planning_stats": {
+        "search_calls": 0,
+        "static_hits": 6,
+        "revalidated_hits": 0,
+        "local_hits": 2
+      },
+      "disk_plan_s": 0.051190300029702485,
+      "memory_plan_s": 0.028103399963583797,
+      "cached_search_calls": 0,
+      "batch_s": 0.4645075000007637,
+      "point_count": 20,
+      "modeled_round_s": 61.72000000000405,
+      "work_stops": [
+        {
+          "station": "raw",
+          "error_mm": 0.492429125990863,
+          "yaw_error_deg": 0.005677796447116634
+        },
+        {
+          "station": "rough",
+          "error_mm": 0.4951011263342163,
+          "yaw_error_deg": 0.05359718287934356
+        },
+        {
+          "station": "storage",
+          "error_mm": 0.49804971862272174,
+          "yaw_error_deg": 0.10059774481550221
+        },
+        {
+          "station": "raw",
+          "error_mm": 0.47695265022408795,
+          "yaw_error_deg": 1.8189894035458565e-12
+        },
+        {
+          "station": "rough",
+          "error_mm": 0.4800423587026258,
+          "yaw_error_deg": 0.06495277577425895
+        },
+        {
+          "station": "storage",
+          "error_mm": 0.4788188129502007,
+          "yaw_error_deg": 0.0949199483681582
+        }
+      ],
+      "rough_to_storage_skeleton": [
+        [
+          1200.0,
+          250.0
+        ],
+        [
+          350.0,
+          250.0
+        ],
+        [
+          350.0,
+          1150.0
+        ]
+      ]
+    },
+    {
+      "map": "navigation_map.json",
+      "control": "DEFAULT",
+      "zone": 2,
+      "initial_plan_s": 0.03705550002632663,
+      "initial_planning_stats": {
+        "search_calls": 0,
+        "static_hits": 6,
+        "revalidated_hits": 0,
+        "local_hits": 2
+      },
+      "disk_plan_s": 0.07405559998005629,
+      "memory_plan_s": 0.04128669999772683,
+      "cached_search_calls": 0,
+      "batch_s": 0.4838772999937646,
+      "point_count": 20,
+      "modeled_round_s": 61.72000000000405,
+      "work_stops": [
+        {
+          "station": "raw",
+          "error_mm": 0.492429125990863,
+          "yaw_error_deg": 0.005677796447116634
+        },
+        {
+          "station": "rough",
+          "error_mm": 0.4951011263342163,
+          "yaw_error_deg": 0.05359718287934356
+        },
+        {
+          "station": "storage",
+          "error_mm": 0.49804971862272174,
+          "yaw_error_deg": 0.10059774481550221
+        },
+        {
+          "station": "raw",
+          "error_mm": 0.47695265022408795,
+          "yaw_error_deg": 1.8189894035458565e-12
+        },
+        {
+          "station": "rough",
+          "error_mm": 0.4800423587026258,
+          "yaw_error_deg": 0.06495277577425895
+        },
+        {
+          "station": "storage",
+          "error_mm": 0.4788188129502007,
+          "yaw_error_deg": 0.0949199483681582
+        }
+      ],
+      "rough_to_storage_skeleton": [
+        [
+          1200.0,
+          250.0
+        ],
+        [
+          350.0,
+          250.0
+        ],
+        [
+          350.0,
+          1150.0
+        ]
+      ]
+    },
+    {
+      "map": "navigation_map.json",
+      "control": "REAL",
+      "zone": 1,
+      "initial_plan_s": 27.763717300025746,
+      "initial_planning_stats": {
+        "search_calls": 6,
+        "static_hits": 0,
+        "revalidated_hits": 0,
+        "local_hits": 2
+      },
+      "disk_plan_s": 0.10831729997880757,
+      "memory_plan_s": 0.048502699995879084,
+      "cached_search_calls": 0,
+      "batch_s": 0.49114950001239777,
+      "point_count": 21,
+      "modeled_round_s": 84.06000000000041,
+      "work_stops": [
+        {
+          "station": "raw",
+          "error_mm": 0.48448319772778703,
+          "yaw_error_deg": 0.005677796447571382
+        },
+        {
+          "station": "rough",
+          "error_mm": 0.49316512936468626,
+          "yaw_error_deg": 0.0031807815955744445
+        },
+        {
+          "station": "storage",
+          "error_mm": 0.49175166670281917,
+          "yaw_error_deg": 0.009753001649812632
+        },
+        {
+          "station": "raw",
+          "error_mm": 0.4875083842626291,
+          "yaw_error_deg": 0.005677796446434513
+        },
+        {
+          "station": "rough",
+          "error_mm": 0.4976925949690041,
+          "yaw_error_deg": 0.0024970148525653713
+        },
+        {
+          "station": "storage",
+          "error_mm": 0.4970131607137506,
+          "yaw_error_deg": 0.004075205201559129
+        }
+      ],
+      "rough_to_storage_skeleton": [
+        [
+          1200.0,
+          250.0
+        ],
+        [
+          350.0,
+          250.0
+        ],
+        [
+          350.0,
+          1150.0
+        ]
+      ]
+    },
+    {
+      "map": "navigation_map.json",
+      "control": "REAL",
+      "zone": 2,
+      "initial_plan_s": 0.032613900024443865,
+      "initial_planning_stats": {
+        "search_calls": 0,
+        "static_hits": 6,
+        "revalidated_hits": 0,
+        "local_hits": 2
+      },
+      "disk_plan_s": 0.061099199985619634,
+      "memory_plan_s": 0.03193920000921935,
+      "cached_search_calls": 0,
+      "batch_s": 0.4811072999727912,
+      "point_count": 21,
+      "modeled_round_s": 84.06000000000041,
+      "work_stops": [
+        {
+          "station": "raw",
+          "error_mm": 0.48448319772778703,
+          "yaw_error_deg": 0.005677796447571382
+        },
+        {
+          "station": "rough",
+          "error_mm": 0.49316512936468626,
+          "yaw_error_deg": 0.0031807815955744445
+        },
+        {
+          "station": "storage",
+          "error_mm": 0.49175166670281917,
+          "yaw_error_deg": 0.009753001649812632
+        },
+        {
+          "station": "raw",
+          "error_mm": 0.4875083842626291,
+          "yaw_error_deg": 0.005677796446434513
+        },
+        {
+          "station": "rough",
+          "error_mm": 0.4976925949690041,
+          "yaw_error_deg": 0.0024970148525653713
+        },
+        {
+          "station": "storage",
+          "error_mm": 0.4970131607137506,
+          "yaw_error_deg": 0.004075205201559129
+        }
+      ],
+      "rough_to_storage_skeleton": [
+        [
+          1200.0,
+          250.0
+        ],
+        [
+          350.0,
+          250.0
+        ],
+        [
+          350.0,
+          1150.0
+        ]
+      ]
+    }
+  ],
+  "route_count": 24
+}

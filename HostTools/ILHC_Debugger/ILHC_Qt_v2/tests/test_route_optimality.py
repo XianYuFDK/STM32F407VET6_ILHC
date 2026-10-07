@@ -97,14 +97,38 @@ class OrderedSkeletonTests(unittest.TestCase):
         from Docs.audit_route_optimality_20261005 import better_replays
         data=competition.load_profile();scene=competition.collision_scene(data)
         result=coordinate.plan_route((2100,2100),tuple(data['competition']['stations']['qr']),scene,
-                                      data['competition']['lane_nodes'],180)
+                                      data['competition']['lane_nodes'],180,pivot_turns=False,approach_turns=False)
         baseline=result['optimality']['baseline']
-        self.assertTrue(result['optimality']['proven'])
+        self.assertEqual(result['optimality']['proven'],all(p['complete'] for p in result['search']['phases']))
         self.assertFalse(result['optimality']['global_time_proven'])
-        self.assertLessEqual(result['search']['skeleton_cost_mm'],baseline['skeleton_cost_mm']+1e-7)
-        comparison=better_replays(result,scene)
-        self.assertLessEqual(result['predicted_tracking_s'],comparison['fastest']['predicted_s'])
-        self.assertLess(result['predicted_tracking_s'],baseline['predicted_tracking_s'])
+        self.assertLessEqual(result['execution_cost']['score_s'],baseline['execution_cost']['score_s'])
+        self.assertEqual(result['optimality']['policy'],'VERIFIED_TIME_AND_YAW_COST')
+        self.assertLessEqual(result['search']['candidates'],coordinate.MAX_OPTIMIZATION_SKELETONS)
+
+    def test_rough_storage_uses_tail_and_outer_wheel_turn_with_terminal_work_heading(self):
+        import competition_simulation as competition
+        import coordinate_navigation as coordinate
+        data=competition.load_profile();scene=competition.collision_scene(data)
+        result=coordinate.plan_route((1200,400),(400,1200),scene,data['competition']['lane_nodes'],0,goal_yaw=270)
+        first=result['trajectory'][0]
+        moved=next(p for p in result['trajectory'] if math.dist((p['x_mm'],p['y_mm']),(first['x_mm'],first['y_mm']))>10)
+        # 返回轨迹是场地坐标；LAYOUT沿车尾-x对应场地+Y。
+        self.assertGreater(moved['y_mm'],first['y_mm'])
+        self.assertLess(abs(coordinate.wrap(moved['field_yaw_deg']-first['field_yaw_deg'])),1)
+        self.assertNotIn((1200,1200),result['skeleton_points'])
+        self.assertLess(result['execution_cost']['yaw_total_deg'],100)
+        self.assertTrue(result.get('pivots'));self.assertFalse(result['optimality']['proven'])
+        samples,elapsed=coordinate.replay(result['waypoint_program'],scene)
+        self.assertAlmostEqual(elapsed,result['predicted_tracking_s'])
+        goal=coordinate.CoordinateTracker(result['waypoint_program']).final_reference()
+        self.assertLess(abs(coordinate.wrap(samples[-1]['field_yaw_deg']-goal['field_yaw_deg'])),1)
+
+    def test_goal_aware_plan_can_disable_wheel_extension(self):
+        import coordinate_navigation as coordinate
+        from navigation_planner import CollisionScene
+        scene=CollisionScene([],[],(0,0,3000,3000),10,(280,260,0),None)
+        result=coordinate.plan_route((500,500),(1500,1500),scene,[(500,1500),(1500,500)],0,goal_yaw=270,pivot_turns=False)
+        self.assertFalse(any(w.get('motion')=='WHEEL_PIVOT' for w in result['waypoint_program']['waypoints']))
 
     def test_budget_exhaustion_retains_safe_seed_without_false_optimality_claim(self):
         import coordinate_navigation as coordinate
@@ -150,6 +174,24 @@ class OrderedSkeletonTests(unittest.TestCase):
             coordinate._cached_replay(lateral,scene,lambda:False,{},cache)
         with self.assertRaisesRegex(ValueError,'取消'):
             coordinate._cached_replay(safe,scene,lambda:True,{},cache)
+
+    def test_dense_replay_cache_is_bounded_by_samples_not_only_route_count(self):
+        import coordinate_navigation as coordinate
+        cache={};samples=[{'x_mm':0}]*15001
+        with patch.object(coordinate,'replay',return_value=(samples,1)) as replay:
+            for i in range(4):
+                coordinate._cached_replay({'test_control':i},None,lambda:False,{},cache)
+                self.assertLessEqual(sum(len(v[0]) for v in cache.values() if isinstance(v,tuple)),30000)
+            coordinate._cached_replay({'test_control':0},None,lambda:False,{},cache)
+            self.assertEqual(replay.call_count,5)
+
+    def test_yaw_scoring_includes_first_integration_and_final_residual(self):
+        import coordinate_navigation as coordinate
+        program=coordinate.build_program([(500,500),(500,1500)],0,goal_yaw=270)
+        cost=coordinate.execution_cost(program,[{'field_yaw_deg':-50}],1)
+        self.assertEqual(cost['yaw_total_deg'],40)
+        self.assertEqual(cost['yaw_residual_deg'],50)
+        self.assertAlmostEqual(cost['score_s'],2.35)
 
     def test_deadline_retains_verified_incumbent_but_never_claims_optimum(self):
         import coordinate_navigation as coordinate

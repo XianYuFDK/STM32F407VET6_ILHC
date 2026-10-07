@@ -10,7 +10,7 @@
   "eide": {
     "project": "MDK-ARM",
     "config": "STM32F407VET6_ILHC",
-    "log_dir": "RTOS_APP/validation/station-stop-build-20261005"
+    "log_dir": "RTOS_APP/validation/user-controls-20261007"
   },
   "keil": {
     "project": "MDK-ARM/STM32F407VET6_ILHC.uvprojx",

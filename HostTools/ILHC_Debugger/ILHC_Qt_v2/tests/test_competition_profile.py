@@ -9,6 +9,7 @@ from pathlib import Path
 class CompetitionProfileTests(unittest.TestCase):
     def test_add_defaults_without_replacing_map_or_modifying_input(self):
         data=nav.load_map(Path(competition.__file__).with_name('navigation_map.json'))
+        data.pop('competition', None)  # 已标定默认地图包含配置；这里仍专测缺配置时的补齐。
         data['dynamic_circles']=[[2100,1200,25,'实时障碍']]
         original=copy.deepcopy(data)
         configured,added=competition.with_competition_defaults(data)

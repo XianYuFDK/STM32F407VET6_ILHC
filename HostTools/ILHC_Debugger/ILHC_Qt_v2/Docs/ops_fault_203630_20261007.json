@@ -1,0 +1,2980 @@
+{
+  "status": "ANALYZED",
+  "run": "20261007_203630_837450_REAL_42841f93",
+  "result": {
+    "event": "RUN_END",
+    "sequence": 14586,
+    "run_id": "f6b3fb3341f645f498eca3a7145aba05",
+    "monotonic": 378630.975034,
+    "wall_time": 1791376642.1004071,
+    "status": "CANCELLED",
+    "reason": "STM32 FAULT：OPS定位过期/非法",
+    "validation_trigger": null,
+    "collision_trigger": null
+  },
+  "turn_mode": "MOVING",
+  "duration_s": 51.25164949998725,
+  "frames": 2563,
+  "fault_event_counts": {
+    "512": 27,
+    "2048": 23
+  },
+  "diagnostics": {
+    "faults": [
+      {
+        "event_id": 19,
+        "OPSE": {
+          "kind": "OPSE",
+          "event_id": 19,
+          "cause_mask": 512,
+          "device_tick_ms": 554295,
+          "previous_session_id": 2,
+          "session_id": 2,
+          "previous_timestamp_ms": 553635,
+          "timestamp_ms": 553635,
+          "ops_sequence": 45190,
+          "causes": [
+            "USART2硬件错误"
+          ],
+          "unknown_cause_bits": 0,
+          "host_monotonic_s": 378591.0241814
+        },
+        "OPSX": {
+          "kind": "OPSX",
+          "event_id": 19,
+          "flags": 27,
+          "frame_gap_ms": 0,
+          "valid_pose_age_ms": 1,
+          "rx_packet_age_ms": 0,
+          "uart_error": 4,
+          "crc_errors": 0,
+          "rx_overflows": 1,
+          "imu_rebased": false,
+          "imu_online": true,
+          "host_monotonic_s": 378591.041637
+        },
+        "complete": true,
+        "causes": [
+          "USART2硬件错误"
+        ]
+      },
+      {
+        "event_id": 20,
+        "OPSE": {
+          "kind": "OPSE",
+          "event_id": 20,
+          "cause_mask": 2048,
+          "device_tick_ms": 554299,
+          "previous_session_id": 2,
+          "session_id": 2,
+          "previous_timestamp_ms": 553640,
+          "timestamp_ms": 553640,
+          "ops_sequence": 45191,
+          "causes": [
+            "OPS接收已恢复（续行）"
+          ],
+          "unknown_cause_bits": 0,
+          "host_monotonic_s": 378591.064112
+        },
+        "OPSX": {
+          "kind": "OPSX",
+          "event_id": 20,
+          "flags": 27,
+          "frame_gap_ms": 5,
+          "valid_pose_age_ms": 5,
+          "rx_packet_age_ms": 0,
+          "uart_error": 4,
+          "crc_errors": 0,
+          "rx_overflows": 1,
+          "imu_rebased": false,
+          "imu_online": true,
+          "host_monotonic_s": 378591.0816411
+        },
+        "complete": true,
+        "causes": [
+          "OPS接收已恢复（续行）"
+        ]
+      },
+      {
+        "event_id": 21,
+        "OPSE": {
+          "kind": "OPSE",
+          "event_id": 21,
+          "cause_mask": 512,
+          "device_tick_ms": 571585,
+          "previous_session_id": 2,
+          "session_id": 2,
+          "previous_timestamp_ms": 570925,
+          "timestamp_ms": 570925,
+          "ops_sequence": 48648,
+          "causes": [
+            "USART2硬件错误"
+          ],
+          "unknown_cause_bits": 0,
+          "host_monotonic_s": 378608.3043503
+        },
+        "OPSX": {
+          "kind": "OPSX",
+          "event_id": 21,
+          "flags": 27,
+          "frame_gap_ms": 0,
+          "valid_pose_age_ms": 3,
+          "rx_packet_age_ms": 0,
+          "uart_error": 2,
+          "crc_errors": 0,
+          "rx_overflows": 1,
+          "imu_rebased": false,
+          "imu_online": true,
+          "host_monotonic_s": 378608.3217552
+        },
+        "complete": true,
+        "causes": [
+          "USART2硬件错误"
+        ]
+      },
+      {
+        "event_id": 22,
+        "OPSE": {
+          "kind": "OPSE",
+          "event_id": 22,
+          "cause_mask": 2048,
+          "device_tick_ms": 571592,
+          "previous_session_id": 2,
+          "session_id": 2,
+          "previous_timestamp_ms": 570935,
+          "timestamp_ms": 570935,
+          "ops_sequence": 48650,
+          "causes": [
+            "OPS接收已恢复（续行）"
+          ],
+          "unknown_cause_bits": 0,
+          "host_monotonic_s": 378608.3671471
+        },
+        "OPSX": {
+          "kind": "OPSX",
+          "event_id": 22,
+          "flags": 27,
+          "frame_gap_ms": 10,
+          "valid_pose_age_ms": 10,
+          "rx_packet_age_ms": 0,
+          "uart_error": 6,
+          "crc_errors": 0,
+          "rx_overflows": 1,
+          "imu_rebased": false,
+          "imu_online": true,
+          "host_monotonic_s": 378608.3818261
+        },
+        "complete": true,
+        "causes": [
+          "OPS接收已恢复（续行）"
+        ]
+      },
+      {
+        "event_id": 23,
+        "OPSE": {
+          "kind": "OPSE",
+          "event_id": 23,
+          "cause_mask": 512,
+          "device_tick_ms": 571594,
+          "previous_session_id": 2,
+          "session_id": 2,
+          "previous_timestamp_ms": 570935,
+          "timestamp_ms": 570935,
+          "ops_sequence": 48650,
+          "causes": [
+            "USART2硬件错误"
+          ],
+          "unknown_cause_bits": 0,
+          "host_monotonic_s": 378608.4043665
+        },
+        "OPSX": {
+          "kind": "OPSX",
+          "event_id": 23,
+          "flags": 27,
+          "frame_gap_ms": 0,
+          "valid_pose_age_ms": 2,
+          "rx_packet_age_ms": 0,
+          "uart_error": 4,
+          "crc_errors": 0,
+          "rx_overflows": 1,
+          "imu_rebased": false,
+          "imu_online": true,
+          "host_monotonic_s": 378608.4218033
+        },
+        "complete": true,
+        "causes": [
+          "USART2硬件错误"
+        ]
+      },
+      {
+        "event_id": 24,
+        "OPSE": {
+          "kind": "OPSE",
+          "event_id": 24,
+          "cause_mask": 2048,
+          "device_tick_ms": 571612,
+          "previous_session_id": 2,
+          "session_id": 2,
+          "previous_timestamp_ms": 570955,
+          "timestamp_ms": 570955,
+          "ops_sequence": 48654,
+          "causes": [
+            "OPS接收已恢复（续行）"
+          ],
+          "unknown_cause_bits": 0,
+          "host_monotonic_s": 378608.4642798
+        },
+        "OPSX": {
+          "kind": "OPSX",
+          "event_id": 24,
+          "flags": 27,
+          "frame_gap_ms": 20,
+          "valid_pose_age_ms": 20,
+          "rx_packet_age_ms": 0,
+          "uart_error": 4,
+          "crc_errors": 0,
+          "rx_overflows": 1,
+          "imu_rebased": false,
+          "imu_online": true,
+          "host_monotonic_s": 378608.4817423
+        },
+        "complete": true,
+        "causes": [
+          "OPS接收已恢复（续行）"
+        ]
+      },
+      {
+        "event_id": 25,
+        "OPSE": {
+          "kind": "OPSE",
+          "event_id": 25,
+          "cause_mask": 512,
+          "device_tick_ms": 571672,
+          "previous_session_id": 2,
+          "session_id": 2,
+          "previous_timestamp_ms": 571015,
+          "timestamp_ms": 571015,
+          "ops_sequence": 48666,
+          "causes": [
+            "USART2硬件错误"
+          ],
+          "unknown_cause_bits": 0,
+          "host_monotonic_s": 378608.5042665
+        },
+        "OPSX": {
+          "kind": "OPSX",
+          "event_id": 25,
+          "flags": 27,
+          "frame_gap_ms": 0,
+          "valid_pose_age_ms": 0,
+          "rx_packet_age_ms": 0,
+          "uart_error": 4,
+          "crc_errors": 0,
+          "rx_overflows": 1,
+          "imu_rebased": false,
+          "imu_online": true,
+          "host_monotonic_s": 378608.5220116
+        },
+        "complete": true,
+        "causes": [
+          "USART2硬件错误"
+        ]
+      },
+      {
+        "event_id": 26,
+        "OPSE": {
+          "kind": "OPSE",
+          "event_id": 26,
+          "cause_mask": 2048,
+          "device_tick_ms": 571677,
+          "previous_session_id": 2,
+          "session_id": 2,
+          "previous_timestamp_ms": 571020,
+          "timestamp_ms": 571020,
+          "ops_sequence": 48667,
+          "causes": [
+            "OPS接收已恢复（续行）"
+          ],
+          "unknown_cause_bits": 0,
+          "host_monotonic_s": 378608.5642312
+        },
+        "OPSX": {
+          "kind": "OPSX",
+          "event_id": 26,
+          "flags": 27,
+          "frame_gap_ms": 5,
+          "valid_pose_age_ms": 5,
+          "rx_packet_age_ms": 0,
+          "uart_error": 4,
+          "crc_errors": 0,
+          "rx_overflows": 1,
+          "imu_rebased": false,
+          "imu_online": true,
+          "host_monotonic_s": 378608.5817166
+        },
+        "complete": true,
+        "causes": [
+          "OPS接收已恢复（续行）"
+        ]
+      },
+      {
+        "event_id": 27,
+        "OPSE": {
+          "kind": "OPSE",
+          "event_id": 27,
+          "cause_mask": 512,
+          "device_tick_ms": 571764,
+          "previous_session_id": 2,
+          "session_id": 2,
+          "previous_timestamp_ms": 571105,
+          "timestamp_ms": 571105,
+          "ops_sequence": 48684,
+          "causes": [
+            "USART2硬件错误"
+          ],
+          "unknown_cause_bits": 0,
+          "host_monotonic_s": 378608.6242649
+        },
+        "OPSX": {
+          "kind": "OPSX",
+          "event_id": 27,
+          "flags": 27,
+          "frame_gap_ms": 0,
+          "valid_pose_age_ms": 2,
+          "rx_packet_age_ms": 0,
+          "uart_error": 4,
+          "crc_errors": 0,
+          "rx_overflows": 1,
+          "imu_rebased": false,
+          "imu_online": true,
+          "host_monotonic_s": 378608.6418441
+        },
+        "complete": true,
+        "causes": [
+          "USART2硬件错误"
+        ]
+      },
+      {
+        "event_id": 29,
+        "OPSE": {
+          "kind": "OPSE",
+          "event_id": 29,
+          "cause_mask": 512,
+          "device_tick_ms": 571791,
+          "previous_session_id": 2,
+          "session_id": 2,
+          "previous_timestamp_ms": 571130,
+          "timestamp_ms": 571130,
+          "ops_sequence": 48689,
+          "causes": [
+            "USART2硬件错误"
+          ],
+          "unknown_cause_bits": 0,
+          "host_monotonic_s": 378608.66426
+        },
+        "OPSX": {
+          "kind": "OPSX",
+          "event_id": 29,
+          "flags": 27,
+          "frame_gap_ms": 0,
+          "valid_pose_age_ms": 4,
+          "rx_packet_age_ms": 0,
+          "uart_error": 4,
+          "crc_errors": 0,
+          "rx_overflows": 1,
+          "imu_rebased": false,
+          "imu_online": true,
+          "host_monotonic_s": 378608.6817873
+        },
+        "complete": true,
+        "causes": [
+          "USART2硬件错误"
+        ]
+      },
+      {
+        "event_id": 31,
+        "OPSE": {
+          "kind": "OPSE",
+          "event_id": 31,
+          "cause_mask": 512,
+          "device_tick_ms": 571976,
+          "previous_session_id": 2,
+          "session_id": 2,
+          "previous_timestamp_ms": 571315,
+          "timestamp_ms": 571315,
+          "ops_sequence": 48726,
+          "causes": [
+            "USART2硬件错误"
+          ],
+          "unknown_cause_bits": 0,
+          "host_monotonic_s": 378608.7043046
+        },
+        "OPSX": {
+          "kind": "OPSX",
+          "event_id": 31,
+          "flags": 27,
+          "frame_gap_ms": 0,
+          "valid_pose_age_ms": 4,
+          "rx_packet_age_ms": 0,
+          "uart_error": 4,
+          "crc_errors": 0,
+          "rx_overflows": 1,
+          "imu_rebased": false,
+          "imu_online": true,
+          "host_monotonic_s": 378608.7219512
+        },
+        "complete": true,
+        "causes": [
+          "USART2硬件错误"
+        ]
+      },
+      {
+        "event_id": 32,
+        "OPSE": {
+          "kind": "OPSE",
+          "event_id": 32,
+          "cause_mask": 2048,
+          "device_tick_ms": 571982,
+          "previous_session_id": 2,
+          "session_id": 2,
+          "previous_timestamp_ms": 571325,
+          "timestamp_ms": 571325,
+          "ops_sequence": 48728,
+          "causes": [
+            "OPS接收已恢复（续行）"
+          ],
+          "unknown_cause_bits": 0,
+          "host_monotonic_s": 378608.7643963
+        },
+        "OPSX": {
+          "kind": "OPSX",
+          "event_id": 32,
+          "flags": 27,
+          "frame_gap_ms": 10,
+          "valid_pose_age_ms": 10,
+          "rx_packet_age_ms": 0,
+          "uart_error": 4,
+          "crc_errors": 0,
+          "rx_overflows": 1,
+          "imu_rebased": false,
+          "imu_online": true,
+          "host_monotonic_s": 378608.7833167
+        },
+        "complete": true,
+        "causes": [
+          "OPS接收已恢复（续行）"
+        ]
+      },
+      {
+        "event_id": 33,
+        "OPSE": {
+          "kind": "OPSE",
+          "event_id": 33,
+          "cause_mask": 512,
+          "device_tick_ms": 576123,
+          "previous_session_id": 2,
+          "session_id": 2,
+          "previous_timestamp_ms": 575465,
+          "timestamp_ms": 575465,
+          "ops_sequence": 49556,
+          "causes": [
+            "USART2硬件错误"
+          ],
+          "unknown_cause_bits": 0,
+          "host_monotonic_s": 378612.8518957
+        },
+        "OPSX": {
+          "kind": "OPSX",
+          "event_id": 33,
+          "flags": 27,
+          "frame_gap_ms": 0,
+          "valid_pose_age_ms": 2,
+          "rx_packet_age_ms": 0,
+          "uart_error": 4,
+          "crc_errors": 0,
+          "rx_overflows": 1,
+          "imu_rebased": false,
+          "imu_online": true,
+          "host_monotonic_s": 378612.8620479
+        },
+        "complete": true,
+        "causes": [
+          "USART2硬件错误"
+        ]
+      },
+      {
+        "event_id": 34,
+        "OPSE": {
+          "kind": "OPSE",
+          "event_id": 34,
+          "cause_mask": 2048,
+          "device_tick_ms": 576131,
+          "previous_session_id": 2,
+          "session_id": 2,
+          "previous_timestamp_ms": 575475,
+          "timestamp_ms": 575475,
+          "ops_sequence": 49558,
+          "causes": [
+            "OPS接收已恢复（续行）"
+          ],
+          "unknown_cause_bits": 0,
+          "host_monotonic_s": 378612.8843167
+        },
+        "OPSX": {
+          "kind": "OPSX",
+          "event_id": 34,
+          "flags": 27,
+          "frame_gap_ms": 10,
+          "valid_pose_age_ms": 10,
+          "rx_packet_age_ms": 0,
+          "uart_error": 4,
+          "crc_errors": 0,
+          "rx_overflows": 1,
+          "imu_rebased": false,
+          "imu_online": true,
+          "host_monotonic_s": 378612.9019779
+        },
+        "complete": true,
+        "causes": [
+          "OPS接收已恢复（续行）"
+        ]
+      },
+      {
+        "event_id": 35,
+        "OPSE": {
+          "kind": "OPSE",
+          "event_id": 35,
+          "cause_mask": 512,
+          "device_tick_ms": 579246,
+          "previous_session_id": 2,
+          "session_id": 2,
+          "previous_timestamp_ms": 578590,
+          "timestamp_ms": 578590,
+          "ops_sequence": 50181,
+          "causes": [
+            "USART2硬件错误"
+          ],
+          "unknown_cause_bits": 0,
+          "host_monotonic_s": 378615.9643356
+        },
+        "OPSX": {
+          "kind": "OPSX",
+          "event_id": 35,
+          "flags": 27,
+          "frame_gap_ms": 0,
+          "valid_pose_age_ms": 0,
+          "rx_packet_age_ms": 0,
+          "uart_error": 6,
+          "crc_errors": 0,
+          "rx_overflows": 1,
+          "imu_rebased": false,
+          "imu_online": true,
+          "host_monotonic_s": 378615.9818657
+        },
+        "complete": true,
+        "causes": [
+          "USART2硬件错误"
+        ]
+      },
+      {
+        "event_id": 36,
+        "OPSE": {
+          "kind": "OPSE",
+          "event_id": 36,
+          "cause_mask": 2048,
+          "device_tick_ms": 579251,
+          "previous_session_id": 2,
+          "session_id": 2,
+          "previous_timestamp_ms": 578595,
+          "timestamp_ms": 578595,
+          "ops_sequence": 50182,
+          "causes": [
+            "OPS接收已恢复（续行）"
+          ],
+          "unknown_cause_bits": 0,
+          "host_monotonic_s": 378616.0243867
+        },
+        "OPSX": {
+          "kind": "OPSX",
+          "event_id": 36,
+          "flags": 27,
+          "frame_gap_ms": 5,
+          "valid_pose_age_ms": 5,
+          "rx_packet_age_ms": 0,
+          "uart_error": 6,
+          "crc_errors": 0,
+          "rx_overflows": 1,
+          "imu_rebased": false,
+          "imu_online": true,
+          "host_monotonic_s": 378616.0418317
+        },
+        "complete": true,
+        "causes": [
+          "OPS接收已恢复（续行）"
+        ]
+      },
+      {
+        "event_id": 37,
+        "OPSE": {
+          "kind": "OPSE",
+          "event_id": 37,
+          "cause_mask": 512,
+          "device_tick_ms": 579395,
+          "previous_session_id": 2,
+          "session_id": 2,
+          "previous_timestamp_ms": 578735,
+          "timestamp_ms": 578735,
+          "ops_sequence": 50210,
+          "causes": [
+            "USART2硬件错误"
+          ],
+          "unknown_cause_bits": 0,
+          "host_monotonic_s": 378616.1443373
+        },
+        "OPSX": {
+          "kind": "OPSX",
+          "event_id": 37,
+          "flags": 27,
+          "frame_gap_ms": 0,
+          "valid_pose_age_ms": 4,
+          "rx_packet_age_ms": 0,
+          "uart_error": 4,
+          "crc_errors": 0,
+          "rx_overflows": 1,
+          "imu_rebased": false,
+          "imu_online": true,
+          "host_monotonic_s": 378616.1618179
+        },
+        "complete": true,
+        "causes": [
+          "USART2硬件错误"
+        ]
+      },
+      {
+        "event_id": 38,
+        "OPSE": {
+          "kind": "OPSE",
+          "event_id": 38,
+          "cause_mask": 2048,
+          "device_tick_ms": 579401,
+          "previous_session_id": 2,
+          "session_id": 2,
+          "previous_timestamp_ms": 578745,
+          "timestamp_ms": 578745,
+          "ops_sequence": 50212,
+          "causes": [
+            "OPS接收已恢复（续行）"
+          ],
+          "unknown_cause_bits": 0,
+          "host_monotonic_s": 378616.2044928
+        },
+        "OPSX": {
+          "kind": "OPSX",
+          "event_id": 38,
+          "flags": 27,
+          "frame_gap_ms": 10,
+          "valid_pose_age_ms": 10,
+          "rx_packet_age_ms": 0,
+          "uart_error": 4,
+          "crc_errors": 0,
+          "rx_overflows": 1,
+          "imu_rebased": false,
+          "imu_online": true,
+          "host_monotonic_s": 378616.2218262
+        },
+        "complete": true,
+        "causes": [
+          "OPS接收已恢复（续行）"
+        ]
+      },
+      {
+        "event_id": 39,
+        "OPSE": {
+          "kind": "OPSE",
+          "event_id": 39,
+          "cause_mask": 512,
+          "device_tick_ms": 583672,
+          "previous_session_id": 2,
+          "session_id": 2,
+          "previous_timestamp_ms": 583015,
+          "timestamp_ms": 583015,
+          "ops_sequence": 51066,
+          "causes": [
+            "USART2硬件错误"
+          ],
+          "unknown_cause_bits": 0,
+          "host_monotonic_s": 378620.3831707
+        },
+        "OPSX": {
+          "kind": "OPSX",
+          "event_id": 39,
+          "flags": 27,
+          "frame_gap_ms": 0,
+          "valid_pose_age_ms": 2,
+          "rx_packet_age_ms": 0,
+          "uart_error": 4,
+          "crc_errors": 0,
+          "rx_overflows": 1,
+          "imu_rebased": false,
+          "imu_online": true,
+          "host_monotonic_s": 378620.415558
+        },
+        "complete": true,
+        "causes": [
+          "USART2硬件错误"
+        ]
+      },
+      {
+        "event_id": 40,
+        "OPSE": {
+          "kind": "OPSE",
+          "event_id": 40,
+          "cause_mask": 2048,
+          "device_tick_ms": 583675,
+          "previous_session_id": 2,
+          "session_id": 2,
+          "previous_timestamp_ms": 583020,
+          "timestamp_ms": 583020,
+          "ops_sequence": 51067,
+          "causes": [
+            "OPS接收已恢复（续行）"
+          ],
+          "unknown_cause_bits": 0,
+          "host_monotonic_s": 378620.4243718
+        },
+        "OPSX": {
+          "kind": "OPSX",
+          "event_id": 40,
+          "flags": 27,
+          "frame_gap_ms": 5,
+          "valid_pose_age_ms": 5,
+          "rx_packet_age_ms": 0,
+          "uart_error": 4,
+          "crc_errors": 0,
+          "rx_overflows": 1,
+          "imu_rebased": false,
+          "imu_online": true,
+          "host_monotonic_s": 378620.4456085
+        },
+        "complete": true,
+        "causes": [
+          "OPS接收已恢复（续行）"
+        ]
+      },
+      {
+        "event_id": 41,
+        "OPSE": {
+          "kind": "OPSE",
+          "event_id": 41,
+          "cause_mask": 512,
+          "device_tick_ms": 583679,
+          "previous_session_id": 2,
+          "session_id": 2,
+          "previous_timestamp_ms": 583020,
+          "timestamp_ms": 583020,
+          "ops_sequence": 51067,
+          "causes": [
+            "USART2硬件错误"
+          ],
+          "unknown_cause_bits": 0,
+          "host_monotonic_s": 378620.4845137
+        },
+        "OPSX": {
+          "kind": "OPSX",
+          "event_id": 41,
+          "flags": 27,
+          "frame_gap_ms": 0,
+          "valid_pose_age_ms": 4,
+          "rx_packet_age_ms": 0,
+          "uart_error": 4,
+          "crc_errors": 0,
+          "rx_overflows": 1,
+          "imu_rebased": false,
+          "imu_online": true,
+          "host_monotonic_s": 378620.5032197
+        },
+        "complete": true,
+        "causes": [
+          "USART2硬件错误"
+        ]
+      },
+      {
+        "event_id": 42,
+        "OPSE": {
+          "kind": "OPSE",
+          "event_id": 42,
+          "cause_mask": 2048,
+          "device_tick_ms": 583685,
+          "previous_session_id": 2,
+          "session_id": 2,
+          "previous_timestamp_ms": 583030,
+          "timestamp_ms": 583030,
+          "ops_sequence": 51069,
+          "causes": [
+            "OPS接收已恢复（续行）"
+          ],
+          "unknown_cause_bits": 0,
+          "host_monotonic_s": 378620.5443731
+        },
+        "OPSX": {
+          "kind": "OPSX",
+          "event_id": 42,
+          "flags": 27,
+          "frame_gap_ms": 10,
+          "valid_pose_age_ms": 10,
+          "rx_packet_age_ms": 0,
+          "uart_error": 4,
+          "crc_errors": 0,
+          "rx_overflows": 1,
+          "imu_rebased": false,
+          "imu_online": true,
+          "host_monotonic_s": 378620.561892
+        },
+        "complete": true,
+        "causes": [
+          "OPS接收已恢复（续行）"
+        ]
+      },
+      {
+        "event_id": 43,
+        "OPSE": {
+          "kind": "OPSE",
+          "event_id": 43,
+          "cause_mask": 512,
+          "device_tick_ms": 583762,
+          "previous_session_id": 2,
+          "session_id": 2,
+          "previous_timestamp_ms": 583105,
+          "timestamp_ms": 583105,
+          "ops_sequence": 51084,
+          "causes": [
+            "USART2硬件错误"
+          ],
+          "unknown_cause_bits": 0,
+          "host_monotonic_s": 378620.6044253
+        },
+        "OPSX": {
+          "kind": "OPSX",
+          "event_id": 43,
+          "flags": 27,
+          "frame_gap_ms": 0,
+          "valid_pose_age_ms": 2,
+          "rx_packet_age_ms": 0,
+          "uart_error": 4,
+          "crc_errors": 0,
+          "rx_overflows": 1,
+          "imu_rebased": false,
+          "imu_online": true,
+          "host_monotonic_s": 378620.6219787
+        },
+        "complete": true,
+        "causes": [
+          "USART2硬件错误"
+        ]
+      },
+      {
+        "event_id": 44,
+        "OPSE": {
+          "kind": "OPSE",
+          "event_id": 44,
+          "cause_mask": 2048,
+          "device_tick_ms": 583770,
+          "previous_session_id": 2,
+          "session_id": 2,
+          "previous_timestamp_ms": 583115,
+          "timestamp_ms": 583115,
+          "ops_sequence": 51086,
+          "causes": [
+            "OPS接收已恢复（续行）"
+          ],
+          "unknown_cause_bits": 0,
+          "host_monotonic_s": 378620.643207
+        },
+        "OPSX": {
+          "kind": "OPSX",
+          "event_id": 44,
+          "flags": 27,
+          "frame_gap_ms": 10,
+          "valid_pose_age_ms": 10,
+          "rx_packet_age_ms": 0,
+          "uart_error": 4,
+          "crc_errors": 0,
+          "rx_overflows": 1,
+          "imu_rebased": false,
+          "imu_online": true,
+          "host_monotonic_s": 378620.664392
+        },
+        "complete": true,
+        "causes": [
+          "OPS接收已恢复（续行）"
+        ]
+      },
+      {
+        "event_id": 45,
+        "OPSE": {
+          "kind": "OPSE",
+          "event_id": 45,
+          "cause_mask": 512,
+          "device_tick_ms": 586443,
+          "previous_session_id": 2,
+          "session_id": 2,
+          "previous_timestamp_ms": 585785,
+          "timestamp_ms": 585785,
+          "ops_sequence": 51620,
+          "causes": [
+            "USART2硬件错误"
+          ],
+          "unknown_cause_bits": 0,
+          "host_monotonic_s": 378623.1636641
+        },
+        "OPSX": {
+          "kind": "OPSX",
+          "event_id": 45,
+          "flags": 27,
+          "frame_gap_ms": 0,
+          "valid_pose_age_ms": 3,
+          "rx_packet_age_ms": 0,
+          "uart_error": 6,
+          "crc_errors": 0,
+          "rx_overflows": 1,
+          "imu_rebased": false,
+          "imu_online": true,
+          "host_monotonic_s": 378623.1820551
+        },
+        "complete": true,
+        "causes": [
+          "USART2硬件错误"
+        ]
+      },
+      {
+        "event_id": 46,
+        "OPSE": {
+          "kind": "OPSE",
+          "event_id": 46,
+          "cause_mask": 2048,
+          "device_tick_ms": 586450,
+          "previous_session_id": 2,
+          "session_id": 2,
+          "previous_timestamp_ms": 585795,
+          "timestamp_ms": 585795,
+          "ops_sequence": 51622,
+          "causes": [
+            "OPS接收已恢复（续行）"
+          ],
+          "unknown_cause_bits": 0,
+          "host_monotonic_s": 378623.2032229
+        },
+        "OPSX": {
+          "kind": "OPSX",
+          "event_id": 46,
+          "flags": 27,
+          "frame_gap_ms": 10,
+          "valid_pose_age_ms": 10,
+          "rx_packet_age_ms": 0,
+          "uart_error": 6,
+          "crc_errors": 0,
+          "rx_overflows": 1,
+          "imu_rebased": false,
+          "imu_online": true,
+          "host_monotonic_s": 378623.2220378
+        },
+        "complete": true,
+        "causes": [
+          "OPS接收已恢复（续行）"
+        ]
+      },
+      {
+        "event_id": 47,
+        "OPSE": {
+          "kind": "OPSE",
+          "event_id": 47,
+          "cause_mask": 512,
+          "device_tick_ms": 586540,
+          "previous_session_id": 2,
+          "session_id": 2,
+          "previous_timestamp_ms": 585880,
+          "timestamp_ms": 585880,
+          "ops_sequence": 51639,
+          "causes": [
+            "USART2硬件错误"
+          ],
+          "unknown_cause_bits": 0,
+          "host_monotonic_s": 378623.2632341
+        },
+        "OPSX": {
+          "kind": "OPSX",
+          "event_id": 47,
+          "flags": 27,
+          "frame_gap_ms": 0,
+          "valid_pose_age_ms": 5,
+          "rx_packet_age_ms": 0,
+          "uart_error": 4,
+          "crc_errors": 0,
+          "rx_overflows": 1,
+          "imu_rebased": false,
+          "imu_online": true,
+          "host_monotonic_s": 378623.2845136
+        },
+        "complete": true,
+        "causes": [
+          "USART2硬件错误"
+        ]
+      },
+      {
+        "event_id": 48,
+        "OPSE": {
+          "kind": "OPSE",
+          "event_id": 48,
+          "cause_mask": 2048,
+          "device_tick_ms": 586545,
+          "previous_session_id": 2,
+          "session_id": 2,
+          "previous_timestamp_ms": 585890,
+          "timestamp_ms": 585890,
+          "ops_sequence": 51641,
+          "causes": [
+            "OPS接收已恢复（续行）"
+          ],
+          "unknown_cause_bits": 0,
+          "host_monotonic_s": 378623.3032031
+        },
+        "OPSX": {
+          "kind": "OPSX",
+          "event_id": 48,
+          "flags": 27,
+          "frame_gap_ms": 10,
+          "valid_pose_age_ms": 10,
+          "rx_packet_age_ms": 0,
+          "uart_error": 4,
+          "crc_errors": 0,
+          "rx_overflows": 1,
+          "imu_rebased": false,
+          "imu_online": true,
+          "host_monotonic_s": 378623.3244346
+        },
+        "complete": true,
+        "causes": [
+          "OPS接收已恢复（续行）"
+        ]
+      },
+      {
+        "event_id": 49,
+        "OPSE": {
+          "kind": "OPSE",
+          "event_id": 49,
+          "cause_mask": 512,
+          "device_tick_ms": 586737,
+          "previous_session_id": 2,
+          "session_id": 2,
+          "previous_timestamp_ms": 586080,
+          "timestamp_ms": 586080,
+          "ops_sequence": 51679,
+          "causes": [
+            "USART2硬件错误"
+          ],
+          "unknown_cause_bits": 0,
+          "host_monotonic_s": 378623.4632289
+        },
+        "OPSX": {
+          "kind": "OPSX",
+          "event_id": 49,
+          "flags": 27,
+          "frame_gap_ms": 0,
+          "valid_pose_age_ms": 2,
+          "rx_packet_age_ms": 0,
+          "uart_error": 4,
+          "crc_errors": 0,
+          "rx_overflows": 1,
+          "imu_rebased": false,
+          "imu_online": true,
+          "host_monotonic_s": 378623.481931
+        },
+        "complete": true,
+        "causes": [
+          "USART2硬件错误"
+        ]
+      },
+      {
+        "event_id": 50,
+        "OPSE": {
+          "kind": "OPSE",
+          "event_id": 50,
+          "cause_mask": 2048,
+          "device_tick_ms": 586745,
+          "previous_session_id": 2,
+          "session_id": 2,
+          "previous_timestamp_ms": 586090,
+          "timestamp_ms": 586090,
+          "ops_sequence": 51681,
+          "causes": [
+            "OPS接收已恢复（续行）"
+          ],
+          "unknown_cause_bits": 0,
+          "host_monotonic_s": 378623.5031907
+        },
+        "OPSX": {
+          "kind": "OPSX",
+          "event_id": 50,
+          "flags": 27,
+          "frame_gap_ms": 10,
+          "valid_pose_age_ms": 10,
+          "rx_packet_age_ms": 0,
+          "uart_error": 4,
+          "crc_errors": 0,
+          "rx_overflows": 1,
+          "imu_rebased": false,
+          "imu_online": true,
+          "host_monotonic_s": 378623.5269428
+        },
+        "complete": true,
+        "causes": [
+          "OPS接收已恢复（续行）"
+        ]
+      },
+      {
+        "event_id": 51,
+        "OPSE": {
+          "kind": "OPSE",
+          "event_id": 51,
+          "cause_mask": 512,
+          "device_tick_ms": 588424,
+          "previous_session_id": 2,
+          "session_id": 2,
+          "previous_timestamp_ms": 587765,
+          "timestamp_ms": 587765,
+          "ops_sequence": 52016,
+          "causes": [
+            "USART2硬件错误"
+          ],
+          "unknown_cause_bits": 0,
+          "host_monotonic_s": 378625.143314
+        },
+        "OPSX": {
+          "kind": "OPSX",
+          "event_id": 51,
+          "flags": 27,
+          "frame_gap_ms": 0,
+          "valid_pose_age_ms": 4,
+          "rx_packet_age_ms": 0,
+          "uart_error": 4,
+          "crc_errors": 0,
+          "rx_overflows": 1,
+          "imu_rebased": false,
+          "imu_online": true,
+          "host_monotonic_s": 378625.1618943
+        },
+        "complete": true,
+        "causes": [
+          "USART2硬件错误"
+        ]
+      },
+      {
+        "event_id": 52,
+        "OPSE": {
+          "kind": "OPSE",
+          "event_id": 52,
+          "cause_mask": 2048,
+          "device_tick_ms": 588430,
+          "previous_session_id": 2,
+          "session_id": 2,
+          "previous_timestamp_ms": 587775,
+          "timestamp_ms": 587775,
+          "ops_sequence": 52018,
+          "causes": [
+            "OPS接收已恢复（续行）"
+          ],
+          "unknown_cause_bits": 0,
+          "host_monotonic_s": 378625.2034226
+        },
+        "OPSX": {
+          "kind": "OPSX",
+          "event_id": 52,
+          "flags": 27,
+          "frame_gap_ms": 10,
+          "valid_pose_age_ms": 10,
+          "rx_packet_age_ms": 0,
+          "uart_error": 4,
+          "crc_errors": 0,
+          "rx_overflows": 1,
+          "imu_rebased": false,
+          "imu_online": true,
+          "host_monotonic_s": 378625.222058
+        },
+        "complete": true,
+        "causes": [
+          "OPS接收已恢复（续行）"
+        ]
+      },
+      {
+        "event_id": 53,
+        "OPSE": {
+          "kind": "OPSE",
+          "event_id": 53,
+          "cause_mask": 512,
+          "device_tick_ms": 591255,
+          "previous_session_id": 2,
+          "session_id": 2,
+          "previous_timestamp_ms": 590600,
+          "timestamp_ms": 590600,
+          "ops_sequence": 52583,
+          "causes": [
+            "USART2硬件错误"
+          ],
+          "unknown_cause_bits": 0,
+          "host_monotonic_s": 378627.9833688
+        },
+        "OPSX": {
+          "kind": "OPSX",
+          "event_id": 53,
+          "flags": 27,
+          "frame_gap_ms": 0,
+          "valid_pose_age_ms": 1,
+          "rx_packet_age_ms": 0,
+          "uart_error": 4,
+          "crc_errors": 0,
+          "rx_overflows": 1,
+          "imu_rebased": false,
+          "imu_online": true,
+          "host_monotonic_s": 378628.0081928
+        },
+        "complete": true,
+        "causes": [
+          "USART2硬件错误"
+        ]
+      },
+      {
+        "event_id": 54,
+        "OPSE": {
+          "kind": "OPSE",
+          "event_id": 54,
+          "cause_mask": 2048,
+          "device_tick_ms": 591264,
+          "previous_session_id": 2,
+          "session_id": 2,
+          "previous_timestamp_ms": 590610,
+          "timestamp_ms": 590610,
+          "ops_sequence": 52585,
+          "causes": [
+            "OPS接收已恢复（续行）"
+          ],
+          "unknown_cause_bits": 0,
+          "host_monotonic_s": 378628.0232291
+        },
+        "OPSX": {
+          "kind": "OPSX",
+          "event_id": 54,
+          "flags": 27,
+          "frame_gap_ms": 10,
+          "valid_pose_age_ms": 10,
+          "rx_packet_age_ms": 0,
+          "uart_error": 4,
+          "crc_errors": 0,
+          "rx_overflows": 1,
+          "imu_rebased": false,
+          "imu_online": true,
+          "host_monotonic_s": 378628.0420666
+        },
+        "complete": true,
+        "causes": [
+          "OPS接收已恢复（续行）"
+        ]
+      },
+      {
+        "event_id": 55,
+        "OPSE": {
+          "kind": "OPSE",
+          "event_id": 55,
+          "cause_mask": 512,
+          "device_tick_ms": 591286,
+          "previous_session_id": 2,
+          "session_id": 2,
+          "previous_timestamp_ms": 590630,
+          "timestamp_ms": 590630,
+          "ops_sequence": 52589,
+          "causes": [
+            "USART2硬件错误"
+          ],
+          "unknown_cause_bits": 0,
+          "host_monotonic_s": 378628.0633838
+        },
+        "OPSX": {
+          "kind": "OPSX",
+          "event_id": 55,
+          "flags": 27,
+          "frame_gap_ms": 0,
+          "valid_pose_age_ms": 2,
+          "rx_packet_age_ms": 0,
+          "uart_error": 4,
+          "crc_errors": 0,
+          "rx_overflows": 1,
+          "imu_rebased": false,
+          "imu_online": true,
+          "host_monotonic_s": 378628.0821107
+        },
+        "complete": true,
+        "causes": [
+          "USART2硬件错误"
+        ]
+      },
+      {
+        "event_id": 56,
+        "OPSE": {
+          "kind": "OPSE",
+          "event_id": 56,
+          "cause_mask": 2048,
+          "device_tick_ms": 591294,
+          "previous_session_id": 2,
+          "session_id": 2,
+          "previous_timestamp_ms": 590640,
+          "timestamp_ms": 590640,
+          "ops_sequence": 52591,
+          "causes": [
+            "OPS接收已恢复（续行）"
+          ],
+          "unknown_cause_bits": 0,
+          "host_monotonic_s": 378628.1220381
+        },
+        "OPSX": {
+          "kind": "OPSX",
+          "event_id": 56,
+          "flags": 27,
+          "frame_gap_ms": 10,
+          "valid_pose_age_ms": 10,
+          "rx_packet_age_ms": 0,
+          "uart_error": 4,
+          "crc_errors": 0,
+          "rx_overflows": 1,
+          "imu_rebased": false,
+          "imu_online": true,
+          "host_monotonic_s": 378628.1324108
+        },
+        "complete": true,
+        "causes": [
+          "OPS接收已恢复（续行）"
+        ]
+      },
+      {
+        "event_id": 57,
+        "OPSE": {
+          "kind": "OPSE",
+          "event_id": 57,
+          "cause_mask": 512,
+          "device_tick_ms": 591350,
+          "previous_session_id": 2,
+          "session_id": 2,
+          "previous_timestamp_ms": 590695,
+          "timestamp_ms": 590695,
+          "ops_sequence": 52602,
+          "causes": [
+            "USART2硬件错误"
+          ],
+          "unknown_cause_bits": 0,
+          "host_monotonic_s": 378628.1634364
+        },
+        "OPSX": {
+          "kind": "OPSX",
+          "event_id": 57,
+          "flags": 27,
+          "frame_gap_ms": 0,
+          "valid_pose_age_ms": 1,
+          "rx_packet_age_ms": 0,
+          "uart_error": 4,
+          "crc_errors": 0,
+          "rx_overflows": 1,
+          "imu_rebased": false,
+          "imu_online": true,
+          "host_monotonic_s": 378628.1821642
+        },
+        "complete": true,
+        "causes": [
+          "USART2硬件错误"
+        ]
+      },
+      {
+        "event_id": 58,
+        "OPSE": {
+          "kind": "OPSE",
+          "event_id": 58,
+          "cause_mask": 2048,
+          "device_tick_ms": 591359,
+          "previous_session_id": 2,
+          "session_id": 2,
+          "previous_timestamp_ms": 590705,
+          "timestamp_ms": 590705,
+          "ops_sequence": 52604,
+          "causes": [
+            "OPS接收已恢复（续行）"
+          ],
+          "unknown_cause_bits": 0,
+          "host_monotonic_s": 378628.2031292
+        },
+        "OPSX": {
+          "kind": "OPSX",
+          "event_id": 58,
+          "flags": 27,
+          "frame_gap_ms": 10,
+          "valid_pose_age_ms": 10,
+          "rx_packet_age_ms": 0,
+          "uart_error": 4,
+          "crc_errors": 0,
+          "rx_overflows": 1,
+          "imu_rebased": false,
+          "imu_online": true,
+          "host_monotonic_s": 378628.222112
+        },
+        "complete": true,
+        "causes": [
+          "OPS接收已恢复（续行）"
+        ]
+      },
+      {
+        "event_id": 59,
+        "OPSE": {
+          "kind": "OPSE",
+          "event_id": 59,
+          "cause_mask": 512,
+          "device_tick_ms": 591430,
+          "previous_session_id": 2,
+          "session_id": 2,
+          "previous_timestamp_ms": 590775,
+          "timestamp_ms": 590775,
+          "ops_sequence": 52618,
+          "causes": [
+            "USART2硬件错误"
+          ],
+          "unknown_cause_bits": 0,
+          "host_monotonic_s": 378628.2457492
+        },
+        "OPSX": {
+          "kind": "OPSX",
+          "event_id": 59,
+          "flags": 27,
+          "frame_gap_ms": 0,
+          "valid_pose_age_ms": 1,
+          "rx_packet_age_ms": 0,
+          "uart_error": 2,
+          "crc_errors": 0,
+          "rx_overflows": 1,
+          "imu_rebased": false,
+          "imu_online": true,
+          "host_monotonic_s": 378628.2619522
+        },
+        "complete": true,
+        "causes": [
+          "USART2硬件错误"
+        ]
+      },
+      {
+        "event_id": 60,
+        "OPSE": {
+          "kind": "OPSE",
+          "event_id": 60,
+          "cause_mask": 2048,
+          "device_tick_ms": 591439,
+          "previous_session_id": 2,
+          "session_id": 2,
+          "previous_timestamp_ms": 590785,
+          "timestamp_ms": 590785,
+          "ops_sequence": 52620,
+          "causes": [
+            "OPS接收已恢复（续行）"
+          ],
+          "unknown_cause_bits": 0,
+          "host_monotonic_s": 378628.2832071
+        },
+        "OPSX": {
+          "kind": "OPSX",
+          "event_id": 60,
+          "flags": 27,
+          "frame_gap_ms": 10,
+          "valid_pose_age_ms": 10,
+          "rx_packet_age_ms": 0,
+          "uart_error": 6,
+          "crc_errors": 0,
+          "rx_overflows": 1,
+          "imu_rebased": false,
+          "imu_online": true,
+          "host_monotonic_s": 378628.3020344
+        },
+        "complete": true,
+        "causes": [
+          "OPS接收已恢复（续行）"
+        ]
+      },
+      {
+        "event_id": 63,
+        "OPSE": {
+          "kind": "OPSE",
+          "event_id": 63,
+          "cause_mask": 512,
+          "device_tick_ms": 591519,
+          "previous_session_id": 2,
+          "session_id": 2,
+          "previous_timestamp_ms": 590865,
+          "timestamp_ms": 590865,
+          "ops_sequence": 52636,
+          "causes": [
+            "USART2硬件错误"
+          ],
+          "unknown_cause_bits": 0,
+          "host_monotonic_s": 378628.3433342
+        },
+        "OPSX": {
+          "kind": "OPSX",
+          "event_id": 63,
+          "flags": 27,
+          "frame_gap_ms": 0,
+          "valid_pose_age_ms": 0,
+          "rx_packet_age_ms": 0,
+          "uart_error": 4,
+          "crc_errors": 0,
+          "rx_overflows": 1,
+          "imu_rebased": false,
+          "imu_online": true,
+          "host_monotonic_s": 378628.3619336
+        },
+        "complete": true,
+        "causes": [
+          "USART2硬件错误"
+        ]
+      },
+      {
+        "event_id": 64,
+        "OPSE": {
+          "kind": "OPSE",
+          "event_id": 64,
+          "cause_mask": 2048,
+          "device_tick_ms": 591524,
+          "previous_session_id": 2,
+          "session_id": 2,
+          "previous_timestamp_ms": 590870,
+          "timestamp_ms": 590870,
+          "ops_sequence": 52637,
+          "causes": [
+            "OPS接收已恢复（续行）"
+          ],
+          "unknown_cause_bits": 0,
+          "host_monotonic_s": 378628.4083214
+        },
+        "OPSX": {
+          "kind": "OPSX",
+          "event_id": 64,
+          "flags": 27,
+          "frame_gap_ms": 5,
+          "valid_pose_age_ms": 5,
+          "rx_packet_age_ms": 0,
+          "uart_error": 4,
+          "crc_errors": 0,
+          "rx_overflows": 1,
+          "imu_rebased": false,
+          "imu_online": true,
+          "host_monotonic_s": 378628.4231944
+        },
+        "complete": true,
+        "causes": [
+          "OPS接收已恢复（续行）"
+        ]
+      },
+      {
+        "event_id": 65,
+        "OPSE": {
+          "kind": "OPSE",
+          "event_id": 65,
+          "cause_mask": 512,
+          "device_tick_ms": 591620,
+          "previous_session_id": 2,
+          "session_id": 2,
+          "previous_timestamp_ms": 590965,
+          "timestamp_ms": 590965,
+          "ops_sequence": 52656,
+          "causes": [
+            "USART2硬件错误"
+          ],
+          "unknown_cause_bits": 0,
+          "host_monotonic_s": 378628.4633364
+        },
+        "OPSX": {
+          "kind": "OPSX",
+          "event_id": 65,
+          "flags": 27,
+          "frame_gap_ms": 0,
+          "valid_pose_age_ms": 1,
+          "rx_packet_age_ms": 0,
+          "uart_error": 4,
+          "crc_errors": 0,
+          "rx_overflows": 1,
+          "imu_rebased": false,
+          "imu_online": true,
+          "host_monotonic_s": 378628.4819462
+        },
+        "complete": true,
+        "causes": [
+          "USART2硬件错误"
+        ]
+      },
+      {
+        "event_id": 66,
+        "OPSE": {
+          "kind": "OPSE",
+          "event_id": 66,
+          "cause_mask": 2048,
+          "device_tick_ms": 591624,
+          "previous_session_id": 2,
+          "session_id": 2,
+          "previous_timestamp_ms": 590970,
+          "timestamp_ms": 590970,
+          "ops_sequence": 52657,
+          "causes": [
+            "OPS接收已恢复（续行）"
+          ],
+          "unknown_cause_bits": 0,
+          "host_monotonic_s": 378628.5257704
+        },
+        "OPSX": {
+          "kind": "OPSX",
+          "event_id": 66,
+          "flags": 27,
+          "frame_gap_ms": 5,
+          "valid_pose_age_ms": 5,
+          "rx_packet_age_ms": 0,
+          "uart_error": 4,
+          "crc_errors": 0,
+          "rx_overflows": 1,
+          "imu_rebased": false,
+          "imu_online": true,
+          "host_monotonic_s": 378628.5445248
+        },
+        "complete": true,
+        "causes": [
+          "OPS接收已恢复（续行）"
+        ]
+      },
+      {
+        "event_id": 67,
+        "OPSE": {
+          "kind": "OPSE",
+          "event_id": 67,
+          "cause_mask": 512,
+          "device_tick_ms": 591677,
+          "previous_session_id": 2,
+          "session_id": 2,
+          "previous_timestamp_ms": 591020,
+          "timestamp_ms": 591020,
+          "ops_sequence": 52667,
+          "causes": [
+            "USART2硬件错误"
+          ],
+          "unknown_cause_bits": 0,
+          "host_monotonic_s": 378628.5832583
+        },
+        "OPSX": {
+          "kind": "OPSX",
+          "event_id": 67,
+          "flags": 27,
+          "frame_gap_ms": 0,
+          "valid_pose_age_ms": 3,
+          "rx_packet_age_ms": 0,
+          "uart_error": 4,
+          "crc_errors": 0,
+          "rx_overflows": 1,
+          "imu_rebased": false,
+          "imu_online": true,
+          "host_monotonic_s": 378628.6044837
+        },
+        "complete": true,
+        "causes": [
+          "USART2硬件错误"
+        ]
+      },
+      {
+        "event_id": 69,
+        "OPSE": {
+          "kind": "OPSE",
+          "event_id": 69,
+          "cause_mask": 512,
+          "device_tick_ms": 593984,
+          "previous_session_id": 2,
+          "session_id": 2,
+          "previous_timestamp_ms": 593325,
+          "timestamp_ms": 593325,
+          "ops_sequence": 53128,
+          "causes": [
+            "USART2硬件错误"
+          ],
+          "unknown_cause_bits": 0,
+          "host_monotonic_s": 378630.7070086
+        },
+        "OPSX": {
+          "kind": "OPSX",
+          "event_id": 69,
+          "flags": 27,
+          "frame_gap_ms": 0,
+          "valid_pose_age_ms": 5,
+          "rx_packet_age_ms": 0,
+          "uart_error": 4,
+          "crc_errors": 0,
+          "rx_overflows": 1,
+          "imu_rebased": false,
+          "imu_online": true,
+          "host_monotonic_s": 378630.7220553
+        },
+        "complete": true,
+        "causes": [
+          "USART2硬件错误"
+        ]
+      },
+      {
+        "event_id": 70,
+        "OPSE": {
+          "kind": "OPSE",
+          "event_id": 70,
+          "cause_mask": 2048,
+          "device_tick_ms": 593989,
+          "previous_session_id": 2,
+          "session_id": 2,
+          "previous_timestamp_ms": 593335,
+          "timestamp_ms": 593335,
+          "ops_sequence": 53130,
+          "causes": [
+            "OPS接收已恢复（续行）"
+          ],
+          "unknown_cause_bits": 0,
+          "host_monotonic_s": 378630.7649092
+        },
+        "OPSX": {
+          "kind": "OPSX",
+          "event_id": 70,
+          "flags": 27,
+          "frame_gap_ms": 10,
+          "valid_pose_age_ms": 10,
+          "rx_packet_age_ms": 0,
+          "uart_error": 4,
+          "crc_errors": 0,
+          "rx_overflows": 1,
+          "imu_rebased": false,
+          "imu_online": true,
+          "host_monotonic_s": 378630.7820286
+        },
+        "complete": true,
+        "causes": [
+          "OPS接收已恢复（续行）"
+        ]
+      },
+      {
+        "event_id": 71,
+        "OPSE": {
+          "kind": "OPSE",
+          "event_id": 71,
+          "cause_mask": 512,
+          "device_tick_ms": 594149,
+          "previous_session_id": 2,
+          "session_id": 2,
+          "previous_timestamp_ms": 593495,
+          "timestamp_ms": 593495,
+          "ops_sequence": 53162,
+          "causes": [
+            "USART2硬件错误"
+          ],
+          "unknown_cause_bits": 0,
+          "host_monotonic_s": 378630.8647186
+        },
+        "OPSX": {
+          "kind": "OPSX",
+          "event_id": 71,
+          "flags": 27,
+          "frame_gap_ms": 0,
+          "valid_pose_age_ms": 0,
+          "rx_packet_age_ms": 0,
+          "uart_error": 4,
+          "crc_errors": 0,
+          "rx_overflows": 1,
+          "imu_rebased": false,
+          "imu_online": true,
+          "host_monotonic_s": 378630.8820919
+        },
+        "complete": true,
+        "causes": [
+          "USART2硬件错误"
+        ]
+      },
+      {
+        "event_id": 72,
+        "OPSE": {
+          "kind": "OPSE",
+          "event_id": 72,
+          "cause_mask": 2048,
+          "device_tick_ms": 594154,
+          "previous_session_id": 2,
+          "session_id": 2,
+          "previous_timestamp_ms": 593500,
+          "timestamp_ms": 593500,
+          "ops_sequence": 53163,
+          "causes": [
+            "OPS接收已恢复（续行）"
+          ],
+          "unknown_cause_bits": 0,
+          "host_monotonic_s": 378630.9047011
+        },
+        "OPSX": {
+          "kind": "OPSX",
+          "event_id": 72,
+          "flags": 27,
+          "frame_gap_ms": 5,
+          "valid_pose_age_ms": 5,
+          "rx_packet_age_ms": 0,
+          "uart_error": 4,
+          "crc_errors": 0,
+          "rx_overflows": 1,
+          "imu_rebased": false,
+          "imu_online": true,
+          "host_monotonic_s": 378630.9222157
+        },
+        "complete": true,
+        "causes": [
+          "OPS接收已恢复（续行）"
+        ]
+      },
+      {
+        "event_id": 73,
+        "OPSE": {
+          "kind": "OPSE",
+          "event_id": 73,
+          "cause_mask": 512,
+          "device_tick_ms": 594234,
+          "previous_session_id": 2,
+          "session_id": 2,
+          "previous_timestamp_ms": 593580,
+          "timestamp_ms": 593580,
+          "ops_sequence": 53179,
+          "causes": [
+            "USART2硬件错误"
+          ],
+          "unknown_cause_bits": 0,
+          "host_monotonic_s": 378630.9645281
+        },
+        "complete": false,
+        "causes": [
+          "USART2硬件错误"
+        ]
+      }
+    ],
+    "snapshots": [
+      {
+        "kind": "OPSD",
+        "device_tick_ms": 544274,
+        "session_id": 2,
+        "ops_sequence": 43185,
+        "timestamp_ms": 543610,
+        "flags": 27,
+        "pose_valid": 1,
+        "valid_pose_age_ms": 3,
+        "crc_errors": 0,
+        "format_errors": 0,
+        "imu_rebased": false,
+        "imu_online": true,
+        "host_monotonic_s": 378580.9827463
+      },
+      {
+        "kind": "OPSR",
+        "device_tick_ms": 544274,
+        "uart_error_count": 0,
+        "last_uart_error": 0,
+        "rx_overflows": 1,
+        "stale_packets": 0,
+        "restart_failures": 0,
+        "diagnostic_drops": 14,
+        "host_monotonic_s": 378581.0015324
+      },
+      {
+        "kind": "OPSD",
+        "device_tick_ms": 546294,
+        "session_id": 2,
+        "ops_sequence": 43589,
+        "timestamp_ms": 545630,
+        "flags": 27,
+        "pose_valid": 1,
+        "valid_pose_age_ms": 4,
+        "crc_errors": 0,
+        "format_errors": 0,
+        "imu_rebased": false,
+        "imu_online": true,
+        "host_monotonic_s": 378583.0027055
+      },
+      {
+        "kind": "OPSR",
+        "device_tick_ms": 546294,
+        "uart_error_count": 0,
+        "last_uart_error": 0,
+        "rx_overflows": 1,
+        "stale_packets": 0,
+        "restart_failures": 0,
+        "diagnostic_drops": 14,
+        "host_monotonic_s": 378583.0214381
+      },
+      {
+        "kind": "OPSD",
+        "device_tick_ms": 548314,
+        "session_id": 2,
+        "ops_sequence": 43993,
+        "timestamp_ms": 547650,
+        "flags": 27,
+        "pose_valid": 1,
+        "valid_pose_age_ms": 4,
+        "crc_errors": 0,
+        "format_errors": 0,
+        "imu_rebased": false,
+        "imu_online": true,
+        "host_monotonic_s": 378585.0228745
+      },
+      {
+        "kind": "OPSR",
+        "device_tick_ms": 548314,
+        "uart_error_count": 0,
+        "last_uart_error": 0,
+        "rx_overflows": 1,
+        "stale_packets": 0,
+        "restart_failures": 0,
+        "diagnostic_drops": 14,
+        "host_monotonic_s": 378585.0414351
+      },
+      {
+        "kind": "OPSD",
+        "device_tick_ms": 550334,
+        "session_id": 2,
+        "ops_sequence": 44397,
+        "timestamp_ms": 549670,
+        "flags": 27,
+        "pose_valid": 1,
+        "valid_pose_age_ms": 4,
+        "crc_errors": 0,
+        "format_errors": 0,
+        "imu_rebased": false,
+        "imu_online": true,
+        "host_monotonic_s": 378587.0429769
+      },
+      {
+        "kind": "OPSR",
+        "device_tick_ms": 550334,
+        "uart_error_count": 0,
+        "last_uart_error": 0,
+        "rx_overflows": 1,
+        "stale_packets": 0,
+        "restart_failures": 0,
+        "diagnostic_drops": 14,
+        "host_monotonic_s": 378587.0627183
+      },
+      {
+        "kind": "OPSD",
+        "device_tick_ms": 552354,
+        "session_id": 2,
+        "ops_sequence": 44801,
+        "timestamp_ms": 551690,
+        "flags": 27,
+        "pose_valid": 1,
+        "valid_pose_age_ms": 5,
+        "crc_errors": 0,
+        "format_errors": 0,
+        "imu_rebased": false,
+        "imu_online": true,
+        "host_monotonic_s": 378589.0727524
+      },
+      {
+        "kind": "OPSR",
+        "device_tick_ms": 552354,
+        "uart_error_count": 0,
+        "last_uart_error": 0,
+        "rx_overflows": 1,
+        "stale_packets": 0,
+        "restart_failures": 0,
+        "diagnostic_drops": 14,
+        "host_monotonic_s": 378589.0814789
+      },
+      {
+        "kind": "OPSD",
+        "device_tick_ms": 554394,
+        "session_id": 2,
+        "ops_sequence": 45210,
+        "timestamp_ms": 553735,
+        "flags": 27,
+        "pose_valid": 1,
+        "valid_pose_age_ms": 0,
+        "crc_errors": 0,
+        "format_errors": 0,
+        "imu_rebased": false,
+        "imu_online": true,
+        "host_monotonic_s": 378591.1027963
+      },
+      {
+        "kind": "OPSR",
+        "device_tick_ms": 554394,
+        "uart_error_count": 1,
+        "last_uart_error": 4,
+        "rx_overflows": 1,
+        "stale_packets": 0,
+        "restart_failures": 0,
+        "diagnostic_drops": 14,
+        "host_monotonic_s": 378591.1615269
+      },
+      {
+        "kind": "OPSD",
+        "device_tick_ms": 556454,
+        "session_id": 2,
+        "ops_sequence": 45622,
+        "timestamp_ms": 555795,
+        "flags": 27,
+        "pose_valid": 1,
+        "valid_pose_age_ms": 0,
+        "crc_errors": 0,
+        "format_errors": 0,
+        "imu_rebased": false,
+        "imu_online": true,
+        "host_monotonic_s": 378593.1628899
+      },
+      {
+        "kind": "OPSR",
+        "device_tick_ms": 556454,
+        "uart_error_count": 1,
+        "last_uart_error": 4,
+        "rx_overflows": 1,
+        "stale_packets": 0,
+        "restart_failures": 0,
+        "diagnostic_drops": 14,
+        "host_monotonic_s": 378593.1815545
+      },
+      {
+        "kind": "OPSD",
+        "device_tick_ms": 558474,
+        "session_id": 2,
+        "ops_sequence": 46026,
+        "timestamp_ms": 557815,
+        "flags": 27,
+        "pose_valid": 1,
+        "valid_pose_age_ms": 0,
+        "crc_errors": 0,
+        "format_errors": 0,
+        "imu_rebased": false,
+        "imu_online": true,
+        "host_monotonic_s": 378595.1829001
+      },
+      {
+        "kind": "OPSR",
+        "device_tick_ms": 558474,
+        "uart_error_count": 1,
+        "last_uart_error": 4,
+        "rx_overflows": 1,
+        "stale_packets": 0,
+        "restart_failures": 0,
+        "diagnostic_drops": 14,
+        "host_monotonic_s": 378595.2092253
+      },
+      {
+        "kind": "OPSD",
+        "device_tick_ms": 560494,
+        "session_id": 2,
+        "ops_sequence": 46430,
+        "timestamp_ms": 559835,
+        "flags": 27,
+        "pose_valid": 1,
+        "valid_pose_age_ms": 1,
+        "crc_errors": 0,
+        "format_errors": 0,
+        "imu_rebased": false,
+        "imu_online": true,
+        "host_monotonic_s": 378597.2028884
+      },
+      {
+        "kind": "OPSR",
+        "device_tick_ms": 560494,
+        "uart_error_count": 1,
+        "last_uart_error": 4,
+        "rx_overflows": 1,
+        "stale_packets": 0,
+        "restart_failures": 0,
+        "diagnostic_drops": 14,
+        "host_monotonic_s": 378597.2215955
+      },
+      {
+        "kind": "OPSD",
+        "device_tick_ms": 562514,
+        "session_id": 2,
+        "ops_sequence": 46834,
+        "timestamp_ms": 561855,
+        "flags": 27,
+        "pose_valid": 1,
+        "valid_pose_age_ms": 1,
+        "crc_errors": 0,
+        "format_errors": 0,
+        "imu_rebased": false,
+        "imu_online": true,
+        "host_monotonic_s": 378599.2341964
+      },
+      {
+        "kind": "OPSR",
+        "device_tick_ms": 562514,
+        "uart_error_count": 1,
+        "last_uart_error": 4,
+        "rx_overflows": 1,
+        "stale_packets": 0,
+        "restart_failures": 0,
+        "diagnostic_drops": 14,
+        "host_monotonic_s": 378599.2416081
+      },
+      {
+        "kind": "OPSD",
+        "device_tick_ms": 564534,
+        "session_id": 2,
+        "ops_sequence": 47238,
+        "timestamp_ms": 563875,
+        "flags": 27,
+        "pose_valid": 1,
+        "valid_pose_age_ms": 1,
+        "crc_errors": 0,
+        "format_errors": 0,
+        "imu_rebased": false,
+        "imu_online": true,
+        "host_monotonic_s": 378601.2453889
+      },
+      {
+        "kind": "OPSR",
+        "device_tick_ms": 564534,
+        "uart_error_count": 1,
+        "last_uart_error": 4,
+        "rx_overflows": 1,
+        "stale_packets": 0,
+        "restart_failures": 0,
+        "diagnostic_drops": 14,
+        "host_monotonic_s": 378601.2616585
+      },
+      {
+        "kind": "OPSD",
+        "device_tick_ms": 566554,
+        "session_id": 2,
+        "ops_sequence": 47642,
+        "timestamp_ms": 565895,
+        "flags": 27,
+        "pose_valid": 1,
+        "valid_pose_age_ms": 1,
+        "crc_errors": 0,
+        "format_errors": 0,
+        "imu_rebased": false,
+        "imu_online": true,
+        "host_monotonic_s": 378603.2629423
+      },
+      {
+        "kind": "OPSR",
+        "device_tick_ms": 566554,
+        "uart_error_count": 1,
+        "last_uart_error": 4,
+        "rx_overflows": 1,
+        "stale_packets": 0,
+        "restart_failures": 0,
+        "diagnostic_drops": 14,
+        "host_monotonic_s": 378603.2818211
+      },
+      {
+        "kind": "OPSD",
+        "device_tick_ms": 568574,
+        "session_id": 2,
+        "ops_sequence": 48046,
+        "timestamp_ms": 567915,
+        "flags": 27,
+        "pose_valid": 1,
+        "valid_pose_age_ms": 2,
+        "crc_errors": 0,
+        "format_errors": 0,
+        "imu_rebased": false,
+        "imu_online": true,
+        "host_monotonic_s": 378605.2829452
+      },
+      {
+        "kind": "OPSR",
+        "device_tick_ms": 568574,
+        "uart_error_count": 1,
+        "last_uart_error": 4,
+        "rx_overflows": 1,
+        "stale_packets": 0,
+        "restart_failures": 0,
+        "diagnostic_drops": 14,
+        "host_monotonic_s": 378605.30567
+      },
+      {
+        "kind": "OPSD",
+        "device_tick_ms": 570594,
+        "session_id": 2,
+        "ops_sequence": 48450,
+        "timestamp_ms": 569935,
+        "flags": 27,
+        "pose_valid": 1,
+        "valid_pose_age_ms": 2,
+        "crc_errors": 0,
+        "format_errors": 0,
+        "imu_rebased": false,
+        "imu_online": true,
+        "host_monotonic_s": 378607.3029915
+      },
+      {
+        "kind": "OPSR",
+        "device_tick_ms": 570594,
+        "uart_error_count": 1,
+        "last_uart_error": 4,
+        "rx_overflows": 1,
+        "stale_packets": 0,
+        "restart_failures": 0,
+        "diagnostic_drops": 14,
+        "host_monotonic_s": 378607.3616963
+      },
+      {
+        "kind": "OPSD",
+        "device_tick_ms": 572654,
+        "session_id": 2,
+        "ops_sequence": 48862,
+        "timestamp_ms": 571995,
+        "flags": 27,
+        "pose_valid": 1,
+        "valid_pose_age_ms": 2,
+        "crc_errors": 0,
+        "format_errors": 68,
+        "imu_rebased": false,
+        "imu_online": true,
+        "host_monotonic_s": 378609.3631307
+      },
+      {
+        "kind": "OPSR",
+        "device_tick_ms": 572654,
+        "uart_error_count": 25,
+        "last_uart_error": 4,
+        "rx_overflows": 1,
+        "stale_packets": 0,
+        "restart_failures": 0,
+        "diagnostic_drops": 16,
+        "host_monotonic_s": 378609.3818408
+      },
+      {
+        "kind": "OPSD",
+        "device_tick_ms": 574674,
+        "session_id": 2,
+        "ops_sequence": 49266,
+        "timestamp_ms": 574015,
+        "flags": 27,
+        "pose_valid": 1,
+        "valid_pose_age_ms": 3,
+        "crc_errors": 0,
+        "format_errors": 68,
+        "imu_rebased": false,
+        "imu_online": true,
+        "host_monotonic_s": 378611.3830765
+      },
+      {
+        "kind": "OPSR",
+        "device_tick_ms": 574674,
+        "uart_error_count": 25,
+        "last_uart_error": 4,
+        "rx_overflows": 1,
+        "stale_packets": 0,
+        "restart_failures": 0,
+        "diagnostic_drops": 16,
+        "host_monotonic_s": 378611.4023071
+      },
+      {
+        "kind": "OPSD",
+        "device_tick_ms": 576694,
+        "session_id": 2,
+        "ops_sequence": 49670,
+        "timestamp_ms": 576035,
+        "flags": 27,
+        "pose_valid": 1,
+        "valid_pose_age_ms": 3,
+        "crc_errors": 0,
+        "format_errors": 71,
+        "imu_rebased": false,
+        "imu_online": true,
+        "host_monotonic_s": 378613.4296889
+      },
+      {
+        "kind": "OPSR",
+        "device_tick_ms": 576694,
+        "uart_error_count": 28,
+        "last_uart_error": 4,
+        "rx_overflows": 1,
+        "stale_packets": 0,
+        "restart_failures": 0,
+        "diagnostic_drops": 16,
+        "host_monotonic_s": 378613.429723
+      },
+      {
+        "kind": "OPSD",
+        "device_tick_ms": 578714,
+        "session_id": 2,
+        "ops_sequence": 50074,
+        "timestamp_ms": 578055,
+        "flags": 27,
+        "pose_valid": 1,
+        "valid_pose_age_ms": 3,
+        "crc_errors": 0,
+        "format_errors": 71,
+        "imu_rebased": false,
+        "imu_online": true,
+        "host_monotonic_s": 378615.4519155
+      },
+      {
+        "kind": "OPSR",
+        "device_tick_ms": 578714,
+        "uart_error_count": 28,
+        "last_uart_error": 4,
+        "rx_overflows": 1,
+        "stale_packets": 0,
+        "restart_failures": 0,
+        "diagnostic_drops": 16,
+        "host_monotonic_s": 378615.4555954
+      },
+      {
+        "kind": "OPSD",
+        "device_tick_ms": 580754,
+        "session_id": 2,
+        "ops_sequence": 50482,
+        "timestamp_ms": 580095,
+        "flags": 27,
+        "pose_valid": 1,
+        "valid_pose_age_ms": 3,
+        "crc_errors": 0,
+        "format_errors": 71,
+        "imu_rebased": false,
+        "imu_online": true,
+        "host_monotonic_s": 378617.4631167
+      },
+      {
+        "kind": "OPSR",
+        "device_tick_ms": 580754,
+        "uart_error_count": 30,
+        "last_uart_error": 4,
+        "rx_overflows": 1,
+        "stale_packets": 0,
+        "restart_failures": 0,
+        "diagnostic_drops": 16,
+        "host_monotonic_s": 378617.4818336
+      },
+      {
+        "kind": "OPSD",
+        "device_tick_ms": 582774,
+        "session_id": 2,
+        "ops_sequence": 50886,
+        "timestamp_ms": 582115,
+        "flags": 27,
+        "pose_valid": 1,
+        "valid_pose_age_ms": 4,
+        "crc_errors": 0,
+        "format_errors": 71,
+        "imu_rebased": false,
+        "imu_online": true,
+        "host_monotonic_s": 378619.4831739
+      },
+      {
+        "kind": "OPSR",
+        "device_tick_ms": 582774,
+        "uart_error_count": 30,
+        "last_uart_error": 4,
+        "rx_overflows": 1,
+        "stale_packets": 0,
+        "restart_failures": 0,
+        "diagnostic_drops": 16,
+        "host_monotonic_s": 378619.5019374
+      },
+      {
+        "kind": "OPSD",
+        "device_tick_ms": 584854,
+        "session_id": 2,
+        "ops_sequence": 51302,
+        "timestamp_ms": 584195,
+        "flags": 27,
+        "pose_valid": 1,
+        "valid_pose_age_ms": 4,
+        "crc_errors": 0,
+        "format_errors": 99,
+        "imu_rebased": false,
+        "imu_online": true,
+        "host_monotonic_s": 378621.5631683
+      },
+      {
+        "kind": "OPSR",
+        "device_tick_ms": 584854,
+        "uart_error_count": 36,
+        "last_uart_error": 4,
+        "rx_overflows": 1,
+        "stale_packets": 0,
+        "restart_failures": 0,
+        "diagnostic_drops": 16,
+        "host_monotonic_s": 378621.5820307
+      },
+      {
+        "kind": "OPSD",
+        "device_tick_ms": 586874,
+        "session_id": 2,
+        "ops_sequence": 51706,
+        "timestamp_ms": 586215,
+        "flags": 27,
+        "pose_valid": 1,
+        "valid_pose_age_ms": 4,
+        "crc_errors": 0,
+        "format_errors": 126,
+        "imu_rebased": false,
+        "imu_online": true,
+        "host_monotonic_s": 378623.5972165
+      },
+      {
+        "kind": "OPSR",
+        "device_tick_ms": 586874,
+        "uart_error_count": 43,
+        "last_uart_error": 4,
+        "rx_overflows": 1,
+        "stale_packets": 0,
+        "restart_failures": 0,
+        "diagnostic_drops": 16,
+        "host_monotonic_s": 378623.6043908
+      },
+      {
+        "kind": "OPSD",
+        "device_tick_ms": 588894,
+        "session_id": 2,
+        "ops_sequence": 52110,
+        "timestamp_ms": 588235,
+        "flags": 27,
+        "pose_valid": 1,
+        "valid_pose_age_ms": 5,
+        "crc_errors": 0,
+        "format_errors": 128,
+        "imu_rebased": false,
+        "imu_online": true,
+        "host_monotonic_s": 378625.6044572
+      },
+      {
+        "kind": "OPSR",
+        "device_tick_ms": 588894,
+        "uart_error_count": 44,
+        "last_uart_error": 4,
+        "rx_overflows": 1,
+        "stale_packets": 0,
+        "restart_failures": 0,
+        "diagnostic_drops": 16,
+        "host_monotonic_s": 378625.6231661
+      },
+      {
+        "kind": "OPSD",
+        "device_tick_ms": 590914,
+        "session_id": 2,
+        "ops_sequence": 52515,
+        "timestamp_ms": 590260,
+        "flags": 27,
+        "pose_valid": 1,
+        "valid_pose_age_ms": 0,
+        "crc_errors": 0,
+        "format_errors": 128,
+        "imu_rebased": false,
+        "imu_online": true,
+        "host_monotonic_s": 378627.6232795
+      },
+      {
+        "kind": "OPSR",
+        "device_tick_ms": 590914,
+        "uart_error_count": 44,
+        "last_uart_error": 4,
+        "rx_overflows": 1,
+        "stale_packets": 0,
+        "restart_failures": 0,
+        "diagnostic_drops": 16,
+        "host_monotonic_s": 378627.6444706
+      },
+      {
+        "kind": "OPSD",
+        "device_tick_ms": 592934,
+        "session_id": 2,
+        "ops_sequence": 52919,
+        "timestamp_ms": 592280,
+        "flags": 27,
+        "pose_valid": 1,
+        "valid_pose_age_ms": 0,
+        "crc_errors": 0,
+        "format_errors": 208,
+        "imu_rebased": false,
+        "imu_online": true,
+        "host_monotonic_s": 378629.6433164
+      },
+      {
+        "kind": "OPSR",
+        "device_tick_ms": 592934,
+        "uart_error_count": 63,
+        "last_uart_error": 6,
+        "rx_overflows": 1,
+        "stale_packets": 0,
+        "restart_failures": 0,
+        "diagnostic_drops": 19,
+        "host_monotonic_s": 378629.6619629
+      }
+    ],
+    "subcause_recorded": true
+  },
+  "tail": [
+    {
+      "time_s": "51.03056889999425",
+      "host_elapsed_s": "51.03056889999425",
+      "device_tick_ms": "594034",
+      "present_channels": "24",
+      "full_state_age_ms": "0",
+      "ops_x_mm": "1888.5505676269531",
+      "ops_y_mm": "1885.0392150878906",
+      "ops_yaw_deg": "98.59707641601562",
+      "cursor": "14",
+      "progress_mm": "11076.7",
+      "execution_state": "RUNNING",
+      "status_age_s": "0.0375614000367932",
+      "candidate_yaw_deg": "90.0",
+      "candidate_yaw_error_deg": "-8.597076416015625",
+      "model_position_error_mm": "10.469354011726562",
+      "model_yaw_error_deg": "3.6625346220054666",
+      "target_gap_mm": "788.6924766916294",
+      "nominal_phase": "TRAVEL",
+      "station": "第2批暂存同色码垛：黑→2号环；第2批暂存同色码垛：红→1号环；第2批暂存同色码垛：浅蓝→3号环",
+      "reference_kind": "RECONSTRUCTED_BATCH_TARGET",
+      "reference_switch": "False",
+      "rate_window_valid": "True",
+      "controller_age_s": "0.19883910001954064",
+      "real_controller_target": "14",
+      "real_controller_flags": "2",
+      "real_controller_goal_yaw_deg": "90.0",
+      "real_controller_gap_mm": "25.0",
+      "real_controller_vx_mm_s": "12.0",
+      "real_controller_vy_mm_s": "49.1",
+      "real_controller_yaw_request_deg_s": "-37.49",
+      "real_controller_yaw_measured_deg_s": "-41.79",
+      "real_controller_settled_ms": "0",
+      "dt_s": "0.02",
+      "speed_mm_s": "197.4333826435306",
+      "yaw_rate_deg_s": "-27.019882202148438"
+    },
+    {
+      "time_s": "51.05203319998691",
+      "host_elapsed_s": "51.05203319998691",
+      "device_tick_ms": "594054",
+      "present_channels": "24",
+      "full_state_age_ms": "0",
+      "ops_x_mm": "1883.4016418457031",
+      "ops_y_mm": "1886.7337036132812",
+      "ops_yaw_deg": "98.01671600341797",
+      "cursor": "14",
+      "progress_mm": "11083.6",
+      "execution_state": "RUNNING",
+      "status_age_s": "0.021390900015830994",
+      "candidate_yaw_deg": "90.0",
+      "candidate_yaw_error_deg": "-8.016716003417969",
+      "model_position_error_mm": "24.551732263999714",
+      "model_yaw_error_deg": "3.6410486111464024",
+      "target_gap_mm": "783.5139609900793",
+      "nominal_phase": "TRAVEL",
+      "station": "第2批暂存同色码垛：黑→2号环；第2批暂存同色码垛：红→1号环；第2批暂存同色码垛：浅蓝→3号环",
+      "reference_kind": "RECONSTRUCTED_BATCH_TARGET",
+      "reference_switch": "False",
+      "rate_window_valid": "True",
+      "controller_age_s": "0.22030340001219884",
+      "real_controller_target": "14",
+      "real_controller_flags": "2",
+      "real_controller_goal_yaw_deg": "90.0",
+      "real_controller_gap_mm": "25.0",
+      "real_controller_vx_mm_s": "12.0",
+      "real_controller_vy_mm_s": "49.1",
+      "real_controller_yaw_request_deg_s": "-37.49",
+      "real_controller_yaw_measured_deg_s": "-41.79",
+      "real_controller_settled_ms": "0",
+      "dt_s": "0.02",
+      "speed_mm_s": "271.02918691305837",
+      "yaw_rate_deg_s": "-29.018020629882812"
+    },
+    {
+      "time_s": "51.069154699973296",
+      "host_elapsed_s": "51.069154699973296",
+      "device_tick_ms": "594074",
+      "present_channels": "24",
+      "full_state_age_ms": "0",
+      "ops_x_mm": "1876.6801452636719",
+      "ops_y_mm": "1889.1581726074219",
+      "ops_yaw_deg": "97.38704681396484",
+      "cursor": "14",
+      "progress_mm": "11083.6",
+      "execution_state": "RUNNING",
+      "status_age_s": "0.03851240000221878",
+      "candidate_yaw_deg": "90.0",
+      "candidate_yaw_error_deg": "-7.387046813964844",
+      "model_position_error_mm": "20.008998556031923",
+      "model_yaw_error_deg": "4.270717800599527",
+      "target_gap_mm": "776.7558131536634",
+      "nominal_phase": "TRAVEL",
+      "station": "第2批暂存同色码垛：黑→2号环；第2批暂存同色码垛：红→1号环；第2批暂存同色码垛：浅蓝→3号环",
+      "reference_kind": "RECONSTRUCTED_BATCH_TARGET",
+      "reference_switch": "False",
+      "rate_window_valid": "True",
+      "controller_age_s": "0.23742489999858662",
+      "real_controller_target": "14",
+      "real_controller_flags": "2",
+      "real_controller_goal_yaw_deg": "90.0",
+      "real_controller_gap_mm": "25.0",
+      "real_controller_vx_mm_s": "12.0",
+      "real_controller_vy_mm_s": "49.1",
+      "real_controller_yaw_request_deg_s": "-37.49",
+      "real_controller_yaw_measured_deg_s": "-41.79",
+      "real_controller_settled_ms": "0",
+      "dt_s": "0.02",
+      "speed_mm_s": "357.26938787771553",
+      "yaw_rate_deg_s": "-31.48345947265625"
+    },
+    {
+      "time_s": "51.09294759994373",
+      "host_elapsed_s": "51.09294759994373",
+      "device_tick_ms": "594094",
+      "present_channels": "24",
+      "full_state_age_ms": "0",
+      "ops_x_mm": "1868.4019470214844",
+      "ops_y_mm": "1891.1904907226562",
+      "ops_yaw_deg": "96.70243072509766",
+      "cursor": "14",
+      "progress_mm": "11083.6",
+      "execution_state": "RUNNING",
+      "status_age_s": "0.017366599990054965",
+      "candidate_yaw_deg": "90.0",
+      "candidate_yaw_error_deg": "-6.702430725097656",
+      "model_position_error_mm": "16.216919347988654",
+      "model_yaw_error_deg": "4.955333889466715",
+      "target_gap_mm": "768.4524446184785",
+      "nominal_phase": "TRAVEL",
+      "station": "第2批暂存同色码垛：黑→2号环；第2批暂存同色码垛：红→1号环；第2批暂存同色码垛：浅蓝→3号环",
+      "reference_kind": "RECONSTRUCTED_BATCH_TARGET",
+      "reference_switch": "False",
+      "rate_window_valid": "True",
+      "controller_age_s": "0.2612177999690175",
+      "real_controller_target": "14",
+      "real_controller_flags": "2",
+      "real_controller_goal_yaw_deg": "90.0",
+      "real_controller_gap_mm": "25.0",
+      "real_controller_vx_mm_s": "12.0",
+      "real_controller_vy_mm_s": "49.1",
+      "real_controller_yaw_request_deg_s": "-37.49",
+      "real_controller_yaw_measured_deg_s": "-41.79",
+      "real_controller_settled_ms": "0",
+      "dt_s": "0.02",
+      "speed_mm_s": "426.20090056939705",
+      "yaw_rate_deg_s": "-34.230804443359375"
+    },
+    {
+      "time_s": "51.11046479997458",
+      "host_elapsed_s": "51.11046479997458",
+      "device_tick_ms": "594114",
+      "present_channels": "24",
+      "full_state_age_ms": "0",
+      "ops_x_mm": "1859.0321350097656",
+      "ops_y_mm": "1893.6326599121094",
+      "ops_yaw_deg": "95.96414947509766",
+      "cursor": "14",
+      "progress_mm": "11083.6",
+      "execution_state": "RUNNING",
+      "status_age_s": "0.034883800020907074",
+      "candidate_yaw_deg": "90.0",
+      "candidate_yaw_error_deg": "-5.964149475097656",
+      "model_position_error_mm": "16.9584006982815",
+      "model_yaw_error_deg": "5.693615139466715",
+      "target_gap_mm": "759.0588415908729",
+      "nominal_phase": "TRAVEL",
+      "station": "第2批暂存同色码垛：黑→2号环；第2批暂存同色码垛：红→1号环；第2批暂存同色码垛：浅蓝→3号环",
+      "reference_kind": "RECONSTRUCTED_BATCH_TARGET",
+      "reference_switch": "False",
+      "rate_window_valid": "True",
+      "controller_age_s": "0.01743870001519099",
+      "real_controller_target": "15",
+      "real_controller_flags": "1",
+      "real_controller_goal_yaw_deg": "90.0",
+      "real_controller_gap_mm": "792.4",
+      "real_controller_vx_mm_s": "-953.1",
+      "real_controller_vy_mm_s": "-69.5",
+      "real_controller_yaw_request_deg_s": "-22.36",
+      "real_controller_yaw_measured_deg_s": "-22.84",
+      "real_controller_settled_ms": "0",
+      "dt_s": "0.02",
+      "speed_mm_s": "484.14245704354187",
+      "yaw_rate_deg_s": "-36.9140625"
+    },
+    {
+      "time_s": "51.12659949995577",
+      "host_elapsed_s": "51.12659949995577",
+      "device_tick_ms": "594134",
+      "present_channels": "24",
+      "full_state_age_ms": "0",
+      "ops_x_mm": "1848.402099609375",
+      "ops_y_mm": "1896.068115234375",
+      "ops_yaw_deg": "95.23529052734375",
+      "cursor": "14",
+      "progress_mm": "11113.1",
+      "execution_state": "RUNNING",
+      "status_age_s": "0.016065499978139997",
+      "candidate_yaw_deg": "90.0",
+      "candidate_yaw_error_deg": "-5.23529052734375",
+      "model_position_error_mm": "21.73711298745217",
+      "model_yaw_error_deg": "5.854694442450125",
+      "target_gap_mm": "748.4124280218301",
+      "nominal_phase": "TRAVEL",
+      "station": "第2批暂存同色码垛：黑→2号环；第2批暂存同色码垛：红→1号环；第2批暂存同色码垛：浅蓝→3号环",
+      "reference_kind": "RECONSTRUCTED_BATCH_TARGET",
+      "reference_switch": "False",
+      "rate_window_valid": "True",
+      "controller_age_s": "0.03357339999638498",
+      "real_controller_target": "15",
+      "real_controller_flags": "1",
+      "real_controller_goal_yaw_deg": "90.0",
+      "real_controller_gap_mm": "792.4",
+      "real_controller_vx_mm_s": "-953.1",
+      "real_controller_vy_mm_s": "-69.5",
+      "real_controller_yaw_request_deg_s": "-22.36",
+      "real_controller_yaw_measured_deg_s": "-22.84",
+      "real_controller_settled_ms": "0",
+      "dt_s": "0.02",
+      "speed_mm_s": "545.2730858026779",
+      "yaw_rate_deg_s": "-36.44294738769531"
+    },
+    {
+      "time_s": "51.15183969994541",
+      "host_elapsed_s": "51.15183969994541",
+      "device_tick_ms": "594154",
+      "present_channels": "24",
+      "full_state_age_ms": "0",
+      "ops_x_mm": "1836.5315246582031",
+      "ops_y_mm": "1898.8298034667969",
+      "ops_yaw_deg": "94.50790405273438",
+      "cursor": "14",
+      "progress_mm": "11113.1",
+      "execution_state": "RUNNING",
+      "status_age_s": "0.04130569996777922",
+      "candidate_yaw_deg": "90.0",
+      "candidate_yaw_error_deg": "-4.507904052734375",
+      "model_position_error_mm": "23.984595312611606",
+      "model_yaw_error_deg": "6.5820809170595",
+      "target_gap_mm": "736.5324542579666",
+      "nominal_phase": "TRAVEL",
+      "station": "第2批暂存同色码垛：黑→2号环；第2批暂存同色码垛：红→1号环；第2批暂存同色码垛：浅蓝→3号环",
+      "reference_kind": "RECONSTRUCTED_BATCH_TARGET",
+      "reference_switch": "False",
+      "rate_window_valid": "True",
+      "controller_age_s": "0.0588135999860242",
+      "real_controller_target": "15",
+      "real_controller_flags": "1",
+      "real_controller_goal_yaw_deg": "90.0",
+      "real_controller_gap_mm": "792.4",
+      "real_controller_vx_mm_s": "-953.1",
+      "real_controller_vy_mm_s": "-69.5",
+      "real_controller_yaw_request_deg_s": "-22.36",
+      "real_controller_yaw_measured_deg_s": "-22.84",
+      "real_controller_settled_ms": "0",
+      "dt_s": "0.02",
+      "speed_mm_s": "609.3797493445417",
+      "yaw_rate_deg_s": "-36.36932373046875"
+    },
+    {
+      "time_s": "51.16920039994875",
+      "host_elapsed_s": "51.16920039994875",
+      "device_tick_ms": "594174",
+      "present_channels": "24",
+      "full_state_age_ms": "0",
+      "ops_x_mm": "1822.9025268554688",
+      "ops_y_mm": "1901.1576843261719",
+      "ops_yaw_deg": "93.86559295654297",
+      "cursor": "14",
+      "progress_mm": "11113.1",
+      "execution_state": "RUNNING",
+      "status_age_s": "0.058666399971116334",
+      "candidate_yaw_deg": "90.0",
+      "candidate_yaw_error_deg": "-3.8655929565429688",
+      "model_position_error_mm": "31.866199370667346",
+      "model_yaw_error_deg": "7.224392013250906",
+      "target_gap_mm": "722.9034538353104",
+      "nominal_phase": "TRAVEL",
+      "station": "第2批暂存同色码垛：黑→2号环；第2批暂存同色码垛：红→1号环；第2批暂存同色码垛：浅蓝→3号环",
+      "reference_kind": "RECONSTRUCTED_BATCH_TARGET",
+      "reference_switch": "False",
+      "rate_window_valid": "True",
+      "controller_age_s": "0.07617429998936132",
+      "real_controller_target": "15",
+      "real_controller_flags": "1",
+      "real_controller_goal_yaw_deg": "90.0",
+      "real_controller_gap_mm": "792.4",
+      "real_controller_vx_mm_s": "-953.1",
+      "real_controller_vy_mm_s": "-69.5",
+      "real_controller_yaw_request_deg_s": "-22.36",
+      "real_controller_yaw_measured_deg_s": "-22.84",
+      "real_controller_settled_ms": "0",
+      "dt_s": "0.02",
+      "speed_mm_s": "691.3186862843772",
+      "yaw_rate_deg_s": "-32.11555480957031"
+    },
+    {
+      "time_s": "51.191825599991716",
+      "host_elapsed_s": "51.191825599991716",
+      "device_tick_ms": "594194",
+      "present_channels": "24",
+      "full_state_age_ms": "0",
+      "ops_x_mm": "1808.9230346679688",
+      "ops_y_mm": "1903.7760925292969",
+      "ops_yaw_deg": "93.41607666015625",
+      "cursor": "14",
+      "progress_mm": "11113.1",
+      "execution_state": "RUNNING",
+      "status_age_s": "0.08129160001408309",
+      "candidate_yaw_deg": "90.0",
+      "candidate_yaw_error_deg": "-3.41607666015625",
+      "model_position_error_mm": "43.32687503354517",
+      "model_yaw_error_deg": "7.673908309637625",
+      "target_gap_mm": "708.9330913123126",
+      "nominal_phase": "TRAVEL",
+      "station": "第2批暂存同色码垛：黑→2号环；第2批暂存同色码垛：红→1号环；第2批暂存同色码垛：浅蓝→3号环",
+      "reference_kind": "RECONSTRUCTED_BATCH_TARGET",
+      "reference_switch": "False",
+      "rate_window_valid": "True",
+      "controller_age_s": "0.09879950003232807",
+      "real_controller_target": "15",
+      "real_controller_flags": "1",
+      "real_controller_goal_yaw_deg": "90.0",
+      "real_controller_gap_mm": "792.4",
+      "real_controller_vx_mm_s": "-953.1",
+      "real_controller_vy_mm_s": "-69.5",
+      "real_controller_yaw_request_deg_s": "-22.36",
+      "real_controller_yaw_measured_deg_s": "-22.84",
+      "real_controller_settled_ms": "0",
+      "dt_s": "0.02",
+      "speed_mm_s": "711.1298463335754",
+      "yaw_rate_deg_s": "-22.475814819335938"
+    },
+    {
+      "time_s": "51.20932299998822",
+      "host_elapsed_s": "51.20932299998822",
+      "device_tick_ms": "594214",
+      "present_channels": "24",
+      "full_state_age_ms": "0",
+      "ops_x_mm": "1794.0164184570312",
+      "ops_y_mm": "1906.0568237304688",
+      "ops_yaw_deg": "93.15181732177734",
+      "cursor": "14",
+      "progress_mm": "11113.1",
+      "execution_state": "RUNNING",
+      "status_age_s": "0.011533799988683313",
+      "candidate_yaw_deg": "90.0",
+      "candidate_yaw_error_deg": "-3.1518173217773438",
+      "model_position_error_mm": "56.658826562592886",
+      "model_yaw_error_deg": "7.938167648016531",
+      "target_gap_mm": "694.0428475257324",
+      "nominal_phase": "TRAVEL",
+      "station": "第2批暂存同色码垛：黑→2号环；第2批暂存同色码垛：红→1号环；第2批暂存同色码垛：浅蓝→3号环",
+      "reference_kind": "RECONSTRUCTED_BATCH_TARGET",
+      "reference_switch": "False",
+      "rate_window_valid": "True",
+      "controller_age_s": "0.11629690002882853",
+      "real_controller_target": "15",
+      "real_controller_flags": "1",
+      "real_controller_goal_yaw_deg": "90.0",
+      "real_controller_gap_mm": "792.4",
+      "real_controller_vx_mm_s": "-953.1",
+      "real_controller_vy_mm_s": "-69.5",
+      "real_controller_yaw_request_deg_s": "-22.36",
+      "real_controller_yaw_measured_deg_s": "-22.84",
+      "real_controller_settled_ms": "0",
+      "dt_s": "0.02",
+      "speed_mm_s": "754.0042136357456",
+      "yaw_rate_deg_s": "-13.212966918945312"
+    },
+    {
+      "time_s": "51.232965099974535",
+      "host_elapsed_s": "51.232965099974535",
+      "device_tick_ms": "594234",
+      "present_channels": "24",
+      "full_state_age_ms": "0",
+      "ops_x_mm": "0.0",
+      "ops_y_mm": "0.0",
+      "ops_yaw_deg": "93.006591796875",
+      "cursor": "14",
+      "progress_mm": "11113.1",
+      "execution_state": "RUNNING",
+      "status_age_s": "0.03517589997500181",
+      "candidate_yaw_deg": "90.0",
+      "candidate_yaw_error_deg": "-3.006591796875",
+      "model_position_error_mm": "2628.4714269108913",
+      "model_yaw_error_deg": "8.083393172918875",
+      "target_gap_mm": "2195.4498400100147",
+      "nominal_phase": "TRAVEL",
+      "station": "第2批暂存同色码垛：黑→2号环；第2批暂存同色码垛：红→1号环；第2批暂存同色码垛：浅蓝→3号环",
+      "reference_kind": "RECONSTRUCTED_BATCH_TARGET",
+      "reference_switch": "False",
+      "rate_window_valid": "True",
+      "controller_age_s": "0.13993900001514703",
+      "real_controller_target": "15",
+      "real_controller_flags": "1",
+      "real_controller_goal_yaw_deg": "90.0",
+      "real_controller_gap_mm": "792.4",
+      "real_controller_vx_mm_s": "-953.1",
+      "real_controller_vy_mm_s": "-69.5",
+      "real_controller_yaw_request_deg_s": "-22.36",
+      "real_controller_yaw_measured_deg_s": "-22.84",
+      "real_controller_settled_ms": "0",
+      "dt_s": "0.02",
+      "speed_mm_s": "130877.3044208093",
+      "yaw_rate_deg_s": "-7.2612762451171875"
+    },
+    {
+      "time_s": "51.25164949998725",
+      "host_elapsed_s": "51.25164949998725",
+      "device_tick_ms": "594254",
+      "present_channels": "24",
+      "full_state_age_ms": "0",
+      "ops_x_mm": "1762.6893615722656",
+      "ops_y_mm": "1907.3297119140625",
+      "ops_yaw_deg": "92.92346954345703",
+      "cursor": "14",
+      "progress_mm": "11178.1",
+      "execution_state": "INACTIVE",
+      "status_age_s": "0.018582699995022267",
+      "candidate_yaw_deg": "",
+      "candidate_yaw_error_deg": "",
+      "model_position_error_mm": "",
+      "model_yaw_error_deg": "",
+      "target_gap_mm": "",
+      "nominal_phase": "",
+      "station": "",
+      "reference_kind": "",
+      "reference_switch": "False",
+      "rate_window_valid": "True",
+      "controller_age_s": "0.15862340002786368",
+      "real_controller_target": "15",
+      "real_controller_flags": "1",
+      "real_controller_goal_yaw_deg": "90.0",
+      "real_controller_gap_mm": "792.4",
+      "real_controller_vx_mm_s": "-953.1",
+      "real_controller_vy_mm_s": "-69.5",
+      "real_controller_yaw_request_deg_s": "-22.36",
+      "real_controller_yaw_measured_deg_s": "-22.84",
+      "real_controller_settled_ms": "0",
+      "dt_s": "0.02",
+      "speed_mm_s": "129855.50060885197",
+      "yaw_rate_deg_s": "-4.1561126708984375"
+    }
+  ],
+  "host_counter_deltas": {
+    "crc_errors": 0,
+    "lost_packets": 0,
+    "slow_writes": 1,
+    "device_restarts": 0,
+    "gui_queue_drops": 0
+  },
+  "race_window_found_in_current_source": true,
+  "exact_runtime_interleaving_proven": false,
+  "firmware_modified": false,
+  "raw_sha256": {
+    "session.json": "a61c616bff424ca1d1f3bb44d1f02c237f20ad827cb6e86721e77f34a71a91a4",
+    "events.jsonl": "f6f1469e14e612c725c675a091d431faaea0849fbf36344378a0cabddf801e82",
+    "telemetry.csv": "11e452d190d833a546cd33c115ec0249313cb61685b0a41426707fbffd006b1b",
+    "runs\\f6b3fb3341f645f498eca3a7145aba05\\metadata.json": "3f1e1aa19331b1450d2a03b1e4e939d0fe2a5cefd524ad05144844286c32bc2f",
+    "runs\\f6b3fb3341f645f498eca3a7145aba05\\plan.json": "0b906fad0417f525a75b1a85b31dbf93d5e3927fa2e57af77d2461547a61631f",
+    "runs\\f6b3fb3341f645f498eca3a7145aba05\\telemetry.csv": "11e452d190d833a546cd33c115ec0249313cb61685b0a41426707fbffd006b1b",
+    "runs\\f6b3fb3341f645f498eca3a7145aba05\\result.json": "df5f79c3b347602bc35d5bb167581540ba24f1521480a476384535026ac2d805"
+  }
+}

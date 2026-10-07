@@ -1,0 +1,210 @@
+{
+  "measurement_source": "用户：粗加工区和暂存区右侧塔吊车身到边缘约4cm",
+  "clearance_model_mm": 40,
+  "measurement_tolerance_mm": 10,
+  "maps": [
+    {
+      "profile": "Docs\\competition_map_clearance_calibrated_20261007.json",
+      "rough_old_rect": [
+        910,
+        0,
+        1490,
+        150,
+        "粗加工区设备"
+      ],
+      "rough_new_rect": [
+        910,
+        -70.0,
+        1490,
+        80.0,
+        "粗加工区设备"
+      ],
+      "rough_shift_layout_mm": -70.0,
+      "rough_body_gap_mm": 40,
+      "rough_inner_edge_field_x_cm": 217.0,
+      "storage_body_gap_mm": 47.052950339014394,
+      "storage_geometry_changed": false,
+      "collision_reasons": {
+        "raw": null,
+        "rough": null,
+        "storage": null
+      },
+      "raw_old_circle": [
+        1200,
+        2400,
+        150,
+        "原料区圆盘"
+      ],
+      "raw_new_circle": [
+        1200,
+        2470.0,
+        150,
+        "原料区圆盘"
+      ],
+      "raw_shift_layout_mm": 70.0,
+      "raw_body_gap_mm": 40,
+      "profile_sha256": "2ac64361d0a27c873587c4f8f4ac372a60ec91ba8e68c7be0defc92ef828d6e5",
+      "source_sha256": "5e08375378fdb5f5cbd4fc2bf509289c40cf59457b568b3bbcf12917bc586613",
+      "source_backup": "Docs\\competition_map_before_station_calibration_20261007.json"
+    },
+    {
+      "profile": "Docs\\navigation_map_clearance_calibrated_20261007.json",
+      "rough_old_rect": [
+        1000.0,
+        0.0,
+        1400.0,
+        150.0,
+        "粗加工区设备"
+      ],
+      "rough_new_rect": [
+        1000.0,
+        -70.0,
+        1400.0,
+        80.0,
+        "粗加工区设备"
+      ],
+      "rough_shift_layout_mm": -70.0,
+      "rough_body_gap_mm": 40,
+      "rough_inner_edge_field_x_cm": 217.0,
+      "storage_body_gap_mm": 47.052950339014394,
+      "storage_geometry_changed": false,
+      "collision_reasons": {
+        "raw": null,
+        "rough": null,
+        "storage": null
+      },
+      "raw_old_circle": [
+        1200.0,
+        2400.0,
+        110.0,
+        "原料区圆盘"
+      ],
+      "raw_new_circle": [
+        1200.0,
+        2430.0,
+        110.0,
+        "原料区圆盘"
+      ],
+      "raw_shift_layout_mm": 30.0,
+      "raw_body_gap_mm": 40,
+      "profile_sha256": "099768992df6321ed7a52c676b91d276c08b4d729841743c8e3e2c2e75aba575",
+      "source_sha256": "fd56cac2e616b0fe3dadea06af517b954b63416d34fb25d99aa2c9fb39f51066",
+      "source_backup": "Docs\\navigation_map_before_station_calibration_20261007.json"
+    }
+  ],
+  "status": "PASSED_AND_PUBLISHED",
+  "default_maps_replaced": true,
+  "rough_to_storage_verification": [
+    {
+      "profile": "Docs\\competition_map_clearance_calibrated_20261007.json",
+      "control": "DEFAULT",
+      "plan_wall_s": 4.5815125000081025,
+      "modeled_travel_s": 7.42,
+      "end_error_mm": 0.48727963570408966,
+      "end_yaw_error_deg": 0.28478424599188656,
+      "skeleton": [
+        [
+          1200.0,
+          250.0
+        ],
+        [
+          350.0,
+          250.0
+        ],
+        [
+          350.0,
+          1150.0
+        ]
+      ]
+    },
+    {
+      "profile": "Docs\\competition_map_clearance_calibrated_20261007.json",
+      "control": "REAL",
+      "plan_wall_s": 4.612407999986317,
+      "modeled_travel_s": 9.08,
+      "end_error_mm": 0.4988310327325821,
+      "end_yaw_error_deg": 0.08606137032222705,
+      "skeleton": [
+        [
+          1200.0,
+          250.0
+        ],
+        [
+          350.0,
+          250.0
+        ],
+        [
+          350.0,
+          1150.0
+        ]
+      ]
+    },
+    {
+      "profile": "Docs\\navigation_map_clearance_calibrated_20261007.json",
+      "control": "DEFAULT",
+      "plan_wall_s": 4.644145400030538,
+      "modeled_travel_s": 6.42,
+      "end_error_mm": 0.4923923731652928,
+      "end_yaw_error_deg": 0.09741696321759719,
+      "skeleton": [
+        [
+          1200.0,
+          250.0
+        ],
+        [
+          1200.0,
+          300
+        ],
+        [
+          350.0,
+          300
+        ],
+        [
+          350.0,
+          1150.0
+        ]
+      ]
+    },
+    {
+      "profile": "Docs\\navigation_map_clearance_calibrated_20261007.json",
+      "control": "REAL",
+      "plan_wall_s": 4.584574600041378,
+      "modeled_travel_s": 9.08,
+      "end_error_mm": 0.4988310327325821,
+      "end_yaw_error_deg": 0.08606137032222705,
+      "skeleton": [
+        [
+          1200.0,
+          250.0
+        ],
+        [
+          350.0,
+          250.0
+        ],
+        [
+          350.0,
+          1150.0
+        ]
+      ]
+    }
+  ],
+  "raw_measurement_source": "用户确认原料区也是约4cm",
+  "algorithm_revision": "4b07920e1c762c142f08547965f9207c173b9df5a771518c2dba9e6211554fad",
+  "qt_checks": {
+    "tests": 8,
+    "failures": 0
+  },
+  "physical_motion_verified": false,
+  "handoff_reserve_fix": {
+    "formula": "ceil(1mm + 2R*sin(0.5deg)), R=hypot(length/2+margin,width/2+margin)",
+    "default_extra_margin_mm": 5,
+    "runtime_margin_relaxed": false,
+    "reason": "新暂存点返启停区2的名义贴边路线在上一段亚毫米/亚角度残差下完整回放失败；单段从理想起点通过不足以证明整批衔接安全"
+  },
+  "release_report": "Docs/station_calibration_release_20261007.json",
+  "logic_checks": {
+    "tests": 17,
+    "failures": 0
+  },
+  "cli_report": "Docs/station_calibration_cli_20261007.json"
+}

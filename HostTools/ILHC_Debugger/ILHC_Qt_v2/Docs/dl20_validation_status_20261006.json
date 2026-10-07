@@ -1,0 +1,89 @@
+{
+  "pid": 33900,
+  "started": "2026-10-06T19:06:39.335702+08:00",
+  "complete": true,
+  "jobs": {
+    "native_sender": {
+      "pid": 52316,
+      "status": "finished",
+      "log": "E:\\STM32\\STM32F407VET6_ILHC\\HostTools\\ILHC_Debugger\\ILHC_Qt_v2\\Docs\\dl20_native_sender_20261006.log",
+      "returncode": 0,
+      "elapsed_s": 1.453
+    },
+    "native_commands": {
+      "pid": 50924,
+      "status": "finished",
+      "log": "E:\\STM32\\STM32F407VET6_ILHC\\HostTools\\ILHC_Debugger\\ILHC_Qt_v2\\Docs\\dl20_native_commands_20261006.log",
+      "returncode": 0,
+      "elapsed_s": 1.182
+    },
+    "native_rx": {
+      "pid": 67856,
+      "status": "finished",
+      "log": "E:\\STM32\\STM32F407VET6_ILHC\\HostTools\\ILHC_Debugger\\ILHC_Qt_v2\\Docs\\dl20_native_rx_20261006.log",
+      "returncode": 0,
+      "elapsed_s": 1.198
+    },
+    "native_params": {
+      "pid": 35652,
+      "status": "finished",
+      "log": "E:\\STM32\\STM32F407VET6_ILHC\\HostTools\\ILHC_Debugger\\ILHC_Qt_v2\\Docs\\dl20_native_params_20261006.log",
+      "returncode": 0,
+      "elapsed_s": 1.17
+    },
+    "headless": {
+      "status": "finished_after_failed_case_retry",
+      "returncode": 0,
+      "coverage_unique_tests": 360,
+      "initial_failed_unique_cases": 17,
+      "initial_subtest_errors": 19,
+      "first_attempt": {
+        "pid": 59952,
+        "status": "finished",
+        "log": "E:\\STM32\\STM32F407VET6_ILHC\\HostTools\\ILHC_Debugger\\ILHC_Qt_v2\\Docs\\dl20_headless_20261006.log",
+        "returncode": 1,
+        "elapsed_s": 198.776
+      },
+      "retry_log": "E:\\STM32\\STM32F407VET6_ILHC\\HostTools\\ILHC_Debugger\\ILHC_Qt_v2\\Docs\\dl20_headless_failed_cases_final_20261006.log",
+      "retry_unique_cases": 17,
+      "correction": "测试夹具对旧密集轨迹的chassis_control=None按默认参数处理，非生产控制修改。",
+      "invalid_retry_invocation_log": "E:\\STM32\\STM32F407VET6_ILHC\\HostTools\\ILHC_Debugger\\ILHC_Qt_v2\\Docs\\dl20_headless_failed_cases_retry_20261006.log"
+    },
+    "qt": {
+      "pid": 24348,
+      "status": "finished",
+      "log": "E:\\STM32\\STM32F407VET6_ILHC\\HostTools\\ILHC_Debugger\\ILHC_Qt_v2\\Docs\\dl20_qt_20261006.log",
+      "returncode": 0,
+      "elapsed_s": 238.939
+    },
+    "cache": {
+      "pid": 71928,
+      "status": "finished",
+      "log": "E:\\STM32\\STM32F407VET6_ILHC\\HostTools\\ILHC_Debugger\\ILHC_Qt_v2\\Docs\\dl20_cache_20261006.log",
+      "returncode": 0,
+      "elapsed_s": 211.584
+    },
+    "wireless_qt": {
+      "status": "finished",
+      "returncode": 0,
+      "log": "E:\\STM32\\STM32F407VET6_ILHC\\HostTools\\ILHC_Debugger\\ILHC_Qt_v2\\Docs\\dl20_wireless_qt_20261006.log",
+      "tests": 2
+    },
+    "targeted_qt": {
+      "status": "finished",
+      "returncode": 0,
+      "log": "E:\\STM32\\STM32F407VET6_ILHC\\HostTools\\ILHC_Debugger\\ILHC_Qt_v2\\Docs\\dl20_targeted_qt_20261006.log",
+      "tests": 60
+    }
+  },
+  "finished": "2026-10-06T19:17:33.645323+08:00",
+  "returncode": 0,
+  "finished_after_retry": "2026-10-06T19:19:26.226214+08:00",
+  "physical_wireless_verified": false,
+  "hex_sha256": "a46517a72d3c82a2218d2aa57167d817695e6bdf6688818ed8561a065d0e4b23",
+  "source_algorithm": "c86449dd0455d771037ab03fb731fb73576973d7a14f3922c8120025015c2c88",
+  "cache_routes": 26,
+  "python310_syntax_files": 22,
+  "headless_result": "360唯一用例覆盖，首轮含17个夹具失败；修正后17个复查通过，非首次单进程全绿。",
+  "qt_unique_tests": 197
+}

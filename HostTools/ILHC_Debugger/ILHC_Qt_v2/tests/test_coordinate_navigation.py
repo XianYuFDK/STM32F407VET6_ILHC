@@ -8,7 +8,7 @@ from unittest.mock import patch
 
 import core
 import competition_simulation as competition
-from coordinate_navigation import build_program, CoordinateTracker, replay, wrap, plan_route
+from coordinate_navigation import build_program, CoordinateTracker, replay, wrap, plan_route, ROTATION_LEVER_MM
 from navigation_planner import CollisionScene
 from tests.test_competition_simulation import runner_for, advance
 
@@ -65,7 +65,7 @@ class CoordinateTests(unittest.TestCase):
         # 实际整数电机输出的长期平均必须保持七项参数指定的P增益/补偿。
         self.assertAlmostEqual(sum(o[1][0] for o in outputs)/len(outputs),45,delta=.005)
         self.assertAlmostEqual(sum(o[1][1] for o in outputs)/len(outputs),25,delta=.005)
-        self.assertAlmostEqual(sum(o[2] for o in outputs)/len(outputs),math.degrees(-52/270),delta=.005)
+        self.assertAlmostEqual(sum(o[2] for o in outputs)/len(outputs),math.degrees(-52/ROTATION_LEVER_MM),delta=.005)
         # 小于5的P输出保留，不能把numerical_limit的补偿死区误写成零速度。
         _ref,velocity,_omega=tracker.command((goal['x_mm']-1,goal['y_mm']-1,85),0,0)
         self.assertGreater(math.hypot(*velocity),0)
@@ -260,11 +260,18 @@ class CoordinateTests(unittest.TestCase):
                     self.assertEqual(stage['route']['arcs'],[])
                     from mecanum_planner import motion_metrics
                     route=stage['route']
-                    self.assertLess(motion_metrics(route)['longest_strafe_mm'],100,stage['label'])
+                    # 先完成站点航向后继续接近会产生一段侧移；保留生产500mm硬限。
+                    # 未提前转向的旧默认方案仍维持原100mm回归。
+                    limit=500 if route.get('approach_turns') else 100
+                    self.assertLess(motion_metrics(route)['longest_strafe_mm'],limit,stage['label'])
                     rows=route['trajectory']
                     yaw_travel=sum(abs(wrap(b['field_yaw_deg']-a['field_yaw_deg']))
                                    for a,b in zip(rows,rows[1:]))
-                    self.assertLessEqual(yaw_travel,181,stage['label'])
+                    # 到站必须让右侧塔吊对准设备，不能沿用旧自由终点的180度总转角帽。
+                    self.assertLessEqual(yaw_travel,361,stage['label'])
+                    if 'work_heading_deg' in stage:
+                        goal_yaw=-90-route['waypoint_program']['goal']['field_yaw_deg']
+                        self.assertLess(abs(wrap(goal_yaw-stage['work_heading_deg'])), 1e-6)
                     # 默认无障碍场景不应通过小方圈调整航向；各轴不折返。
                     for axis in (0,1):
                         directions={1 if b[axis]>a[axis] else -1 for a,b in zip(route['points'],route['points'][1:])

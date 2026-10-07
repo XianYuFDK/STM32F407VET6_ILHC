@@ -1,0 +1,26 @@
+test_all_four_outer_corners_in_both_directions_execute_safe_pivots (tests.test_pivot_turns.PivotTurnsTests.test_all_four_outer_corners_in_both_directions_execute_safe_pivots) ... ok
+test_arc_entry_and_exit_have_stricter_yaw_gate_than_ordinary_pass (tests.test_pivot_turns.PivotTurnsTests.test_arc_entry_and_exit_have_stricter_yaw_gate_than_ordinary_pass) ... ok
+test_automatic_click_planner_selects_all_four_corners_both_directions (tests.test_pivot_turns.PivotTurnsTests.test_automatic_click_planner_selects_all_four_corners_both_directions) ... ok
+test_backward_turns_use_rear_wheel_anchors (tests.test_pivot_turns.PivotTurnsTests.test_backward_turns_use_rear_wheel_anchors) ... ERROR
+test_cancel_even_after_successful_arc_replay_cannot_return_result (tests.test_pivot_turns.PivotTurnsTests.test_cancel_even_after_successful_arc_replay_cannot_return_result) ... ok
+test_center_motion_and_wheel_limits_with_nondefault_parameters (tests.test_pivot_turns.PivotTurnsTests.test_center_motion_and_wheel_limits_with_nondefault_parameters) ... ok
+test_malformed_center_or_old_schema_cannot_silently_run_as_chord (tests.test_pivot_turns.PivotTurnsTests.test_malformed_center_or_old_schema_cannot_silently_run_as_chord) ... ok
+test_no_new_motion_when_optimizer_budget_already_exhausted (tests.test_pivot_turns.PivotTurnsTests.test_no_new_motion_when_optimizer_budget_already_exhausted) ... ok
+test_wheel_body_sweep_in_narrow_corner_is_rejected_before_control (tests.test_pivot_turns.PivotTurnsTests.test_wheel_body_sweep_in_narrow_corner_is_rejected_before_control) ... ok
+test_coordinate_click_executes_and_exports_coordinate_program (test_map_click_qt.MapClickQtTests.test_coordinate_click_executes_and_exports_coordinate_program) ... ok
+test_pivot_route_shows_center_and_runs_same_coordinate_controller (test_map_click_qt.MapClickQtTests.test_pivot_route_shows_center_and_runs_same_coordinate_controller) ... ok
+
+======================================================================
+ERROR: test_backward_turns_use_rear_wheel_anchors (tests.test_pivot_turns.PivotTurnsTests.test_backward_turns_use_rear_wheel_anchors)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\tests\test_pivot_turns.py", line 124, in test_backward_turns_use_rear_wheel_anchors
+    row['layout_yaw_deg']+=180;row['travel_yaw_deg']+=180
+                               ~~~^^^^^^^^^^^^^^^^^^
+KeyError: 'travel_yaw_deg'
+
+----------------------------------------------------------------------
+Ran 11 tests in 7.839s
+
+FAILED (errors=1)
+PC四角指定圆心: [((2100, 2100), False, 149.96666296213968, 4.72, 8.86), ((2100, 2100), True, 149.96666296213968, 4.72, 8.86), ((300, 2100), False, 149.96666296213968, 4.72, 8.86), ((300, 2100), True, 149.96666296213968, 4.72, 8.86), ((300, 300), False, 149.96666296213968, 4.72, 8.86), ((300, 300), True, 149.96666296213968, 4.72, 8.86), ((2100, 300), False, 149.96666296213968, 4.72, 8.86), ((2100, 300), True, 149.96666296213968, 4.72, 8.86)]

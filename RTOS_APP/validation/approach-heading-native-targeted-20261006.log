@@ -1,0 +1,6 @@
+test_real_c_approach_heading_pass_rejects_ten_degree_error_without_stop (test_coordinate_batch.CoordinateFirmwareTests.test_real_c_approach_heading_pass_rejects_ten_degree_error_without_stop) ... ok
+
+----------------------------------------------------------------------
+Ran 1 test in 1.925s
+
+OK

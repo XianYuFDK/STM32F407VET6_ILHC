@@ -1,5 +1,6 @@
 """真实C关键坐标整批接入：不打开串口、不驱动硬件。"""
 import ctypes
+import collections
 import math
 import unittest
 import zlib
@@ -67,6 +68,137 @@ class CoordinateFirmwareTests(unittest.TestCase):
         route=plan_route((1000,1000),(1000,2000),scene,[],90,chassis_control=self.parameters)
         return make_coordinate_path_batch(route,(1000,1000),90,None,mapping,scene,{'map_version':1},token=17)
 
+    def test_real_c_approach_heading_pass_rejects_ten_degree_error_without_stop(self):
+        from tests.test_approach_heading import fixture
+        from approach_heading import anticipate_route
+        from hardware_coordinates import make_coordinate_path_batch
+        route,scene=fixture();route=anticipate_route(route,scene)
+        self.parameters.update(route['waypoint_program']['control']);self.parameters.pop('turn_lead_mm');self.sync()
+        batch=make_coordinate_path_batch(route,(600,600),0,90,(0,0,0),scene,{'map_version':1},token=17)
+        first=batch['points'][0];target=batch['points'][1]
+        self.e.pose=Pose(first[0]/10,first[1]/10,first[3]/100,1,self.e.now)
+        self.upload(batch)
+        for _ in range(1000):
+            self.e.step(move=True)
+            while True:
+                reply=self.e.reply()
+                if not reply:break
+                self.job.handle_reply(reply)
+            self.job.tick()
+            if math.dist((self.e.pose.x,self.e.pose.y),(target[0]/10,target[1]/10))<20:break
+        else:self.fail('没有接近普通拐点')
+        self.e.pose.x,self.e.pose.y=target[0]/10,target[1]/10
+        self.e.pose.yaw=target[3]/100+10
+        self.assertEqual(self.e.step(move=False),1)
+        while self.e.reply():pass
+        self.assertEqual(self.e.status()[3],0,'10deg误差不能放行到下一点')
+        self.e.pose.yaw=target[3]/100+.5
+        self.assertEqual(self.e.step(move=False),1,'完成车头后同帧衔接，不发停车动作2')
+        while self.e.reply():pass
+        self.assertEqual(self.e.status()[3],1)
+
+    def test_real_c_wheel_lag_and_delayed_ops_finish_with_strict_gates(self):
+        from tests.test_pivot_turns import CORNERS,baseline
+        from pivot_turns import corner_trial,wheel_geometry
+        from coordinate_navigation import _replay_result,replay
+        from hardware_coordinates import make_coordinate_path_batch
+        data=competition.load_profile();scene=competition.collision_scene(data)
+        checked=competition.collision_scene(data,9)
+        for tau,delay in ((.04,.02),(.08,.04),(.12,.04),(.16,.06)):
+            with self.subTest(tau=tau,delay=delay):
+                self.setUp()
+                self.parameters.update(kpx=1.5,kpy=1.5,kpz=9.05,xyvmax=930,zvmax=750,xyvmin=.5,zvmin=.5)
+                self.sync()
+                route=baseline(CORNERS[0],scene,self.parameters)
+                program,_=corner_trial(route['waypoint_program'],1,wheel_geometry(scene),scene,lambda:False)
+                samples,elapsed=replay(program,scene)
+                route=_replay_result(program,samples,elapsed,route['points'],route['length'],'FORWARD',
+                    route['start_heading_deg'],route['goal_heading_deg'],(False,False))
+                batch=make_coordinate_path_batch(route,CORNERS[0][0],route['start_heading_deg'],
+                    route['goal_heading_deg'],(0,0,0),scene,data,token=17)
+                first=batch['points'][0];truth=[first[0]/10,first[1]/10,first[3]/100]
+                self.e.pose=Pose(*truth,1,self.e.now)
+                self.upload(batch)
+                history=collections.deque([tuple(truth)]*(round(delay*50)+1),maxlen=round(delay*50)+1)
+                actual_wheels=[0.0]*4;alpha=.02/(tau+.02)
+                previous=(*core.field_to_layout(*truth[:2]),180+truth[2]);arc_sign=None;reversals=0
+                controls=0
+                for _ in range(2000):
+                    sensed=history[0]
+                    self.e.pose.x,self.e.pose.y,self.e.pose.yaw=sensed
+                    action=self.e.step(move=False)
+                    if action==1:
+                        self.dll.MecanumControl_MoveWorldVelocity(*self.e.velocity,self.e.pose.yaw)
+                    elif action==2:
+                        self.dll.MecanumControl_Stop()
+                    for i in range(4):actual_wheels[i]+=alpha*(self.e.wheels[i]-actual_wheels[i])
+                    vx,vy,omega=wheel_motion(actual_wheels,truth[2])
+                    truth=[truth[0]+vx*.02,truth[1]+vy*.02,truth[2]+omega*.02]
+                    history.append(tuple(truth))
+                    pose=(*core.field_to_layout(*truth[:2]),180+truth[2])
+                    self.assertIsNone(checked.moving_pose_reason(previous,pose),'惯性过渡仍需完整车体扫掠')
+                    previous=pose
+                    while True:
+                        text=self.e.reply()
+                        if not text:break
+                        if text.startswith('CCTRL '):
+                            self.assertLessEqual(len(text.encode('ascii'))+2,100,'真实DMA回复槽不得溢出')
+                            fields=list(map(int,text.split()[1:]));self.assertEqual(len(fields),10)
+                            self.assertEqual(fields[0],17)
+                            controls+=1
+                        self.job.handle_reply(text)
+                    if self.job.cursor==1 and abs(omega)>5:
+                        sign=1 if omega>0 else -1
+                        if arc_sign is not None and sign!=arc_sign:reversals+=1
+                        arc_sign=sign
+                    self.job.tick()
+                    if not self.job.active:break
+                self.assertEqual(self.job.state,'DONE',(tau,delay,self.job.reason))
+                self.assertLessEqual(reversals,0 if tau<=.08 else 1,
+                    '中等延迟下不能越过目标后再反向追角；强延迟仍保留严格恢复')
+                self.assertGreater(controls,10,'必须获得实际C控制快照，而非仅重建目标')
+                last=batch['points'][-1]
+                self.assertLess(math.dist(sensed[:2],(last[0]/10,last[1]/10)),1)
+                self.assertLess(abs((sensed[2]-last[3]/100+180)%360-180),1)
+
+    def test_missed_pivot_exit_reports_recovery_without_rotation_floor(self):
+        # 延迟不一定错过出口，且5Hz邮箱可能漏掉短暂恢复；明确注入错位验证该分支。
+        batch=self.pivot_batch()
+        pivot=next(i for i,p in enumerate(batch['points']) if p[4]&16)
+        end=batch['points'][pivot]
+        first=batch['points'][0]
+        self.e.pose=Pose(first[0]/10,first[1]/10,first[3]/100,1,self.e.now)
+        self.upload(batch)
+        for _ in range(2000):
+            self.e.step(move=True)
+            while True:
+                reply=self.e.reply()
+                if not reply:break
+                self.job.handle_reply(reply)
+            self.job.tick()
+            yaw_gap=abs((self.e.pose.yaw-end[3]/100+180)%360-180)
+            if self.job.cursor==pivot-1 and yaw_gap<5:break
+        else:self.fail('未进入绕轮出口前的测试位置')
+        injected=(end[0]/10+10,end[1]/10,end[3]/100)
+        self.assertLess(math.dist((self.e.pose.x,self.e.pose.y),injected[:2]),50)
+        self.e.pose.x,self.e.pose.y,self.e.pose.yaw=injected
+        snapshots=[]
+        for _ in range(30):
+            self.e.step(move=False)
+            while True:
+                reply=self.e.reply()
+                if not reply:break
+                if reply.startswith('CCTRL '):snapshots.append(list(map(int,reply.split()[1:])))
+                self.job.handle_reply(reply)
+            self.job.tick()
+        self.assertEqual(self.job.cursor,pivot-1,'10mm误差不能放宽为通过出口')
+        recovery=[row for row in snapshots if row[1]==pivot and row[2]&8]
+        self.assertTrue(recovery,'明确错过出口时应报告恢复')
+        last=recovery[-1]
+        self.assertTrue(last[2]&4)
+        self.assertEqual(last[7],0,'目标航向已到时旋转请求必须趋于零')
+        self.assertGreater(math.hypot(last[5],last[6]),0,'位置误差仍需纠正')
+
     def test_eight_matches_c_execute_all_coordinates_with_swept_body(self):
         data=competition.load_profile();results=[]
         for obstacles in ((),((700,1200),),competition.DEMO_OBSTACLES,((1200,1200),(297,294))):
@@ -79,7 +211,7 @@ class CoordinateFirmwareTests(unittest.TestCase):
                 first=batch['points'][0];self.e.pose=Pose(first[0]/10,first[1]/10,first[3]/100,1,self.e.now)
                 self.upload(batch)
                 actual_scene=competition.collision_scene(data,9,obstacles)
-                previous=None;pass_motion=0;previous_cursor=0;visited=set()
+                previous=None;pass_motion=0;previous_cursor=0;visited=set();work_stops=set()
                 for _ in range(8500):
                     action=self.e.step(move=True)
                     pose=(*core.field_to_layout(self.e.pose.x,self.e.pose.y),180+self.e.pose.yaw)
@@ -89,6 +221,16 @@ class CoordinateFirmwareTests(unittest.TestCase):
                     previous=pose
                     text=self.e.reply()
                     if text:self.job.handle_reply(text)
+                    # C完成站点停车的同一帧，实际模型车右须对准作业区。
+                    native_cursor=self.job.cursor
+                    if action==2 and native_cursor in batch['stations']:
+                        from work_orientation import work_heading
+                        labels=batch['stations'][native_cursor]
+                        station='raw' if any('取料' in label for label in labels) else 'rough' if any('粗加工' in label for label in labels) else 'storage' if any('暂存' in label for label in labels) else None
+                        if station:
+                            required=work_heading(data['competition'],station)
+                            self.assertLess(abs((180+self.e.pose.yaw-required+180)%360-180),1)
+                            work_stops.add(native_cursor)
                     self.job.tick()
                     if self.job.cursor>previous_cursor and not batch['points'][self.job.cursor][4]&1:
                         if action==1 and math.hypot(*self.e.velocity[:2])>1:pass_motion+=1
@@ -97,6 +239,7 @@ class CoordinateFirmwareTests(unittest.TestCase):
                     if not self.job.active:break
                 self.assertEqual(self.job.state,'DONE',(zone,obstacles,self.job.reason,self.e.status()))
                 self.assertGreater(pass_motion,0)
+                self.assertEqual(len(work_stops),6,'两批六次作业停靠必须经过实际C到位判断')
                 self.assertTrue(set(batch["stations"]).issubset(visited))
                 self.assertFalse(any(c.startswith("TRESUME=") for c in self.job.commands))
                 self.assertEqual(sum(c.startswith('CPOINT=') for c in self.job.commands),len(batch['points']))
@@ -105,7 +248,7 @@ class CoordinateFirmwareTests(unittest.TestCase):
 
     def test_protocol_crc_and_parameters(self):
         b=self.small_batch()
-        self.e.send('CCAPS');self.assertEqual(self.e.reply(),'CCAPS 1 2048 3')
+        self.e.send('CCAPS');self.assertEqual(self.e.reply(),'CCAPS 9 2048 3')
         self.parameters['kpx']=4;self.sync()
         job=BatchUploader(b,self.e.send,clock=lambda:self.e.now/1000);job.start()
         job.handle_reply(self.e.reply());job.handle_reply(self.e.reply())
@@ -118,6 +261,146 @@ class CoordinateFirmwareTests(unittest.TestCase):
             if text:job.handle_reply(text)
             if not job.active:break
         self.assertEqual(job.state,'CANCELLED');self.assertIn('CRC',job.reason)
+
+    def test_four_outer_corners_both_directions_use_real_c_pivot_controller(self):
+        from tests.test_pivot_turns import CORNERS,baseline
+        from pivot_turns import select_turns
+        from hardware_coordinates import make_coordinate_path_batch
+        data=competition.load_profile();scene=competition.collision_scene(data)
+        actual_scene=competition.collision_scene(data,9);results=[]
+        for points in CORNERS:
+            for reverse in (False,True):
+                self.setUp();route=list(reversed(points)) if reverse else points
+                result=select_turns(baseline(route,scene),scene,lambda:False)
+                batch=make_coordinate_path_batch(result,route[0],result['start_heading_deg'],
+                    result['goal_heading_deg'],(0,0,0),scene,data,token=17)
+                self.assertEqual(batch['coordinate_version'],3);self.assertEqual(batch['pivot_count'],1)
+                first=batch['points'][0]
+                self.e.pose=Pose(first[0]/10,first[1]/10,first[3]/100,1,self.e.now)
+                self.upload(batch);previous=None;arc_frames=0;maximum_radial=0;maximum_anchor=0
+                boundary_speeds=[]
+                for _ in range(1500):
+                    old_xy=(self.e.pose.x,self.e.pose.y)
+                    action=self.e.step(move=True)
+                    arc_index=next(i for i,q in enumerate(batch['points']) if q[4]&32)
+                    for boundary in batch['points'][arc_index-1:arc_index+1]:
+                        if math.dist(old_xy,(boundary[0]/10,boundary[1]/10))<10:
+                            boundary_speeds.append(math.dist(old_xy,(self.e.pose.x,self.e.pose.y))/.02)
+                        if math.dist((self.e.pose.x,self.e.pose.y),(boundary[0]/10,boundary[1]/10))<3:
+                            self.assertEqual(action,1,'入弯/出弯不得发动作2停车或等待200ms')
+                    pose=(*core.field_to_layout(self.e.pose.x,self.e.pose.y),180+self.e.pose.yaw)
+                    why=actual_scene.pose_reason(*pose)
+                    if previous and not why:why=actual_scene.moving_pose_reason(previous,pose)
+                    self.assertIsNone(why,(route,pose,why))
+                    previous=pose
+                    text=self.e.reply()
+                    if text:self.job.handle_reply(text)
+                    target=min(self.job.cursor+1,len(batch['points'])-1)
+                    if batch['points'][target][4]&16:
+                        q=batch['points'][target];entry=batch['points'][target-1]
+                        radius=math.dist(entry[:2],q[8:10])/10
+                        maximum_radial=max(maximum_radial,abs(math.dist((self.e.pose.x,self.e.pose.y),(q[8]/10,q[9]/10))-radius))
+                        start=batch['points'][self.job.cursor]
+                        angle=math.radians(start[3]/100);dx=(q[8]-start[0])/10;dy=(q[9]-start[1])/10
+                        lateral=math.cos(angle)*dx-math.sin(angle)*dy
+                        forward=math.sin(angle)*dx+math.cos(angle)*dy
+                        angle=math.radians(self.e.pose.yaw)
+                        anchor=(self.e.pose.x+math.cos(angle)*lateral+math.sin(angle)*forward,
+                                self.e.pose.y-math.sin(angle)*lateral+math.cos(angle)*forward)
+                        maximum_anchor=max(maximum_anchor,math.dist(anchor,(q[8]/10,q[9]/10)))
+                        arc_frames+=1
+                    self.job.tick()
+                    if not self.job.active:break
+                self.assertEqual(self.job.state,'DONE',(route,self.job.reason,self.e.status()))
+                self.assertGreater(arc_frames,30);self.assertLess(maximum_radial,10)
+                self.assertLess(maximum_anchor,2,'支点轮心须保持在原位置，不能仅验证车心半径')
+                self.assertTrue(boundary_speeds)
+                self.assertGreater(min(boundary_speeds),20,'实机整数轮速回放：进出弯不能降至零速再重启')
+                results.append((route[1],reverse,round(self.e.now/1000,2),round(maximum_anchor,3),round(min(boundary_speeds),2)))
+        print('真实C四角指定圆心:',results)
+
+    def test_new_pivot_batch_refuses_old_firmware_before_begin_or_points(self):
+        from tests.test_pivot_turns import CORNERS,baseline
+        from pivot_turns import select_turns
+        from hardware_coordinates import make_coordinate_path_batch
+        data=competition.load_profile();scene=competition.collision_scene(data)
+        result=select_turns(baseline(CORNERS[0],scene),scene,lambda:False)
+        batch=make_coordinate_path_batch(result,CORNERS[0][0],result['start_heading_deg'],
+            result['goal_heading_deg'],(0,0,0),scene,data,token=17)
+        for version in (1,2,3,4,5,6,7):
+            sent=[];job=BatchUploader(batch,sent.append,clock=lambda:0)
+            job.start();job.handle_reply('CCAPS %d 2048 3'%version)
+            self.assertEqual(job.state,'CANCELLED');self.assertIn('CCAPS8',job.reason)
+            self.assertFalse(any(c.startswith(('CBEGIN=','CPOINT=','TRUN=')) for c in sent))
+
+    def test_plain_coordinate_batch_also_requires_calibrated_geometry_firmware(self):
+        batch=self.small_batch()
+        self.assertEqual(batch['coordinate_version'],1,'普通直线仍保持旧22字节点格式')
+        for version in (1,2,3,4,5,6,7):
+            sent=[];job=BatchUploader(batch,sent.append,clock=lambda:0)
+            job.start();job.handle_reply('CCAPS %d 2048 3'%version)
+            self.assertEqual(job.state,'CANCELLED');self.assertIn('CCAPS8',job.reason)
+            self.assertFalse(any(c.startswith(('CBEGIN=','CPOINT=','TRUN=')) for c in sent))
+
+    def pivot_batch(self,mapping=(0,0,0),stop_on_exit=False):
+        from tests.test_pivot_turns import CORNERS,baseline
+        from pivot_turns import select_turns
+        from coordinate_navigation import replay,_replay_result
+        from hardware_coordinates import make_coordinate_path_batch
+        data=competition.load_profile();scene=competition.collision_scene(data)
+        route=CORNERS[0];result=select_turns(baseline(route,scene,self.parameters),scene,lambda:False)
+        self.assertTrue(result.get('pivots'),result.get('pivot_attempts'))
+        if stop_on_exit:
+            program=result['waypoint_program']
+            program['waypoints']=program['waypoints'][:3]
+            program['waypoints'][-1].update(kind='STOP',pass_mm=0)
+            samples,elapsed=replay(program,scene)
+            result=_replay_result(program,samples,elapsed,route,0,'PIVOT',90,180,(False,False))
+        return make_coordinate_path_batch(result,route[0],90,180,mapping,scene,data,token=17)
+
+    def test_pivot_center_mapping_and_final_arc_stop_use_real_motor_output(self):
+        data=competition.load_profile();actual=competition.collision_scene(data,9)
+        for mapping in ((4000,-800,35),(-1200,1000,-170),(0,0,90)):
+            self.setUp()
+            self.parameters.update(kpx=3,kpy=4,kpz=12,xyvmax=350,zvmax=250,xyvmin=3,zvmin=2)
+            self.sync();batch=self.pivot_batch(mapping,stop_on_exit=True)
+            first=batch['points'][0];self.e.pose=Pose(first[0]/10,first[1]/10,first[3]/100,1,self.e.now)
+            self.upload(batch);ox,oy,theta=mapping
+            c,s=math.cos(math.radians(theta)),math.sin(math.radians(theta));previous=None
+            for _ in range(3000):
+                self.e.step(move=True)
+                x,y=self.e.pose.x,self.e.pose.y
+                pose=(*core.field_to_layout(ox+c*x+s*y,oy-s*x+c*y),180+self.e.pose.yaw+theta)
+                self.assertIsNone(actual.pose_reason(*pose),(mapping,pose))
+                if previous:self.assertIsNone(actual.moving_pose_reason(previous,pose),(mapping,pose))
+                previous=pose;text=self.e.reply()
+                if text:self.job.handle_reply(text)
+                self.job.tick()
+                if not self.job.active:break
+            self.assertEqual(self.job.state,'DONE',(mapping,self.job.reason))
+            end=batch['points'][-1]
+            self.assertLess(math.dist((self.e.pose.x,self.e.pose.y),(end[0]/10,end[1]/10)),.6)
+            self.assertLess(abs((self.e.pose.yaw-end[3]/100+180)%360-180),.3)
+            self.assertEqual(list(self.e.velocity),[0,0,0])
+
+    def test_pivot_center_is_covered_by_crc_and_geometry_verification(self):
+        import copy
+        from hardware_coordinates import PIVOT_POINT
+        batch=self.pivot_batch()
+        for change in ('crc','geometry'):
+            self.setUp();bad=copy.deepcopy(batch)
+            index=next(i for i,p in enumerate(bad['points']) if p[4]&16)
+            row=list(bad['points'][index]);row[8]+=1000;bad['points'][index]=tuple(row)
+            if change=='geometry':bad['crc']=zlib.crc32(b''.join(PIVOT_POINT.pack(*p) for p in bad['points']))
+            job=BatchUploader(bad,self.e.send,clock=lambda:self.e.now/1000);job.start()
+            for _ in range(150):
+                text=self.e.reply()
+                if text:job.handle_reply(text)
+                else:self.e.step()
+                if not job.active:break
+            self.assertEqual(job.state,'CANCELLED',(change,job.reason))
+            self.assertFalse(any(line.startswith('TRUN=') for line in job.commands))
+            self.assertFalse(self.dll.Traj_OutputAllowed())
 
     def test_exit_staging_and_next_stop_complete_through_integer_motors(self):
         # The old mixer stalled at (149.118,149.118), progress210mm, FAULT14.

@@ -1,0 +1,25 @@
+precompute competition_map.json zone 1
+precompute competition_map.json zone 2
+precompute navigation_map.json zone 1
+precompute navigation_map.json zone 2
+precompute REAL parameters zone 1
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\Docs\audit_real_control_release_20261006.py", line 107, in <module>
+    main()
+    ~~~~^^
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\Docs\audit_real_control_release_20261006.py", line 83, in main
+    runner=runner_for(match)
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\tests\test_competition_simulation.py", line 19, in runner_for
+    runner.start()
+    ~~~~~~~~~~~~^^
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\competition_simulation.py", line 638, in start
+    self._next()
+    ~~~~~~~~~~^^
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\competition_simulation.py", line 678, in _next
+    self.goal_id = self.sim.submit_navigation_maneuver(self.epoch, stage['target'], stage['yaw'],
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                                                      self.mapping, self.scene, self.validity)
+                                                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\core.py", line 1306, in submit_navigation_maneuver
+    raise ValueError('比赛地图/会话已变化')
+ValueError: 比赛地图/会话已变化

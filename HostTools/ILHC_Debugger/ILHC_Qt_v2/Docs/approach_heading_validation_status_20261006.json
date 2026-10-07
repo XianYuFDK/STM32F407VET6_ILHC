@@ -1,0 +1,49 @@
+{
+  "pid": 69588,
+  "complete": true,
+  "jobs": {
+    "coordinate_c": {
+      "pid": 3596,
+      "status": "finished",
+      "log": "E:\\STM32\\STM32F407VET6_ILHC\\HostTools\\ILHC_Debugger\\ILHC_Qt_v2\\Docs\\approach_heading_coordinate_c_20261006.log",
+      "returncode": 0,
+      "elapsed_s": 92.278
+    },
+    "headless": {
+      "pid": 24504,
+      "status": "finished",
+      "log": "E:\\STM32\\STM32F407VET6_ILHC\\HostTools\\ILHC_Debugger\\ILHC_Qt_v2\\Docs\\approach_heading_headless_20261006.log",
+      "returncode": 1,
+      "elapsed_s": 258.253
+    },
+    "qt": {
+      "pid": 30200,
+      "status": "finished",
+      "log": "E:\\STM32\\STM32F407VET6_ILHC\\HostTools\\ILHC_Debugger\\ILHC_Qt_v2\\Docs\\approach_heading_qt_20261006.log",
+      "returncode": 0,
+      "elapsed_s": 216.253
+    },
+    "legacy_c": {
+      "pid": 5696,
+      "status": "finished",
+      "log": "E:\\STM32\\STM32F407VET6_ILHC\\HostTools\\ILHC_Debugger\\ILHC_Qt_v2\\Docs\\approach_heading_legacy_c_20261006.log",
+      "returncode": 0,
+      "elapsed_s": 56.168
+    },
+    "native_commands": {
+      "pid": 66012,
+      "status": "finished",
+      "log": "E:\\STM32\\STM32F407VET6_ILHC\\HostTools\\ILHC_Debugger\\ILHC_Qt_v2\\Docs\\approach_heading_native_commands_20261006.log",
+      "returncode": 0,
+      "elapsed_s": 1.178
+    },
+    "native_bridge": {
+      "pid": 34704,
+      "status": "finished",
+      "log": "E:\\STM32\\STM32F407VET6_ILHC\\HostTools\\ILHC_Debugger\\ILHC_Qt_v2\\Docs\\approach_heading_native_bridge_20261006.log",
+      "returncode": 0,
+      "elapsed_s": 1.166
+    }
+  },
+  "returncode": 1
+}

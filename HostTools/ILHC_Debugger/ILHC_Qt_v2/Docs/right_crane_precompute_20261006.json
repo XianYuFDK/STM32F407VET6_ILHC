@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "platform": "Windows-11-10.0.26200-SP0",
+  "machine": "AMD64",
+  "python": "3.13.2",
+  "physical_motion_verified": false,
+  "runs": [
+    {
+      "zone": 1,
+      "pass_kind": "PRECOMPUTE",
+      "plan_wall_s": 5.738607899984345,
+      "policy": "FIXED_VERIFIED",
+      "sources": [
+        "SEARCH",
+        "SEARCH",
+        "SEARCH",
+        "SEARCH",
+        "SEARCH",
+        "SEARCH",
+        "SEARCH",
+        "SEARCH"
+      ],
+      "search_calls": 8,
+      "modeled_travel_s": 44.96
+    },
+    {
+      "zone": 2,
+      "pass_kind": "PRECOMPUTE",
+      "plan_wall_s": 5.4210981000214815,
+      "policy": "FIXED_VERIFIED",
+      "sources": [
+        "SEARCH",
+        "SEARCH",
+        "SEARCH",
+        "SEARCH",
+        "SEARCH",
+        "SEARCH",
+        "SEARCH",
+        "SEARCH"
+      ],
+      "search_calls": 8,
+      "modeled_travel_s": 44.82
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "dimension_changes_complete": true,
+  "origin_changes_complete": false,
+  "origin_question_pending": true,
+  "algorithm": "313c8d5da7db5cbecee857f213c492eff34c52605dffa85a3629f5a864aebfbd",
+  "route_count": 36,
+  "modeled_rounds_passed": 8,
+  "logic_checks_passed": 91,
+  "qt_profile_click_checks_passed": 26,
+  "initial_failure": "旧圆心必须在场地边界的断言不适用于已确认的约40mm净空校准；改为验证净空和尺寸后91项通过。",
+  "raw_logs_edited": false,
+  "firmware_changed": false,
+  "physical_motion_verified": false,
+  "files_sha256": {
+    "HostTools\\ILHC_Debugger\\ILHC_Qt_v2\\navigation_map.json": "ea68708b31d2def84705acfc2489ce6b447eb2de66720d6e2a381c4b853edb02",
+    "HostTools\\ILHC_Debugger\\ILHC_Qt_v2\\competition_map.json": "3f28523e3d553e155b017a7c935cd7db9d220fd548ae058def6913aff6e4f158",
+    "HostTools\\ILHC_Debugger\\ILHC_Qt_v2\\core.py": "962b34277985d8bbe8ae861df21443ab88d5691191eadf6ad1e2076069e2d642",
+    "HostTools\\ILHC_Debugger\\ILHC_Qt_v2\\main.py": "b77acb76467832c65641d8f4ff6c885d0b603d6d4b27bc900864b7066771499e"
+  }
+}

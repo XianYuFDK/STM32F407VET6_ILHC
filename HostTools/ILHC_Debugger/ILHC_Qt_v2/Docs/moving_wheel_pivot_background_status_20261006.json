@@ -1,0 +1,37 @@
+{
+  "runner_pid": 46484,
+  "started": "2026-10-06T02:51:01.305598",
+  "jobs": {
+    "headless": {
+      "pid": 61372,
+      "log": "E:\\STM32\\STM32F407VET6_ILHC\\HostTools\\ILHC_Debugger\\ILHC_Qt_v2\\Docs\\moving_wheel_pivot_headless_background_final_20261006.log",
+      "status": "finished",
+      "returncode": 0,
+      "elapsed_seconds": 162.952
+    },
+    "qt": {
+      "pid": 18364,
+      "log": "E:\\STM32\\STM32F407VET6_ILHC\\HostTools\\ILHC_Debugger\\ILHC_Qt_v2\\Docs\\moving_wheel_pivot_qt_final_20261006.log",
+      "status": "finished",
+      "returncode": 0,
+      "elapsed_seconds": 283.814
+    },
+    "coordinate_c": {
+      "pid": 65380,
+      "log": "E:\\STM32\\STM32F407VET6_ILHC\\RTOS_APP\\validation\\moving-wheel-pivot-c-background-final-20261006.log",
+      "status": "finished",
+      "returncode": 0,
+      "elapsed_seconds": 120.311
+    },
+    "legacy_c": {
+      "pid": 28464,
+      "log": "E:\\STM32\\STM32F407VET6_ILHC\\RTOS_APP\\validation\\moving-wheel-pivot-legacy-background-final-20261006.log",
+      "status": "finished",
+      "returncode": 0,
+      "elapsed_seconds": 57.111
+    }
+  },
+  "complete": true,
+  "finished": "2026-10-06T03:01:25.507687",
+  "returncode": 0
+}

@@ -1,0 +1,42 @@
+{
+  "test_ops_protocol.py": {
+    "returncode": 0,
+    "elapsed_s": 1.15,
+    "log": "RTOS_APP\\validation\\ops-diagnostics-test_ops_protocol-20261006.log"
+  },
+  "test_ops_axis_direction.py": {
+    "returncode": 0,
+    "elapsed_s": 1.086,
+    "log": "RTOS_APP\\validation\\ops-diagnostics-test_ops_axis_direction-20261006.log"
+  },
+  "test_ops_zero_frame.py": {
+    "returncode": 0,
+    "elapsed_s": 1.076,
+    "log": "RTOS_APP\\validation\\ops-diagnostics-test_ops_zero_frame-20261006.log"
+  },
+  "test_ops_offset.py": {
+    "returncode": 0,
+    "elapsed_s": 1.059,
+    "log": "RTOS_APP\\validation\\ops-diagnostics-test_ops_offset-20261006.log"
+  },
+  "test_debug_telemetry.py": {
+    "returncode": 0,
+    "elapsed_s": 1.342,
+    "log": "RTOS_APP\\validation\\ops-diagnostics-test_debug_telemetry-20261006.log"
+  },
+  "test_debug_rx_recovery.py": {
+    "returncode": 0,
+    "elapsed_s": 1.074,
+    "log": "RTOS_APP\\validation\\ops-diagnostics-test_debug_rx_recovery-20261006.log"
+  },
+  "test_parse_line_axes.py": {
+    "returncode": 0,
+    "elapsed_s": 1.091,
+    "log": "RTOS_APP\\validation\\ops-diagnostics-test_parse_line_axes-20261006.log"
+  },
+  "test_trajectory_bridge.py": {
+    "returncode": 0,
+    "elapsed_s": 1.056,
+    "log": "RTOS_APP\\validation\\ops-diagnostics-test_trajectory_bridge-20261006.log"
+  }
+}

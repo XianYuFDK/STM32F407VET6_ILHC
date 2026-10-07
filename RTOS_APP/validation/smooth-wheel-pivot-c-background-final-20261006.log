@@ -1,0 +1,54 @@
+test_duplicate_conflict_and_legacy_capability_do_not_run (test_coordinate_batch.CoordinateFirmwareTests.test_duplicate_conflict_and_legacy_capability_do_not_run) ... ok
+test_eight_matches_c_execute_all_coordinates_with_swept_body (test_coordinate_batch.CoordinateFirmwareTests.test_eight_matches_c_execute_all_coordinates_with_swept_body) ... ERROR
+test_exit_staging_and_next_stop_complete_through_integer_motors (test_coordinate_batch.CoordinateFirmwareTests.test_exit_staging_and_next_stop_complete_through_integer_motors) ... ok
+test_fault_text_matches_coordinate_three_second_gate (test_coordinate_batch.CoordinateFirmwareTests.test_fault_text_matches_coordinate_three_second_gate) ... ok
+test_four_outer_corners_both_directions_use_real_c_pivot_controller (test_coordinate_batch.CoordinateFirmwareTests.test_four_outer_corners_both_directions_use_real_c_pivot_controller) ... 真实C四角指定圆心: [((2100, 2100), False, 7.88, 1.366), ((2100, 2100), True, 7.88, 1.365), ((300, 2100), False, 7.88, 1.365), ((300, 2100), True, 7.92, 1.365), ((300, 300), False, 7.92, 1.365), ((300, 300), True, 7.92, 1.365), ((2100, 300), False, 7.92, 1.366), ((2100, 300), True, 7.92, 1.366)]
+ok
+test_fractional_rpm_mean_direction_limits_and_reset (test_coordinate_batch.CoordinateFirmwareTests.test_fractional_rpm_mean_direction_limits_and_reset) ... ok
+test_new_pivot_batch_refuses_old_firmware_before_begin_or_points (test_coordinate_batch.CoordinateFirmwareTests.test_new_pivot_batch_refuses_old_firmware_before_begin_or_points) ... ok
+test_pivot_center_is_covered_by_crc_and_geometry_verification (test_coordinate_batch.CoordinateFirmwareTests.test_pivot_center_is_covered_by_crc_and_geometry_verification) ... ok
+test_pivot_center_mapping_and_final_arc_stop_use_real_motor_output (test_coordinate_batch.CoordinateFirmwareTests.test_pivot_center_mapping_and_final_arc_stop_use_real_motor_output) ... ok
+test_plain_coordinate_batch_also_requires_calibrated_geometry_firmware (test_coordinate_batch.CoordinateFirmwareTests.test_plain_coordinate_batch_also_requires_calibrated_geometry_firmware) ... ok
+test_protocol_crc_and_parameters (test_coordinate_batch.CoordinateFirmwareTests.test_protocol_crc_and_parameters) ... ok
+test_real_drift_cannot_finish_initial_stop (test_coordinate_batch.CoordinateFirmwareTests.test_real_drift_cannot_finish_initial_stop) ... ok
+test_rotated_mapping_and_nondefault_body_parameters (test_coordinate_batch.CoordinateFirmwareTests.test_rotated_mapping_and_nondefault_body_parameters) ... ok
+test_stall_diagnostic_retry_and_old_send_ack_keep_new_generation (test_coordinate_batch.CoordinateFirmwareTests.test_stall_diagnostic_retry_and_old_send_ack_keep_new_generation) ... ok
+test_stall_does_not_disable_stop_and_total_timeout (test_coordinate_batch.CoordinateFirmwareTests.test_stall_does_not_disable_stop_and_total_timeout) ... ok
+test_stationary_ops_noise_can_finish_initial_stop (test_coordinate_batch.CoordinateFirmwareTests.test_stationary_ops_noise_can_finish_initial_stop) ... ok
+test_stop_parameter_change_pose_loss_and_deviation (test_coordinate_batch.CoordinateFirmwareTests.test_stop_parameter_change_pose_loss_and_deviation) ... ok
+test_three_second_stall_warns_then_recovers_without_abort_or_skip (test_coordinate_batch.CoordinateFirmwareTests.test_three_second_stall_warns_then_recovers_without_abort_or_skip) ... ok
+
+======================================================================
+ERROR: test_eight_matches_c_execute_all_coordinates_with_swept_body (test_coordinate_batch.CoordinateFirmwareTests.test_eight_matches_c_execute_all_coordinates_with_swept_body)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\Tests\hardware\test_coordinate_batch.py", line 75, in test_eight_matches_c_execute_all_coordinates_with_swept_body
+    match=competition.compile_match(data,zone=zone,sim_obstacles=obstacles,coordinate_mode=True)
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\competition_simulation.py", line 468, in compile_match
+    travel('rough', '第%d批：前往粗加工区' % batch_i)
+    ~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\competition_simulation.py", line 447, in travel
+    result = route_between(current, target, current_yaw)
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\competition_simulation.py", line 366, in route_between
+    route_cache[key] = plan_route(a, b, scene, config['lane_nodes'], heading, cancelled=cancelled,
+                       ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                                  graph_cache=graph_cache, chassis_control=chassis_control)
+                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\coordinate_navigation.py", line 782, in plan_route
+    result=_plan_route(start,goal,scene,nodes,start_yaw,goal_yaw=goal_yaw,cancelled=cancelled,
+        constraints=constraints,graph_cache=graph_cache,chassis_control=chassis_control,
+        deadline=deadline,interactive=interactive)
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\coordinate_navigation.py", line 732, in _plan_route
+    samples, elapsed = _cached_replay(program,scene,interrupted,sweeps,replays)
+                       ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\coordinate_navigation.py", line 401, in _cached_replay
+    value = replay(program,scene,cancelled,sweeps)
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\coordinate_navigation.py", line 353, in replay
+    sweep_cache[key] = why
+    ~~~~~~~~~~~^^^^^
+MemoryError
+
+----------------------------------------------------------------------
+Ran 18 tests in 56.268s
+
+FAILED (errors=1)

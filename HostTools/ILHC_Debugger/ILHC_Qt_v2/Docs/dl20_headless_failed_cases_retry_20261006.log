@@ -1,0 +1,119 @@
+test_screenshot_two_cylinders_complete_both_zones_with_all_actual_sweeps_safe (unittest.loader._FailedTest.test_screenshot_two_cylinders_complete_both_zones_with_all_actual_sweeps_safe) ... ERROR
+test_small_screenshot_coordinate_error_also_finds_safe_full_round (unittest.loader._FailedTest.test_small_screenshot_coordinate_error_also_finds_safe_full_round) ... ERROR
+test_blocked_diagonal_docking_uses_safe_l_maneuvers (unittest.loader._FailedTest.test_blocked_diagonal_docking_uses_safe_l_maneuvers) ... ERROR
+test_code_display_waits_for_qr_arrival_and_scan_action (unittest.loader._FailedTest.test_code_display_waits_for_qr_arrival_and_scan_action) ... ERROR
+test_fake_completion_and_motion_during_action_are_rejected (unittest.loader._FailedTest.test_fake_completion_and_motion_during_action_are_rejected) ... ERROR
+test_missing_cargo_fails_without_counting_a_placement (unittest.loader._FailedTest.test_missing_cargo_fails_without_counting_a_placement) ... ERROR
+test_no_new_frame_cannot_advance_clock_actions_or_stages (unittest.loader._FailedTest.test_no_new_frame_cannot_advance_clock_actions_or_stages) ... ERROR
+test_same_round_can_only_start_once (unittest.loader._FailedTest.test_same_round_can_only_start_once) ... ERROR
+test_screenshot_one_obstacle_has_straight_lanes_and_no_raw_to_rough_strafe (unittest.loader._FailedTest.test_screenshot_one_obstacle_has_straight_lanes_and_no_raw_to_rough_strafe) ... ERROR
+test_stop_and_version_changes_cancel_during_motion_and_work_without_restart (unittest.loader._FailedTest.test_stop_and_version_changes_cancel_during_motion_and_work_without_restart) ... ERROR
+test_timeout_and_overlong_station_action_stop (unittest.loader._FailedTest.test_timeout_and_overlong_station_action_stop) ... ERROR
+test_two_start_zones_complete_entire_round_with_actual_body_sweeps (unittest.loader._FailedTest.test_two_start_zones_complete_entire_round_with_actual_body_sweeps) ... ERROR
+test_two_start_zones_complete_entire_round_with_actual_body_sweeps (unittest.loader._FailedTest.test_two_start_zones_complete_entire_round_with_actual_body_sweeps) ... ERROR
+test_wrong_first_layer_cannot_count_a_stack (unittest.loader._FailedTest.test_wrong_first_layer_cannot_count_a_stack) ... ERROR
+test_actual_pose_on_obstacle_stops_without_committing_more_motion (unittest.loader._FailedTest.test_actual_pose_on_obstacle_stops_without_committing_more_motion) ... ERROR
+test_four_obstacles_both_zones_complete_with_every_actual_rectangle_sweep_safe (unittest.loader._FailedTest.test_four_obstacles_both_zones_complete_with_every_actual_rectangle_sweep_safe) ... ERROR
+test_four_obstacles_both_zones_complete_with_every_actual_rectangle_sweep_safe (unittest.loader._FailedTest.test_four_obstacles_both_zones_complete_with_every_actual_rectangle_sweep_safe) ... ERROR
+test_obstacle_snapshot_export_is_independent_and_map_has_no_duplicate_cylinders (unittest.loader._FailedTest.test_obstacle_snapshot_export_is_independent_and_map_has_no_duplicate_cylinders) ... ERROR
+test_entire_match_executes_after_removing_all_dense_route_points (unittest.loader._FailedTest.test_entire_match_executes_after_removing_all_dense_route_points) ... ERROR
+
+======================================================================
+ERROR: test_screenshot_two_cylinders_complete_both_zones_with_all_actual_sweeps_safe (unittest.loader._FailedTest.test_screenshot_two_cylinders_complete_both_zones_with_all_actual_sweeps_safe)
+----------------------------------------------------------------------
+AttributeError: 'function' object has no attribute 'test_screenshot_two_cylinders_complete_both_zones_with_all_actual_sweeps_safe'
+
+======================================================================
+ERROR: test_small_screenshot_coordinate_error_also_finds_safe_full_round (unittest.loader._FailedTest.test_small_screenshot_coordinate_error_also_finds_safe_full_round)
+----------------------------------------------------------------------
+AttributeError: 'function' object has no attribute 'test_small_screenshot_coordinate_error_also_finds_safe_full_round'
+
+======================================================================
+ERROR: test_blocked_diagonal_docking_uses_safe_l_maneuvers (unittest.loader._FailedTest.test_blocked_diagonal_docking_uses_safe_l_maneuvers)
+----------------------------------------------------------------------
+AttributeError: 'function' object has no attribute 'test_blocked_diagonal_docking_uses_safe_l_maneuvers'
+
+======================================================================
+ERROR: test_code_display_waits_for_qr_arrival_and_scan_action (unittest.loader._FailedTest.test_code_display_waits_for_qr_arrival_and_scan_action)
+----------------------------------------------------------------------
+AttributeError: 'function' object has no attribute 'test_code_display_waits_for_qr_arrival_and_scan_action'
+
+======================================================================
+ERROR: test_fake_completion_and_motion_during_action_are_rejected (unittest.loader._FailedTest.test_fake_completion_and_motion_during_action_are_rejected)
+----------------------------------------------------------------------
+AttributeError: 'function' object has no attribute 'test_fake_completion_and_motion_during_action_are_rejected'
+
+======================================================================
+ERROR: test_missing_cargo_fails_without_counting_a_placement (unittest.loader._FailedTest.test_missing_cargo_fails_without_counting_a_placement)
+----------------------------------------------------------------------
+AttributeError: 'function' object has no attribute 'test_missing_cargo_fails_without_counting_a_placement'
+
+======================================================================
+ERROR: test_no_new_frame_cannot_advance_clock_actions_or_stages (unittest.loader._FailedTest.test_no_new_frame_cannot_advance_clock_actions_or_stages)
+----------------------------------------------------------------------
+AttributeError: 'function' object has no attribute 'test_no_new_frame_cannot_advance_clock_actions_or_stages'
+
+======================================================================
+ERROR: test_same_round_can_only_start_once (unittest.loader._FailedTest.test_same_round_can_only_start_once)
+----------------------------------------------------------------------
+AttributeError: 'function' object has no attribute 'test_same_round_can_only_start_once'
+
+======================================================================
+ERROR: test_screenshot_one_obstacle_has_straight_lanes_and_no_raw_to_rough_strafe (unittest.loader._FailedTest.test_screenshot_one_obstacle_has_straight_lanes_and_no_raw_to_rough_strafe)
+----------------------------------------------------------------------
+AttributeError: 'function' object has no attribute 'test_screenshot_one_obstacle_has_straight_lanes_and_no_raw_to_rough_strafe'
+
+======================================================================
+ERROR: test_stop_and_version_changes_cancel_during_motion_and_work_without_restart (unittest.loader._FailedTest.test_stop_and_version_changes_cancel_during_motion_and_work_without_restart)
+----------------------------------------------------------------------
+AttributeError: 'function' object has no attribute 'test_stop_and_version_changes_cancel_during_motion_and_work_without_restart'
+
+======================================================================
+ERROR: test_timeout_and_overlong_station_action_stop (unittest.loader._FailedTest.test_timeout_and_overlong_station_action_stop)
+----------------------------------------------------------------------
+AttributeError: 'function' object has no attribute 'test_timeout_and_overlong_station_action_stop'
+
+======================================================================
+ERROR: test_two_start_zones_complete_entire_round_with_actual_body_sweeps (unittest.loader._FailedTest.test_two_start_zones_complete_entire_round_with_actual_body_sweeps)
+----------------------------------------------------------------------
+AttributeError: 'function' object has no attribute 'test_two_start_zones_complete_entire_round_with_actual_body_sweeps'
+
+======================================================================
+ERROR: test_two_start_zones_complete_entire_round_with_actual_body_sweeps (unittest.loader._FailedTest.test_two_start_zones_complete_entire_round_with_actual_body_sweeps)
+----------------------------------------------------------------------
+AttributeError: 'function' object has no attribute 'test_two_start_zones_complete_entire_round_with_actual_body_sweeps'
+
+======================================================================
+ERROR: test_wrong_first_layer_cannot_count_a_stack (unittest.loader._FailedTest.test_wrong_first_layer_cannot_count_a_stack)
+----------------------------------------------------------------------
+AttributeError: 'function' object has no attribute 'test_wrong_first_layer_cannot_count_a_stack'
+
+======================================================================
+ERROR: test_actual_pose_on_obstacle_stops_without_committing_more_motion (unittest.loader._FailedTest.test_actual_pose_on_obstacle_stops_without_committing_more_motion)
+----------------------------------------------------------------------
+AttributeError: 'function' object has no attribute 'test_actual_pose_on_obstacle_stops_without_committing_more_motion'
+
+======================================================================
+ERROR: test_four_obstacles_both_zones_complete_with_every_actual_rectangle_sweep_safe (unittest.loader._FailedTest.test_four_obstacles_both_zones_complete_with_every_actual_rectangle_sweep_safe)
+----------------------------------------------------------------------
+AttributeError: 'function' object has no attribute 'test_four_obstacles_both_zones_complete_with_every_actual_rectangle_sweep_safe'
+
+======================================================================
+ERROR: test_four_obstacles_both_zones_complete_with_every_actual_rectangle_sweep_safe (unittest.loader._FailedTest.test_four_obstacles_both_zones_complete_with_every_actual_rectangle_sweep_safe)
+----------------------------------------------------------------------
+AttributeError: 'function' object has no attribute 'test_four_obstacles_both_zones_complete_with_every_actual_rectangle_sweep_safe'
+
+======================================================================
+ERROR: test_obstacle_snapshot_export_is_independent_and_map_has_no_duplicate_cylinders (unittest.loader._FailedTest.test_obstacle_snapshot_export_is_independent_and_map_has_no_duplicate_cylinders)
+----------------------------------------------------------------------
+AttributeError: 'function' object has no attribute 'test_obstacle_snapshot_export_is_independent_and_map_has_no_duplicate_cylinders'
+
+======================================================================
+ERROR: test_entire_match_executes_after_removing_all_dense_route_points (unittest.loader._FailedTest.test_entire_match_executes_after_removing_all_dense_route_points)
+----------------------------------------------------------------------
+AttributeError: 'function' object has no attribute 'test_entire_match_executes_after_removing_all_dense_route_points'
+
+----------------------------------------------------------------------
+Ran 19 tests in 0.020s
+
+FAILED (errors=19)

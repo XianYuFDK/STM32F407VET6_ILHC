@@ -1,0 +1,411 @@
+[
+  {
+    "label": "已执行路线",
+    "mode": "MIN_TURN",
+    "safe": true,
+    "seconds": 14.62,
+    "cost": {
+      "modeled_time_s": 14.62,
+      "yaw_total_deg": 449.71554543693543,
+      "yaw_residual_deg": 0.01828189676868419,
+      "yaw_reversals": 2,
+      "score_s": 21.766007410005557
+    },
+    "waypoints": [
+      {
+        "x_mm": 1200.0,
+        "y_mm": 400.0,
+        "layout_yaw_deg": 0,
+        "kind": "START",
+        "pass_mm": 0
+      },
+      {
+        "x_mm": 300.0,
+        "y_mm": 400.0,
+        "layout_yaw_deg": -90.0,
+        "travel_yaw_deg": 0.0,
+        "kind": "PASS",
+        "pass_mm": 5
+      },
+      {
+        "x_mm": 300.0,
+        "y_mm": 300.0,
+        "layout_yaw_deg": 0.0,
+        "travel_yaw_deg": -90.0,
+        "kind": "PASS",
+        "pass_mm": 5
+      },
+      {
+        "x_mm": 400.0,
+        "y_mm": 300.0,
+        "layout_yaw_deg": 90.0,
+        "travel_yaw_deg": 0.0,
+        "kind": "PASS",
+        "pass_mm": 5
+      },
+      {
+        "x_mm": 400.0,
+        "y_mm": 1200.0,
+        "layout_yaw_deg": -90.0,
+        "travel_yaw_deg": 90.0,
+        "kind": "STOP",
+        "pass_mm": 0
+      }
+    ],
+    "wall_s": 0.14394440001342446
+  },
+  {
+    "label": "已执行路线",
+    "mode": "GOAL_AWARE",
+    "safe": true,
+    "seconds": 12.9,
+    "cost": {
+      "modeled_time_s": 12.9,
+      "yaw_total_deg": 90.76525401301498,
+      "yaw_residual_deg": 0.004429289022226612,
+      "yaw_reversals": 0,
+      "score_s": 14.261545249530558
+    },
+    "waypoints": [
+      {
+        "x_mm": 1200.0,
+        "y_mm": 400.0,
+        "layout_yaw_deg": 0,
+        "kind": "START",
+        "pass_mm": 0
+      },
+      {
+        "x_mm": 300.0,
+        "y_mm": 400.0,
+        "layout_yaw_deg": 0.0,
+        "travel_yaw_deg": 0.0,
+        "kind": "PASS",
+        "pass_mm": 5
+      },
+      {
+        "x_mm": 300.0,
+        "y_mm": 300.0,
+        "layout_yaw_deg": 0.0,
+        "travel_yaw_deg": 0.0,
+        "kind": "PASS",
+        "pass_mm": 5
+      },
+      {
+        "x_mm": 400.0,
+        "y_mm": 300.0,
+        "layout_yaw_deg": -90.0,
+        "travel_yaw_deg": 0.0,
+        "kind": "PASS",
+        "pass_mm": 5
+      },
+      {
+        "x_mm": 400.0,
+        "y_mm": 1200.0,
+        "layout_yaw_deg": -90.0,
+        "travel_yaw_deg": 270.0,
+        "kind": "STOP",
+        "pass_mm": 0
+      }
+    ],
+    "wall_s": 0.11020990001270548
+  },
+  {
+    "label": "已执行路线",
+    "mode": "REVERSE",
+    "safe": true,
+    "seconds": 13.78,
+    "cost": {
+      "modeled_time_s": 13.78,
+      "yaw_total_deg": 270.51861175091085,
+      "yaw_residual_deg": 0.007610070618568443,
+      "yaw_reversals": 0,
+      "score_s": 17.83789332732294
+    },
+    "waypoints": [
+      {
+        "x_mm": 1200.0,
+        "y_mm": 400.0,
+        "layout_yaw_deg": 0,
+        "kind": "START",
+        "pass_mm": 0
+      },
+      {
+        "x_mm": 300.0,
+        "y_mm": 400.0,
+        "layout_yaw_deg": 90.0,
+        "travel_yaw_deg": 0.0,
+        "kind": "PASS",
+        "pass_mm": 5
+      },
+      {
+        "x_mm": 300.0,
+        "y_mm": 300.0,
+        "layout_yaw_deg": 180.0,
+        "travel_yaw_deg": 90.0,
+        "kind": "PASS",
+        "pass_mm": 5
+      },
+      {
+        "x_mm": 400.0,
+        "y_mm": 300.0,
+        "layout_yaw_deg": 270.0,
+        "travel_yaw_deg": 180.0,
+        "kind": "PASS",
+        "pass_mm": 5
+      },
+      {
+        "x_mm": 400.0,
+        "y_mm": 1200.0,
+        "layout_yaw_deg": 270.0,
+        "travel_yaw_deg": 270.0,
+        "kind": "STOP",
+        "pass_mm": 0
+      }
+    ],
+    "wall_s": 0.1265449000056833
+  },
+  {
+    "label": "直接两段",
+    "mode": "MIN_TURN",
+    "safe": false,
+    "error": "关键坐标控制器实际扫掠：中央物料区",
+    "pivot_safe": false,
+    "pivot_error": "车头策略与指定圆心几何转角不一致",
+    "wall_s": 0.015027000044938177
+  },
+  {
+    "label": "直接两段",
+    "mode": "GOAL_AWARE",
+    "safe": true,
+    "seconds": 8.8,
+    "cost": {
+      "modeled_time_s": 8.8,
+      "yaw_total_deg": 90.63466469471791,
+      "yaw_residual_deg": 0.0012485074254868778,
+      "yaw_reversals": 0,
+      "score_s": 10.15953869803215
+    },
+    "waypoints": [
+      {
+        "x_mm": 1200.0,
+        "y_mm": 400.0,
+        "layout_yaw_deg": 0,
+        "kind": "START",
+        "pass_mm": 0
+      },
+      {
+        "x_mm": 400.0,
+        "y_mm": 400.0,
+        "layout_yaw_deg": -90.0,
+        "travel_yaw_deg": 0.0,
+        "kind": "PASS",
+        "pass_mm": 5
+      },
+      {
+        "x_mm": 400.0,
+        "y_mm": 1200.0,
+        "layout_yaw_deg": -90.0,
+        "travel_yaw_deg": 270.0,
+        "kind": "STOP",
+        "pass_mm": 0
+      }
+    ],
+    "pivot_safe": true,
+    "pivot_seconds": 8.18,
+    "pivot_cost": {
+      "modeled_time_s": 8.18,
+      "yaw_total_deg": 90.78796519880606,
+      "yaw_residual_deg": 0.006926303873200368,
+      "yaw_reversals": 0,
+      "score_s": 9.54192337254019
+    },
+    "pivot_waypoints": [
+      {
+        "x_mm": 1200.0,
+        "y_mm": 400.0,
+        "layout_yaw_deg": 0,
+        "kind": "START",
+        "pass_mm": 0
+      },
+      {
+        "x_mm": 612.0,
+        "y_mm": 400.0,
+        "layout_yaw_deg": 0.0,
+        "travel_yaw_deg": 0.0,
+        "kind": "PASS",
+        "pass_mm": 1.0
+      },
+      {
+        "x_mm": 400.0,
+        "y_mm": 406.0,
+        "layout_yaw_deg": -90.0,
+        "travel_yaw_deg": 0.0,
+        "kind": "PASS",
+        "pass_mm": 2.0,
+        "motion": "WHEEL_PIVOT",
+        "pivot_wheel": "BL",
+        "pivot_center_mm": [
+          509.0,
+          509.0
+        ]
+      },
+      {
+        "x_mm": 400.0,
+        "y_mm": 1200.0,
+        "layout_yaw_deg": -90.0,
+        "travel_yaw_deg": 270.0,
+        "kind": "STOP",
+        "pass_mm": 0
+      }
+    ],
+    "wall_s": 0.14825470000505447
+  },
+  {
+    "label": "直接两段",
+    "mode": "REVERSE",
+    "safe": true,
+    "seconds": 8.8,
+    "cost": {
+      "modeled_time_s": 8.8,
+      "yaw_total_deg": 90.63466469471791,
+      "yaw_residual_deg": 0.0012485074254868778,
+      "yaw_reversals": 0,
+      "score_s": 10.15953869803215
+    },
+    "waypoints": [
+      {
+        "x_mm": 1200.0,
+        "y_mm": 400.0,
+        "layout_yaw_deg": 0,
+        "kind": "START",
+        "pass_mm": 0
+      },
+      {
+        "x_mm": 400.0,
+        "y_mm": 400.0,
+        "layout_yaw_deg": -90.0,
+        "travel_yaw_deg": 0.0,
+        "kind": "PASS",
+        "pass_mm": 5
+      },
+      {
+        "x_mm": 400.0,
+        "y_mm": 1200.0,
+        "layout_yaw_deg": -90.0,
+        "travel_yaw_deg": -90.0,
+        "kind": "STOP",
+        "pass_mm": 0
+      }
+    ],
+    "pivot_safe": true,
+    "pivot_seconds": 8.18,
+    "pivot_cost": {
+      "modeled_time_s": 8.18,
+      "yaw_total_deg": 90.78796519880606,
+      "yaw_residual_deg": 0.006926303873200368,
+      "yaw_reversals": 0,
+      "score_s": 9.54192337254019
+    },
+    "pivot_waypoints": [
+      {
+        "x_mm": 1200.0,
+        "y_mm": 400.0,
+        "layout_yaw_deg": 0,
+        "kind": "START",
+        "pass_mm": 0
+      },
+      {
+        "x_mm": 612.0,
+        "y_mm": 400.0,
+        "layout_yaw_deg": 0.0,
+        "travel_yaw_deg": 0.0,
+        "kind": "PASS",
+        "pass_mm": 1.0
+      },
+      {
+        "x_mm": 400.0,
+        "y_mm": 406.0,
+        "layout_yaw_deg": -90.0,
+        "travel_yaw_deg": 0.0,
+        "kind": "PASS",
+        "pass_mm": 2.0,
+        "motion": "WHEEL_PIVOT",
+        "pivot_wheel": "BL",
+        "pivot_center_mm": [
+          509.0,
+          509.0
+        ]
+      },
+      {
+        "x_mm": 400.0,
+        "y_mm": 1200.0,
+        "layout_yaw_deg": -90.0,
+        "travel_yaw_deg": -90.0,
+        "kind": "STOP",
+        "pass_mm": 0
+      }
+    ],
+    "wall_s": 0.14603200001874939
+  },
+  {
+    "label": "外侧倒行三段",
+    "mode": "MIN_TURN",
+    "safe": false,
+    "error": "关键坐标控制器实际扫掠：暂存区设备",
+    "wall_s": 0.048626899952068925
+  },
+  {
+    "label": "外侧倒行三段",
+    "mode": "GOAL_AWARE",
+    "safe": true,
+    "seconds": 10.88,
+    "cost": {
+      "modeled_time_s": 10.88,
+      "yaw_total_deg": 90.85609875617888,
+      "yaw_residual_deg": 0.004429289022226612,
+      "yaw_reversals": 0,
+      "score_s": 12.242907920678018
+    },
+    "waypoints": [
+      {
+        "x_mm": 1200.0,
+        "y_mm": 400.0,
+        "layout_yaw_deg": 0,
+        "kind": "START",
+        "pass_mm": 0
+      },
+      {
+        "x_mm": 300.0,
+        "y_mm": 400.0,
+        "layout_yaw_deg": -90.0,
+        "travel_yaw_deg": 0.0,
+        "kind": "PASS",
+        "pass_mm": 5
+      },
+      {
+        "x_mm": 300.0,
+        "y_mm": 1200.0,
+        "layout_yaw_deg": -90.0,
+        "travel_yaw_deg": 270.0,
+        "kind": "PASS",
+        "pass_mm": 5
+      },
+      {
+        "x_mm": 400.0,
+        "y_mm": 1200.0,
+        "layout_yaw_deg": -90.0,
+        "travel_yaw_deg": 270.0,
+        "kind": "STOP",
+        "pass_mm": 0
+      }
+    ],
+    "wall_s": 0.08822669996879995
+  },
+  {
+    "label": "外侧倒行三段",
+    "mode": "REVERSE",
+    "safe": false,
+    "error": "关键坐标控制器实际扫掠：暂存区设备",
+    "wall_s": 0.04921640001703054
+  }
+]

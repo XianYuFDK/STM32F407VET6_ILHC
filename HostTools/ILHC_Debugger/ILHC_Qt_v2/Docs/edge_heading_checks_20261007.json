@@ -1,0 +1,22 @@
+{
+  "status": "PASSED",
+  "algorithm": "e0e8c435c926cf7718008a25bc1bf8163c71d67fd2c175dc4704248f00b47e96",
+  "cached_routes": 24,
+  "model_rounds": 8,
+  "tests": 26,
+  "physical_motion_verified": false,
+  "firmware_changed": false,
+  "heading_field_deg": {
+    "raw": 0,
+    "rough": 180,
+    "storage": 90
+  },
+  "files": {
+    "main.py": "d131961022cff64053c97df6313beb3eb8e06caa11f74bf4a597930970b196e9",
+    "work_orientation.py": "37114f9d352d9f314809227b22ce441f6a3dc596fdb124c07a3cf55b12d6f256",
+    "competition_map.json": "90f81399c2b07597c7018e66b934d5f3bd0ef6e147beb17c88c394570c717f99",
+    "navigation_map.json": "f263eb9109bdba263887ee8340bace1ef0d916901fb9844c79a3545be26867d9",
+    "tests/test_station_calibration.py": "2d0451e030b468cdb847470a654e1a4f2ed10dc9a3b9de443310e9ab21eabde2",
+    "tests/test_right_crane_routes.py": "17dc325d7ecf576b14801df300ba915dd130354f69b0c58647e89278ab480817"
+  }
+}

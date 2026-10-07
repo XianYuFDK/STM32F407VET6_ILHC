@@ -5,6 +5,7 @@ import itertools
 import math
 import queue
 import re
+import time
 from pathlib import Path
 
 import core
@@ -96,11 +97,23 @@ def with_competition_defaults(data):
     return result,added
 
 
+def departure_reference(data, zone=1):
+    """Measured OPS maps launch/return at their measured zero, independently of zone selection."""
+    reference = data.get('coordinate_reference', {})
+    if reference.get('mode') == 'MEASURED_OPS_ZERO':
+        staging = nav.point2(reference['departure_field_mm'], '置零出库接近点')
+        return core.field_to_layout(0, 0), core.field_to_layout(*staging)
+    config = data['competition']
+    return tuple(config['start_zones'][str(zone)]), tuple(config['staging'][str(zone)])
+
+
 def collision_scene(data, margin=10, sim_obstacles=()):
-    return nav.CollisionScene(data['rects'], data['circles'], data['bounds'], margin,
+    scene=nav.CollisionScene(data['rects'], data['circles'], data['bounds'], margin,
                               (core.CAR_LENGTH_MM, core.CAR_WIDTH_MM, 0), data['drivable_polygons'],
                               dynamic_rects=data.get('dynamic_rects'),dynamic_circles=data.get('dynamic_circles'),
                               sim_circles=core.sim_obstacle_circles(sim_obstacles))
+    scene.wheel_geometry=copy.deepcopy(data.get('wheel_geometry'))
+    return scene
 
 
 def obstacle_snapshot(data, points):
@@ -323,18 +336,41 @@ def plan_leg(start, goal, scene, nodes, cancelled=lambda: False, *, graph_cache=
 
 
 def compile_match(data, task_code=DEFAULT_CODE, zone=1, margin=10, cancelled=lambda: False,
-                  sim_obstacles=(), *, coordinate_mode=False, chassis_control=None):
+                  sim_obstacles=(), *, coordinate_mode=False, chassis_control=None,
+                  reuse_static_routes=True, route_cache_dir=None, online_leg_budget_s=2.0,
+                  refresh_static_routes=False, static_leg_budget_s=5.0):
     """预检整轮；站点仅来自可编辑配置，原始比赛地图不被覆盖。"""
     data = copy.deepcopy(data)
     batches = parse_task_code(task_code)
     chassis_control = dict(core.CHASSIS_DEFAULTS, **copy.deepcopy(chassis_control or {})) if coordinate_mode else None
     if zone not in (1, 2):
         raise ValueError('出发区必须为1或2')
+    if not math.isfinite(static_leg_budget_s) or not .1<=static_leg_budget_s<=60:
+        raise ValueError('固定路线首次搜索预算须为0.1..60秒/路段')
     obstacles = obstacle_snapshot(data, sim_obstacles)
     scene = collision_scene(data, margin, obstacles)
+    # 整批路段从名义站点起步，实车上一段允许<1mm/<1°残差。
+    # 按矩形最远角点的1°位移加1mm位置门，向上取整预留衔接误差；
+    # 出入库和运行碰撞检查仍使用用户原裕量，路线候选按更严格的场景验证。
+    handoff_reserve = (math.ceil(1+2*math.hypot(core.CAR_LENGTH_MM/2+margin,
+        core.CAR_WIDTH_MM/2+margin)*math.sin(math.radians(.5))) if coordinate_mode else 0)
+    planning_scene = collision_scene(data, margin+handoff_reserve, obstacles) if coordinate_mode else scene
+    extra_obstacles = bool(obstacles or data.get('dynamic_rects') or data.get('dynamic_circles'))
+    static_store = None
+    if coordinate_mode and reuse_static_routes:
+        from route_store import RouteStore
+        baseline = copy.deepcopy(data)
+        baseline.pop('dynamic_rects', None)
+        baseline.pop('dynamic_circles', None)
+        static_store = RouteStore(baseline, margin, chassis_control,
+                                  (core.CAR_LENGTH_MM, core.CAR_WIDTH_MM), root=route_cache_dir)
     config = data['competition']
-    home = tuple(config['start_zones'][str(zone)])
-    staging = tuple(config['staging'][str(zone)])
+    from work_orientation import work_heading
+    for work_station in ('raw', 'rough', 'storage'):
+        work_heading(config, work_station)
+    home, staging = departure_reference(data, zone)
+    measured_origin = data.get('coordinate_reference', {}).get('mode') == 'MEASURED_OPS_ZERO'
+    home_name = '实测OPS出发零点' if measured_origin else '启停区'
     # 用户默认车头朝场地+Y（界面0°）；LAYOUT +x朝场地-Y，所以实际布局角为180°。
     launch_yaw = 180
     lateral = (staging[0], home[1])
@@ -356,13 +392,43 @@ def compile_match(data, task_code=DEFAULT_CODE, zone=1, margin=10, cancelled=lam
     legs = []
     route_cache = {}
     graph_cache = {}
-    def route_between(a, b, heading):
-        key = tuple(a), tuple(b), heading % 360
+    planning_stats = dict(search_calls=0, static_hits=0, revalidated_hits=0, local_hits=0)
+    def route_between(a, b, heading, goal_heading=None):
+        key = tuple(a), tuple(b), heading % 360, goal_heading
         if coordinate_mode:
             from coordinate_navigation import plan_route
+            if key in route_cache:
+                planning_stats['local_hits'] += 1
             if key not in route_cache:
-                route_cache[key] = plan_route(a, b, scene, config['lane_nodes'], heading, cancelled=cancelled,
-                                              graph_cache=graph_cache, chassis_control=chassis_control)
+                stored = static_store.get(a, b, heading, goal_heading, cancelled) if static_store and not refresh_static_routes else None
+                if stored is not None and extra_obstacles:
+                    from coordinate_navigation import replay
+                    try:
+                        samples, elapsed = replay(stored['waypoint_program'], planning_scene, cancelled)
+                        stored.update(trajectory=samples, predicted_tracking_s=elapsed,
+                                      trajectory_length_mm=samples[-1]['s_mm'], smoothed_length=samples[-1]['s_mm'],
+                                      smoothed_points=[core.field_to_layout(p['x_mm'], p['y_mm']) for p in samples])
+                        stored['motion_metrics'] = motion_metrics(stored)
+                        stored['route_reuse'].update(extra_obstacles=True, source='REVALIDATED_STATIC')
+                        stored['optimality'].update(proven=False, reason='fixed route replayed against current obstacles; alternatives not compared')
+                        planning_stats['revalidated_hits'] += 1
+                    except ValueError:
+                        if cancelled():
+                            raise
+                        stored = None
+                elif stored is not None:
+                    planning_stats['static_hits'] += 1
+                if stored is None:
+                    # 额外障碍按有限时间找完整预演通过的路线，无障碍离线比较后固定复用。
+                    deadline = time.monotonic()+(online_leg_budget_s if extra_obstacles else static_leg_budget_s)
+                    planning_stats['search_calls'] += 1
+                    stored = plan_route(a, b, planning_scene, config['lane_nodes'], heading, goal_yaw=goal_heading,
+                                        cancelled=cancelled, graph_cache=graph_cache, chassis_control=chassis_control,
+                                        deadline=deadline, interactive=False,turn_mode=data.get('turn_mode','WHEEL'))
+                    stored['route_reuse'] = dict(source='SEARCH', search_skipped=False, extra_obstacles=extra_obstacles)
+                    if static_store and not extra_obstacles:
+                        static_store.put(a, b, heading, goal_heading, stored, cancelled)
+                route_cache[key] = stored
             return copy.deepcopy(route_cache[key])
         if key not in route_cache:
             failures, candidates = [], []
@@ -441,8 +507,10 @@ def compile_match(data, task_code=DEFAULT_CODE, zone=1, margin=10, cancelled=lam
         return copy.deepcopy(route_cache[key])
     def travel(key, label):
         nonlocal current, current_yaw
+        from work_orientation import work_heading
         target = tuple(config['stations'][key])
-        result = route_between(current, target, current_yaw)
+        required_heading = work_heading(config, key)
+        result = route_between(current, target, current_yaw, required_heading)
         first = result['waypoint_program']['start'] if coordinate_mode else result['trajectory'][0]
         yaw = -90-first['field_yaw_deg']
         if abs((yaw-current_yaw+180) % 360-180) > nav.EPS:
@@ -454,8 +522,23 @@ def compile_match(data, task_code=DEFAULT_CODE, zone=1, margin=10, cancelled=lam
         legs.append(dict(label=label, route=result))
         last = result['waypoint_program']['goal'] if coordinate_mode else result['trajectory'][-1]
         current, current_yaw = target, -90-last['field_yaw_deg']
+        if required_heading is not None:
+            # 旧密集协议兼容；当前坐标程序直接以作业航向停车。
+            delta = (required_heading-current_yaw+180) % 360-180
+            if abs(delta) > nav.EPS:
+                why = scene.turn_reason(current, current_yaw, required_heading)
+                if why:
+                    raise ValueError(label+'：右侧塔吊作业航向调整不安全：'+why)
+                maneuver('右侧塔吊对准作业区', current, required_heading)
+                current_yaw = required_heading
+            stages[-1]['work_station'] = key
+            stages[-1]['work_heading_deg'] = required_heading
     def action(kind, label, **fields):
-        stages.append(dict(kind=kind, label=label, duration_s=.5, **fields))
+        work_station = {'RAW_PICK': 'raw', 'ROUGH_PLACE': 'rough', 'ROUGH_PICK': 'rough',
+                        'STORAGE_PLACE': 'storage'}.get(kind)
+        orientation = {} if work_station is None else dict(work_station=work_station,
+                        work_heading_deg=work_heading(config, work_station))
+        stages.append(dict(kind=kind, label=label, duration_s=.5, **orientation, **fields))
     travel('qr', '前往二维码板')
     action('SCAN', '模拟扫码并显示任务码')
     for batch_i, batch in enumerate(batches, 1):
@@ -493,14 +576,22 @@ def compile_match(data, task_code=DEFAULT_CODE, zone=1, margin=10, cancelled=lam
         raise ValueError('入库航向调整不安全：'+why)
     if abs((yaw-launch_yaw+180) % 360-180) > nav.EPS:
         maneuver('入库前对齐车头', staging, launch_yaw)
+    else:
+        # 两种跟随器STOP均允许亚毫米/亚角度残差；贴边入库前先精确收敛。
+        maneuver('入库前收敛停车点', staging, launch_yaw)
     if diagonal_docking:
-        maneuver('麦轮斜向入库：保持车头返回启停区', home, launch_yaw)
+        maneuver('麦轮斜向入库：保持车头返回'+home_name, home, launch_yaw)
     else:
         maneuver('入库：保持航向驶向启停区边', lateral, launch_yaw)
-        maneuver('入库横移：返回抽签启停区', home, launch_yaw)
+        maneuver('入库横移：返回'+home_name, home, launch_yaw)
     return dict(schema_version=2, kind='PRELIMINARY_PC_SIMULATION', task_code=task_code,
-                planner='COORDINATE_NO_ARC' if coordinate_mode else 'MECANUM_BODY_AND_TANGENT', diagonal_docking=diagonal_docking,
+                turn_mode=data.get('turn_mode','WHEEL'),planner='COORDINATE_NO_ARC' if coordinate_mode else 'MECANUM_BODY_AND_TANGENT', diagonal_docking=diagonal_docking,
                 chassis_control=chassis_control,
+                crane_side='RIGHT',
+                origin_mode='MEASURED_OPS_ZERO' if measured_origin else 'START_ZONE',
+                route_policy='ADAPTIVE_VERIFIED' if extra_obstacles else 'FIXED_VERIFIED',
+                planning_stats=planning_stats,
+                handoff_reserve_mm=handoff_reserve,
                 zone=zone, home=home, start_yaw=launch_yaw, stages=stages, legs=legs,
                 batches=batches, map_snapshot=copy.deepcopy(data), margin_mm=margin,
                 sim_obstacles=obstacles, obstacle_frame_id='LAYOUT_MM',
@@ -522,13 +613,14 @@ class PoseManeuver:
         x, y, yaw = pose
         dx, dy = self.target['x_mm']-x, self.target['y_mm']-y
         distance = math.hypot(dx, dy)
-        delta = (self.target['field_yaw_deg']-yaw+180) % 360-180
+        # remainder保留跨360°时的浮点残差；贴边入库不能留下约1e-13°的假转角。
+        delta = math.remainder(self.target['field_yaw_deg']-yaw, 360)
         speed = min(speed_limit, distance*4) if distance >= .2 else distance*core.SEND_HZ
         # 进入1°/s停稳门之前消除小角度残差，避免转向完成后下一平移被判隐式旋转。
         omega = max(-yaw_rate_limit, min(yaw_rate_limit, delta*6 if abs(delta) >= .2 else delta*core.SEND_HZ))
         self.progress = max(self.progress, self.length-distance)
         velocity = (0, 0) if distance < 1e-9 else (speed*dx/distance, speed*dy/distance)
-        return self.reference_at(0), velocity, 0 if abs(delta) < 1e-9 else omega
+        return self.reference_at(0), velocity, 0 if delta == 0 else omega
 
 
 class CompetitionRunner:
@@ -608,6 +700,10 @@ class CompetitionRunner:
         else:
             self.status = 'ACTION'
             self.action_pose = self._field_pose(self.sim.navigation_snapshot())
+            if 'work_heading_deg' in stage:
+                yaw = -90-self.action_pose[2]
+                if abs((yaw-stage['work_heading_deg']+180)%360-180) >= 1:
+                    raise ValueError('右侧塔吊未对准作业区，拒绝作业')
 
     def _field_pose(self, snap):
         if snap['hold'] is None:
@@ -674,6 +770,8 @@ class CompetitionRunner:
                 return
             dt = (snap['frame_seq']-self.frame_seq)/core.SEND_HZ
             self.frame_seq = snap['frame_seq']
+            if snap.get('paused'):
+                return
             self.elapsed_s += dt
             self.actual_trace.append(dict(x_mm=pose[0], y_mm=pose[1], field_yaw_deg=pose[2],
                                           elapsed_s=self.elapsed_s, stage_index=self.index))

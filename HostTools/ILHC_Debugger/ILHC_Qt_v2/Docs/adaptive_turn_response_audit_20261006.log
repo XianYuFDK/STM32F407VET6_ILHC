@@ -1,0 +1,55 @@
+{
+  "physical_motion_verified": false,
+  "nano_verified": false,
+  "source_plan": "E:\\STM32\\STM32F407VET6_ILHC\\HostTools\\ILHC_Debugger\\ILHC_Qt_v2\\records\\runs\\20261006_193116_859875_REAL_56ce1058\\runs\\852e5b168c7a4f76964180cb4a71dcbe\\plan.json",
+  "prior_control": "PC v2.1.15/16 normal wheel braking",
+  "parameters": {
+    "kpx": 1.5,
+    "kpy": 1.5,
+    "kpz": 9.05,
+    "xyvmax": 930.0,
+    "zvmax": 750.0,
+    "xyvmin": 0.5,
+    "zvmin": 0.5
+  },
+  "sim_obstacles": [
+    [
+      1191.1764705882354,
+      692.6470588235293
+    ],
+    [
+      301.764705882353,
+      2114.1176470588234
+    ]
+  ],
+  "planning_s": 2.0027053999947384,
+  "route_before": {
+    "skeleton": [
+      [
+        1200,
+        400
+      ],
+      [
+        300,
+        400
+      ],
+      [
+        300,
+        300
+      ],
+      [
+        400,
+        300
+      ],
+      [
+        400,
+        1200
+      ]
+    ],
+    "predicted_s": 11.54,
+    "length_mm": 2000.0
+  },
+  "braking_allowance_s": 0.32
+}
+新路线模型用时 8.86
+模型对照 [(0, 0, 1.2, 1.74, 0, 0), (0.04, 0.02, 3.0, 1.72, 1, 0), (0.08, 0.04, 3.4, 1.98, 1, 0), (0.12, 0.04, 3.7, 2.32, 1, 0), (0.16, 0.06, 3.8200000000000003, 3.42, 1, 1)]

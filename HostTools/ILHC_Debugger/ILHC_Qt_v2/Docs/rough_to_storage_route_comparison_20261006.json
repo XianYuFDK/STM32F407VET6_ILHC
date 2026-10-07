@@ -1,0 +1,69 @@
+{
+  "physical_motion_verified": false,
+  "heading_mode_selection": "local greedy choice; reverse combinations not exhaustively enumerated",
+  "objective": "skeleton length + 120mm per bend first; modeled time second",
+  "runs": [
+    {
+      "label": "当前中间路线",
+      "skeleton_points": [
+        [
+          1200,
+          400
+        ],
+        [
+          1200,
+          1200
+        ],
+        [
+          400,
+          1200
+        ]
+      ],
+      "skeleton_length_mm": 1600.0,
+      "skeleton_cost_mm": 1720.0,
+      "predicted_tracking_s": 5.88,
+      "actual_modeled_yaw_total_deg": 265.6697735845719,
+      "execution_safe": true,
+      "motion_metrics": {
+        "equivalent_cost_mm": 1726.5124403449256,
+        "forward_mm": 1457.225760523944,
+        "lateral_mm": 361.0327192974576,
+        "longest_strafe_mm": 16.1211835035449,
+        "reverse_mm": 22.996453090030723
+      }
+    },
+    {
+      "label": "沿车尾离开、外侧倒行候选",
+      "skeleton_points": [
+        [
+          1200,
+          400
+        ],
+        [
+          300,
+          400
+        ],
+        [
+          300,
+          1200
+        ],
+        [
+          400,
+          1200
+        ]
+      ],
+      "skeleton_length_mm": 1800.0,
+      "skeleton_cost_mm": 2040.0,
+      "predicted_tracking_s": 5.24,
+      "actual_modeled_yaw_total_deg": 90.14637420021438,
+      "execution_safe": true,
+      "motion_metrics": {
+        "forward_mm": 3.866777194739178,
+        "reverse_mm": 1591.008114049879,
+        "lateral_mm": 245.7184081143058,
+        "longest_strafe_mm": 34.35472460267283,
+        "equivalent_cost_mm": 2037.4726132366784
+      }
+    }
+  ]
+}

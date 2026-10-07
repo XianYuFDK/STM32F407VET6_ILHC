@@ -1,0 +1,81 @@
+{
+  "status": "ok",
+  "action": "build",
+  "summary": "build succeeded, errors=0 warnings=0",
+  "details": {
+    "project": "E:\\STM32\\STM32F407VET6_ILHC\\MDK-ARM",
+    "config": "STM32F407VET6_ILHC",
+    "build_dir": "E:\\STM32\\STM32F407VET6_ILHC\\MDK-ARM\\build\\STM32F407VET6_ILHC",
+    "log_file": "E:\\STM32\\STM32F407VET6_ILHC\\RTOS_APP\\validation\\ops-rx-recovery-build-20261006\\MDK-ARM-STM32F407VET6_ILHC-build.log",
+    "builder_exit_code": 0,
+    "axf_file": "E:\\STM32\\STM32F407VET6_ILHC\\MDK-ARM\\build\\STM32F407VET6_ILHC\\STM32F407VET6_ILHC.axf",
+    "hex_file": "E:\\STM32\\STM32F407VET6_ILHC\\MDK-ARM\\build\\STM32F407VET6_ILHC\\STM32F407VET6_ILHC.hex",
+    "s19_file": "E:\\STM32\\STM32F407VET6_ILHC\\MDK-ARM\\build\\STM32F407VET6_ILHC\\STM32F407VET6_ILHC.s19",
+    "map_file": "E:\\STM32\\STM32F407VET6_ILHC\\MDK-ARM\\build\\STM32F407VET6_ILHC\\STM32F407VET6_ILHC.map",
+    "htm_file": "E:\\STM32\\STM32F407VET6_ILHC\\MDK-ARM\\build\\STM32F407VET6_ILHC\\STM32F407VET6_ILHC.htm",
+    "debug_file": "E:\\STM32\\STM32F407VET6_ILHC\\MDK-ARM\\build\\STM32F407VET6_ILHC\\STM32F407VET6_ILHC.axf",
+    "flash_file": "E:\\STM32\\STM32F407VET6_ILHC\\MDK-ARM\\build\\STM32F407VET6_ILHC\\STM32F407VET6_ILHC.hex"
+  },
+  "context": {
+    "provider": "eide",
+    "workspace": "E:\\STM32\\STM32F407VET6_ILHC",
+    "parameter_sources": {
+      "builder_dir": "cli",
+      "project": "cli",
+      "config": "cli",
+      "log_dir": "cli"
+    }
+  },
+  "artifacts": {
+    "hex_file": "E:\\STM32\\STM32F407VET6_ILHC\\MDK-ARM\\build\\STM32F407VET6_ILHC\\STM32F407VET6_ILHC.hex",
+    "axf_file": "E:\\STM32\\STM32F407VET6_ILHC\\MDK-ARM\\build\\STM32F407VET6_ILHC\\STM32F407VET6_ILHC.axf",
+    "flash_file": "E:\\STM32\\STM32F407VET6_ILHC\\MDK-ARM\\build\\STM32F407VET6_ILHC\\STM32F407VET6_ILHC.hex",
+    "debug_file": "E:\\STM32\\STM32F407VET6_ILHC\\MDK-ARM\\build\\STM32F407VET6_ILHC\\STM32F407VET6_ILHC.axf",
+    "build_dir": "E:\\STM32\\STM32F407VET6_ILHC\\MDK-ARM\\build\\STM32F407VET6_ILHC",
+    "log_file": "E:\\STM32\\STM32F407VET6_ILHC\\RTOS_APP\\validation\\ops-rx-recovery-build-20261006\\MDK-ARM-STM32F407VET6_ILHC-build.log"
+  },
+  "metrics": {
+    "errors": 0,
+    "warnings": 0,
+    "flash_bytes": 82840,
+    "ram_bytes": 97496
+  },
+  "state": {
+    "workspace": "E:\\STM32\\STM32F407VET6_ILHC",
+    "file": "E:\\STM32\\STM32F407VET6_ILHC\\.embeddedskills\\state.json",
+    "updated_keys": [
+      "last_build"
+    ],
+    "last_build": {
+      "provider": "eide",
+      "action": "build",
+      "project": "MDK-ARM",
+      "config": "STM32F407VET6_ILHC",
+      "log_dir": "RTOS_APP/validation/ops-rx-recovery-build-20261006",
+      "artifacts": {
+        "hex_file": "MDK-ARM/build/STM32F407VET6_ILHC/STM32F407VET6_ILHC.hex",
+        "axf_file": "MDK-ARM/build/STM32F407VET6_ILHC/STM32F407VET6_ILHC.axf",
+        "flash_file": "MDK-ARM/build/STM32F407VET6_ILHC/STM32F407VET6_ILHC.hex",
+        "debug_file": "MDK-ARM/build/STM32F407VET6_ILHC/STM32F407VET6_ILHC.axf",
+        "build_dir": "MDK-ARM/build/STM32F407VET6_ILHC",
+        "log_file": "RTOS_APP/validation/ops-rx-recovery-build-20261006/MDK-ARM-STM32F407VET6_ILHC-build.log"
+      },
+      "hex_file": "MDK-ARM/build/STM32F407VET6_ILHC/STM32F407VET6_ILHC.hex",
+      "axf_file": "MDK-ARM/build/STM32F407VET6_ILHC/STM32F407VET6_ILHC.axf",
+      "flash_file": "MDK-ARM/build/STM32F407VET6_ILHC/STM32F407VET6_ILHC.hex",
+      "debug_file": "MDK-ARM/build/STM32F407VET6_ILHC/STM32F407VET6_ILHC.axf",
+      "build_dir": "MDK-ARM/build/STM32F407VET6_ILHC",
+      "log_file": "RTOS_APP/validation/ops-rx-recovery-build-20261006/MDK-ARM-STM32F407VET6_ILHC-build.log",
+      "timestamp": "2026-10-07T00:00:16+08:00"
+    }
+  },
+  "timing": {
+    "started_at": "2026-10-07T00:00:13+08:00",
+    "finished_at": "2026-10-07T00:00:16+08:00",
+    "elapsed_ms": 3156
+  },
+  "next_actions": [
+    "artifacts.flash_file can be reused for flash via jlink/openocd",
+    "artifacts.debug_file can be reused for gdb debugging"
+  ]
+}

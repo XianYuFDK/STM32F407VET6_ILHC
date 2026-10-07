@@ -1,0 +1,72 @@
+{
+  "test_ops_protocol": {
+    "returncode": 0,
+    "elapsed_s": 1.196,
+    "log": "E:\\STM32\\STM32F407VET6_ILHC\\RTOS_APP\\validation\\ops-rx-recovery-test_ops_protocol-20261006.log"
+  },
+  "test_ops_rx_recovery": {
+    "returncode": 0,
+    "elapsed_s": 1.507,
+    "log": "E:\\STM32\\STM32F407VET6_ILHC\\RTOS_APP\\validation\\ops-rx-recovery-test_ops_rx_recovery-20261006.log"
+  },
+  "test_ops_axis_direction": {
+    "returncode": 0,
+    "elapsed_s": 1.136,
+    "log": "E:\\STM32\\STM32F407VET6_ILHC\\RTOS_APP\\validation\\ops-rx-recovery-test_ops_axis_direction-20261006.log"
+  },
+  "test_ops_zero_frame": {
+    "returncode": 0,
+    "elapsed_s": 1.072,
+    "log": "E:\\STM32\\STM32F407VET6_ILHC\\RTOS_APP\\validation\\ops-rx-recovery-test_ops_zero_frame-20261006.log"
+  },
+  "test_ops_offset": {
+    "returncode": 0,
+    "elapsed_s": 1.077,
+    "log": "E:\\STM32\\STM32F407VET6_ILHC\\RTOS_APP\\validation\\ops-rx-recovery-test_ops_offset-20261006.log"
+  },
+  "test_debug_telemetry": {
+    "returncode": 0,
+    "elapsed_s": 1.306,
+    "log": "E:\\STM32\\STM32F407VET6_ILHC\\RTOS_APP\\validation\\ops-rx-recovery-test_debug_telemetry-20261006.log"
+  },
+  "test_debug_rx_recovery": {
+    "returncode": 0,
+    "elapsed_s": 1.057,
+    "log": "E:\\STM32\\STM32F407VET6_ILHC\\RTOS_APP\\validation\\ops-rx-recovery-test_debug_rx_recovery-20261006.log"
+  },
+  "test_parse_line_axes": {
+    "returncode": 0,
+    "elapsed_s": 1.14,
+    "log": "E:\\STM32\\STM32F407VET6_ILHC\\RTOS_APP\\validation\\ops-rx-recovery-test_parse_line_axes-20261006.log"
+  },
+  "test_trajectory_bridge": {
+    "returncode": 0,
+    "elapsed_s": 1.07,
+    "log": "E:\\STM32\\STM32F407VET6_ILHC\\RTOS_APP\\validation\\ops-rx-recovery-test_trajectory_bridge-20261006.log"
+  },
+  "test_ops_trajectory_hold": {
+    "returncode": 0,
+    "elapsed_s": 3.036,
+    "log": "E:\\STM32\\STM32F407VET6_ILHC\\RTOS_APP\\validation\\ops-rx-recovery-test_ops_trajectory_hold-20261006.log"
+  },
+  "test_trajectory_buffer": {
+    "returncode": 0,
+    "elapsed_s": 52.391,
+    "log": "E:\\STM32\\STM32F407VET6_ILHC\\RTOS_APP\\validation\\ops-rx-recovery-test_trajectory_buffer-20261006.log"
+  },
+  "test_coordinate_batch": {
+    "returncode": 0,
+    "elapsed_s": 45.262,
+    "log": "E:\\STM32\\STM32F407VET6_ILHC\\RTOS_APP\\validation\\ops-rx-recovery-test_coordinate_batch-20261006.log"
+  },
+  "pc_targeted": {
+    "returncode": 1,
+    "elapsed_s": 3.015,
+    "log": "E:\\STM32\\STM32F407VET6_ILHC\\RTOS_APP\\validation\\ops-rx-recovery-pc_targeted-20261006.log"
+  },
+  "qt_trajectory": {
+    "returncode": 0,
+    "elapsed_s": 20.146,
+    "log": "E:\\STM32\\STM32F407VET6_ILHC\\RTOS_APP\\validation\\ops-rx-recovery-qt_trajectory-20261006.log"
+  }
+}

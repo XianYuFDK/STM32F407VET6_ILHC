@@ -1,0 +1,13 @@
+test_explicit_conflicting_profile_is_rejected_instead_of_moving_measured_point (tests.test_station_calibration_qt.StationCalibrationQtTests.test_explicit_conflicting_profile_is_rejected_instead_of_moving_measured_point) ... ok
+test_increased_clearance_rejects_measured_point_without_silently_shifting_it (tests.test_station_calibration_qt.StationCalibrationQtTests.test_increased_clearance_rejects_measured_point_without_silently_shifting_it) ... ok
+test_new_obstacle_at_station_is_rejected_before_submission (tests.test_station_calibration_qt.StationCalibrationQtTests.test_new_obstacle_at_station_is_rejected_before_submission) ... ok
+test_quick_buttons_use_exact_measured_station_and_right_crane_heading (tests.test_station_calibration_qt.StationCalibrationQtTests.test_quick_buttons_use_exact_measured_station_and_right_crane_heading) ... ok
+test_qt_float_readback_reuses_cli_integer_margin_cache (tests.test_right_crane_qt.RightCraneQtTests.test_qt_float_readback_reuses_cli_integer_margin_cache) ... ok
+test_quick_targets_use_right_crane_heading_for_clearance_and_route (tests.test_right_crane_qt.RightCraneQtTests.test_quick_targets_use_right_crane_heading_for_clearance_and_route) ... ok
+test_simulation_preparation_preserves_dynamic_and_fixed_geometry (tests.test_right_crane_qt.RightCraneQtTests.test_simulation_preparation_preserves_dynamic_and_fixed_geometry) ... ok
+test_station_click_overrides_free_heading_but_ordinary_click_does_not (tests.test_right_crane_qt.RightCraneQtTests.test_station_click_overrides_free_heading_but_ordinary_click_does_not) ... ok
+
+----------------------------------------------------------------------
+Ran 8 tests in 1.357s
+
+OK

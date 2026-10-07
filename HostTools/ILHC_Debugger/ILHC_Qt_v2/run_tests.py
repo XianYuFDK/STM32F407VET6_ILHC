@@ -21,7 +21,9 @@ def main():
                'tests.test_hardware_trajectory','tests.test_home_return','tests.test_trajectory_settings',
                'tests.test_segment_route','tests.test_coordinate_navigation','tests.test_mixed_telemetry',
                'tests.test_crc_telemetry','tests.test_competition_profile','tests.test_route_optimality',
-               'tests.test_click_planning','-v']]
+               'tests.test_click_planning','tests.test_pivot_turns','tests.test_right_crane_routes','tests.test_run_journal',
+               'tests.test_real_control_fixes','tests.test_wireless_telemetry','tests.test_adaptive_turn_fix',
+               'tests.test_approach_heading','tests.test_ops_diagnostics','-v']]
     if args.qt:
         missing=[name for name in ('PySide6','pyqtgraph','serial','shapely','numpy')
                  if importlib.util.find_spec(name) is None]
@@ -30,7 +32,8 @@ def main():
             print('请执行 python -m pip install -r requirements.txt',file=sys.stderr)
             return 2
         commands.append([sys.executable,'-m','unittest','test_debugger','test_serial_lifecycle','test_map_click_qt',
-                         'tests.test_dm_position','tests.test_hardware_trajectory_qt','tests.test_trajectory_settings_qt','-v'])
+                         'tests.test_dm_position','tests.test_hardware_trajectory_qt','tests.test_trajectory_settings_qt',
+                         'tests.test_right_crane_qt','tests.test_run_journal_qt','tests.test_wireless_telemetry_qt','-v'])
     env=dict(os.environ,QT_QPA_PLATFORM=os.environ.get('QT_QPA_PLATFORM','offscreen'))
     for cmd in commands:
         print('\nRUN: '+' '.join(cmd),flush=True)

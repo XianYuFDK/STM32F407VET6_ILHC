@@ -1,0 +1,28 @@
+test_incomplete_ready_and_old_firmware_capacity_fail_closed (tests.test_hardware_trajectory.UploaderTests.test_incomplete_ready_and_old_firmware_capacity_fail_closed) ... ok
+test_invalid_context_preserves_specific_reason_and_stop_before_run (tests.test_hardware_trajectory.UploaderTests.test_invalid_context_preserves_specific_reason_and_stop_before_run) ... ok
+test_invalid_session_and_timeout_cancel (tests.test_hardware_trajectory.UploaderTests.test_invalid_session_and_timeout_cancel) ... ok
+test_old_batch_and_stale_upload_reply_cannot_rewind (tests.test_hardware_trajectory.UploaderTests.test_old_batch_and_stale_upload_reply_cannot_rewind) ... ok
+test_rotation_center_fault_names_phase_and_keeps_stop (tests.test_hardware_trajectory.UploaderTests.test_rotation_center_fault_names_phase_and_keeps_stop) ... ok
+test_status_parser_preserves_identical_progress_replies (tests.test_hardware_trajectory.UploaderTests.test_status_parser_preserves_identical_progress_replies) ... ok
+test_upload_all_before_run_then_resume_does_not_resend (tests.test_hardware_trajectory.UploaderTests.test_upload_all_before_run_then_resume_does_not_resend) ... ok
+test_stale_telemetry_cancels_with_specific_reason_even_collision_off (tests.test_hardware_trajectory_qt.HardwareQtTests.test_stale_telemetry_cancels_with_specific_reason_even_collision_off) ... ok
+test_direct_map_mutation_reports_changed_field_and_snapshot (tests.test_hardware_trajectory_qt.HardwareQtTests.test_direct_map_mutation_reports_changed_field_and_snapshot) ... FAIL
+test_runtime_collision_switch_only_controls_map_collision_check (tests.test_hardware_trajectory_qt.HardwareQtTests.test_runtime_collision_switch_only_controls_map_collision_check) ... ok
+test_disabling_map_collision_does_not_disable_wheel_or_link_gate (tests.test_hardware_trajectory_qt.HardwareQtTests.test_disabling_map_collision_does_not_disable_wheel_or_link_gate) ... ok
+
+======================================================================
+FAIL: test_direct_map_mutation_reports_changed_field_and_snapshot (tests.test_hardware_trajectory_qt.HardwareQtTests.test_direct_map_mutation_reports_changed_field_and_snapshot)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\tests\test_hardware_trajectory_qt.py", line 102, in test_direct_map_mutation_reports_changed_field_and_snapshot
+    self.assertEqual(job.reason,'导航配置已变化：地图配置')
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: '地图版本/几何改变，连续跟踪已取消' != '导航配置已变化：地图配置'
+- 地图版本/几何改变，连续跟踪已取消
++ 导航配置已变化：地图配置
+
+
+----------------------------------------------------------------------
+Ran 11 tests in 1.031s
+
+FAILED (failures=1)

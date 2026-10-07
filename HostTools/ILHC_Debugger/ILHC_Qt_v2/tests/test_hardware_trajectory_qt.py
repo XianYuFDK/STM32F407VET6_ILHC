@@ -3,6 +3,7 @@ import argparse
 import copy
 import os
 import threading
+import tempfile
 import time
 from types import SimpleNamespace
 import unittest
@@ -24,6 +25,12 @@ class HardwareQtTests(unittest.TestCase):
     def setUpClass(cls):cls.app=main.QApplication.instance() or main.QApplication([])
 
     def setUp(self):
+        # OnlineWorkerStub走REAL代码路径，但日志只能进入测试临时目录。
+        temporary=tempfile.TemporaryDirectory(prefix='ilhc-hardware-qt-')
+        self.addCleanup(temporary.cleanup)
+        environment=patch.dict(os.environ,ILHC_RUN_LOG_DIR=temporary.name)
+        environment.start()
+        self.addCleanup(environment.stop)
         self.w=main.MainWindow(argparse.Namespace(port=None,baud=115200,simulate=False))
         self.w.nav_map=competition.load_profile()
         self.w.map_ox=self.w.map_oy=self.w.map_theta=0
@@ -54,6 +61,43 @@ class HardwareQtTests(unittest.TestCase):
         self.read_parameters()
         self.assertIsNone(self.w._real_future)
 
+    def test_coordinate_parameter_loss_retries_only_missing_without_starting_motion(self):
+        callbacks=[]
+        with patch.object(main.time,'monotonic',return_value=100):
+            self.w._read_coordinate_parameters(callbacks.append)
+            for i,name in enumerate(core.CHASSIS_NAMES):
+                with patch.object(main.time,'monotonic',return_value=100+i*.15):
+                    self.w._poll_coordinate_parameters()
+                if name!='KPZ':
+                    self.w._apply_param_readback(name,core.CHASSIS_DEFAULTS[core.SIM_PARAM_ATTRS[name]])
+            self.assertFalse(callbacks)
+            with patch.object(main.time,'monotonic',return_value=101.2):
+                self.w._poll_coordinate_parameters()
+            self.assertEqual(self.w._coordinate_read['attempts']['KPZ'],2)
+            self.assertTrue(all(v==1 for k,v in self.w._coordinate_read['attempts'].items() if k!='KPZ'))
+            self.w._apply_param_readback('KPZ',9)
+            with patch.object(main.time,'monotonic',return_value=101.3):
+                self.w._poll_coordinate_parameters()
+        self.assertEqual(len(callbacks),1)
+        self.assertEqual(callbacks[0],core.CHASSIS_DEFAULTS)
+        self.assertFalse(any(c.startswith(('CBEGIN=','TRUN=')) for c in self.w.line_q.queue))
+
+    def test_coordinate_parameter_timeout_names_missing_and_session_change_is_distinct(self):
+        self.w._read_coordinate_parameters(lambda values:self.fail('不得发车'))
+        pending=self.w._coordinate_read
+        pending['sent'].update(core.CHASSIS_NAMES)
+        pending['values'].update(core.CHASSIS_DEFAULTS)
+        del pending['values']['zvmin']
+        pending['attempts']['ZVMIN']=4;pending['deadline']=0
+        self.w._poll_coordinate_parameters()
+        self.assertIn('ZVMIN',self.w.map_status.text())
+        self.assertIn('请求4次',self.w.map_status.text())
+        self.assertNotIn('会话',self.w.map_status.text())
+        self.w._read_coordinate_parameters(lambda values:self.fail('不得发车'))
+        self.w.worker=None
+        self.w._poll_coordinate_parameters()
+        self.assertIn('串口会话已改变',self.w.map_status.text())
+
     def tearDown(self):
         self.w._clear_path();self.w.worker=None;self.w.close()
         self.w._planner_pool.shutdown(wait=True,cancel_futures=True)
@@ -76,6 +120,31 @@ class HardwareQtTests(unittest.TestCase):
         self.assertIn('触发位置X=105.0cm',job.reason)
         self.assertEqual(job.batch['collision_trigger']['check'],'当前车体')
         self.assertIn('STOP',list(self.w.urgent_q.queue))
+
+    def test_stale_telemetry_cancels_with_specific_reason_even_collision_off(self):
+        job=self.click_path();job.state='RUNNING'
+        self.w.real_collision_check.setChecked(False)
+        self.w.worker.frame_monotonic=99.7
+        with patch.object(main.time,'monotonic',return_value=100):
+            self.w._poll_real_match()
+        self.assertEqual(job.state,'RUNNING','300ms仍未超过原350ms门限')
+        self.w.worker.frame_monotonic=99.6
+        with patch.object(main.time,'monotonic',return_value=100):
+            self.w._poll_real_match()
+        self.assertEqual(job.state,'CANCELLED')
+        self.assertIn('OPS遥测过期：400ms',job.reason)
+        self.assertNotIn('地图、参数或连接变化',job.reason)
+        self.assertEqual(job.batch['validation_trigger']['telemetry_age_ms'],400)
+        self.assertEqual(job.batch['validation_trigger']['changed_fields'],[])
+        self.assertIn('STOP',list(self.w.urgent_q.queue))
+
+    def test_silent_calibration_change_reports_changed_field_and_snapshot(self):
+        job=self.click_path();job.state='RUNNING'
+        self.w.map_ox+=10
+        self.w._poll_real_match()
+        self.assertEqual(job.state,'CANCELLED')
+        self.assertEqual(job.reason,'导航配置已变化：X偏移')
+        self.assertEqual(job.batch['validation_trigger']['changed_fields'],['X偏移'])
 
     def test_disabling_map_collision_does_not_disable_wheel_or_link_gate(self):
         job=self.click_path();job.state='RUNNING'
@@ -115,6 +184,7 @@ class HardwareQtTests(unittest.TestCase):
         self.assertIn('自动加载',self.w.console.toPlainText())
 
     def test_missing_profile_at_zone_two_preserves_live_ops_and_obstacles(self):
+        self.w.nav_map.pop('coordinate_reference',None)  # Legacy zone-based map compatibility.
         self.w.nav_map.pop('competition');self.w.zone_combo.setCurrentIndex(1)
         self.w.latest[0]=210.;self.w.sim_obstacles=[(700,1200)]
         self.w._start_real_match()
@@ -160,7 +230,7 @@ class HardwareQtTests(unittest.TestCase):
         self.assertEqual(job.state,'CAPS');self.assertIn('CCAPS',list(self.w.line_q.queue))
         # 启停区规划+10mm正好贴边，实际0.4mm定位误差消耗裕量后仍有保留1mm。
         self.assertIsNone(self.w._real_scene.pose_reason(2250.4,2250.4,-180))
-        self.w.fw_text_q.put('固件文本: CCAPS 1 2048 3');self.w._process_frames()
+        self.w.fw_text_q.put('固件文本: CCAPS 8 2048 3');self.w._process_frames()
         self.assertEqual(job.state,'BEGIN')
         self.w.fw_text_q.put('固件文本: TSTAT %d 1 0 0 0 0'%job.batch['id']);self.w._process_frames()
         self.assertTrue(any(c.startswith('CPOINT=') for c in self.w.line_q.queue))
@@ -196,7 +266,7 @@ class HardwareQtTests(unittest.TestCase):
         self.assertFalse(self.w.nav_map['geometry_verified'])
         self.assertEqual(job.batch['kind'],'STM32_POINT_PATH')
         self.assertEqual(job.state,'CAPS')
-        job.handle_reply('CCAPS 1 2048 3')
+        job.handle_reply('CCAPS 8 2048 3')
         job.handle_reply('TSTAT %d 1 0 0 0 0'%job.batch['id'])
         while job.state=='UPLOADING':
             job.handle_reply('TSTAT %d 1 %d 0 0 0'%(job.batch['id'],job.sent))
@@ -240,6 +310,7 @@ class HardwareQtTests(unittest.TestCase):
         self.assertIn('STOP',list(self.w.urgent_q.queue))
 
     def test_real_click_supports_calibration_offsets_beyond_old_goto_range(self):
+        self.w.nav_map.pop('coordinate_reference',None)  # Legacy explicit-mapping protocol coverage.
         self.w.map_ox=4000;self.w.latest[:3]=[-385,15,0]
         self.w.latest_received_monotonic=time.monotonic()
         self.w._on_map_click(2100,1500)
@@ -318,6 +389,7 @@ class HardwareQtTests(unittest.TestCase):
         self.assertEqual(ctx['state'], 'SENT')
 
     def test_fault13_home_bypasses_planner_and_uses_selected_zone_mapping(self):
+        self.w.nav_map.pop('coordinate_reference',None)  # Explicit mapping is only supported by legacy maps.
         self.w.zone_combo.setCurrentIndex(1)
         self.w.map_ox=2100; self.w.map_oy=0; self.w.map_theta=20
         self.w.latest[:3]=[16.2,26.7,36.9]

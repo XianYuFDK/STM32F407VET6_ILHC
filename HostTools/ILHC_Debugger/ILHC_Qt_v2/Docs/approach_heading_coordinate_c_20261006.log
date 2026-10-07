@@ -1,0 +1,28 @@
+test_duplicate_conflict_and_legacy_capability_do_not_run (__main__.CoordinateFirmwareTests.test_duplicate_conflict_and_legacy_capability_do_not_run) ... ok
+test_eight_matches_c_execute_all_coordinates_with_swept_body (__main__.CoordinateFirmwareTests.test_eight_matches_c_execute_all_coordinates_with_swept_body) ... C关键坐标全场回放: [(0, 1, 26, 59.52), (0, 2, 26, 60.12), (1, 1, 26, 59.52), (1, 2, 26, 60.12), (4, 1, 30, 69.2), (4, 2, 30, 68.56), (2, 1, 32, 76.86), (2, 2, 32, 77.56)]
+ok
+test_exit_staging_and_next_stop_complete_through_integer_motors (__main__.CoordinateFirmwareTests.test_exit_staging_and_next_stop_complete_through_integer_motors) ... ok
+test_fault_text_matches_coordinate_three_second_gate (__main__.CoordinateFirmwareTests.test_fault_text_matches_coordinate_three_second_gate) ... ok
+test_four_outer_corners_both_directions_use_real_c_pivot_controller (__main__.CoordinateFirmwareTests.test_four_outer_corners_both_directions_use_real_c_pivot_controller) ... 真实C四角指定圆心: [((2100, 2100), False, 8.76, 0.978, 23.77), ((2100, 2100), True, 8.76, 0.978, 23.77), ((300, 2100), False, 8.76, 0.979, 23.77), ((300, 2100), True, 8.76, 0.978, 23.77), ((300, 300), False, 8.76, 0.978, 23.77), ((300, 300), True, 8.76, 0.978, 23.77), ((2100, 300), False, 8.76, 0.978, 23.77), ((2100, 300), True, 8.76, 0.979, 23.77)]
+ok
+test_fractional_rpm_mean_direction_limits_and_reset (__main__.CoordinateFirmwareTests.test_fractional_rpm_mean_direction_limits_and_reset) ... ok
+test_missed_pivot_exit_reports_recovery_without_rotation_floor (__main__.CoordinateFirmwareTests.test_missed_pivot_exit_reports_recovery_without_rotation_floor) ... ok
+test_new_pivot_batch_refuses_old_firmware_before_begin_or_points (__main__.CoordinateFirmwareTests.test_new_pivot_batch_refuses_old_firmware_before_begin_or_points) ... ok
+test_pivot_center_is_covered_by_crc_and_geometry_verification (__main__.CoordinateFirmwareTests.test_pivot_center_is_covered_by_crc_and_geometry_verification) ... ok
+test_pivot_center_mapping_and_final_arc_stop_use_real_motor_output (__main__.CoordinateFirmwareTests.test_pivot_center_mapping_and_final_arc_stop_use_real_motor_output) ... ok
+test_plain_coordinate_batch_also_requires_calibrated_geometry_firmware (__main__.CoordinateFirmwareTests.test_plain_coordinate_batch_also_requires_calibrated_geometry_firmware) ... ok
+test_protocol_crc_and_parameters (__main__.CoordinateFirmwareTests.test_protocol_crc_and_parameters) ... ok
+test_real_c_approach_heading_pass_rejects_ten_degree_error_without_stop (__main__.CoordinateFirmwareTests.test_real_c_approach_heading_pass_rejects_ten_degree_error_without_stop) ... ok
+test_real_c_wheel_lag_and_delayed_ops_finish_with_strict_gates (__main__.CoordinateFirmwareTests.test_real_c_wheel_lag_and_delayed_ops_finish_with_strict_gates) ... ok
+test_real_drift_cannot_finish_initial_stop (__main__.CoordinateFirmwareTests.test_real_drift_cannot_finish_initial_stop) ... ok
+test_rotated_mapping_and_nondefault_body_parameters (__main__.CoordinateFirmwareTests.test_rotated_mapping_and_nondefault_body_parameters) ... ok
+test_stall_diagnostic_retry_and_old_send_ack_keep_new_generation (__main__.CoordinateFirmwareTests.test_stall_diagnostic_retry_and_old_send_ack_keep_new_generation) ... ok
+test_stall_does_not_disable_stop_and_total_timeout (__main__.CoordinateFirmwareTests.test_stall_does_not_disable_stop_and_total_timeout) ... ok
+test_stationary_ops_noise_can_finish_initial_stop (__main__.CoordinateFirmwareTests.test_stationary_ops_noise_can_finish_initial_stop) ... ok
+test_stop_parameter_change_pose_loss_and_deviation (__main__.CoordinateFirmwareTests.test_stop_parameter_change_pose_loss_and_deviation) ... ok
+test_three_second_stall_warns_then_recovers_without_abort_or_skip (__main__.CoordinateFirmwareTests.test_three_second_stall_warns_then_recovers_without_abort_or_skip) ... ok
+
+----------------------------------------------------------------------
+Ran 21 tests in 91.115s
+
+OK

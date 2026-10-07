@@ -1,0 +1,115 @@
+test_adaptive_parallel_lanes_work_when_every_original_lane_is_blocked (tests.test_competition_simulation.AvoidanceOptimizationTests.test_adaptive_parallel_lanes_work_when_every_original_lane_is_blocked) ... ok
+test_completed_ninety_degree_maneuver_has_no_residual_yaw_before_translation (tests.test_competition_simulation.AvoidanceOptimizationTests.test_completed_ninety_degree_maneuver_has_no_residual_yaw_before_translation) ... ok
+test_screenshot_two_cylinders_complete_both_zones_with_all_actual_sweeps_safe (tests.test_competition_simulation.AvoidanceOptimizationTests.test_screenshot_two_cylinders_complete_both_zones_with_all_actual_sweeps_safe) ... FAIL
+test_small_screenshot_coordinate_error_also_finds_safe_full_round (tests.test_competition_simulation.AvoidanceOptimizationTests.test_small_screenshot_coordinate_error_also_finds_safe_full_round) ... FAIL
+test_another_code_preserves_each_color_stack (tests.test_competition_simulation.CompetitionCodeTests.test_another_code_preserves_each_color_stack) ... ok
+test_invalid_code_colors_slots_and_different_batches_rejected (tests.test_competition_simulation.CompetitionCodeTests.test_invalid_code_colors_slots_and_different_batches_rejected) ... ok
+test_official_code_and_second_stack_by_color_not_second_rough_slot (tests.test_competition_simulation.CompetitionCodeTests.test_official_code_and_second_stack_by_color_not_second_rough_slot) ... ok
+test_blocked_diagonal_docking_uses_safe_l_maneuvers (tests.test_competition_simulation.CompetitionFlowTests.test_blocked_diagonal_docking_uses_safe_l_maneuvers) ... FAIL
+test_code_display_waits_for_qr_arrival_and_scan_action (tests.test_competition_simulation.CompetitionFlowTests.test_code_display_waits_for_qr_arrival_and_scan_action) ... ok
+test_fake_completion_and_motion_during_action_are_rejected (tests.test_competition_simulation.CompetitionFlowTests.test_fake_completion_and_motion_during_action_are_rejected) ... ok
+test_mecanum_round_compares_direction_cost_and_keeps_diagonal_docking (tests.test_competition_simulation.CompetitionFlowTests.test_mecanum_round_compares_direction_cost_and_keeps_diagonal_docking) ... ok
+test_missing_cargo_fails_without_counting_a_placement (tests.test_competition_simulation.CompetitionFlowTests.test_missing_cargo_fails_without_counting_a_placement) ... ok
+test_no_new_frame_cannot_advance_clock_actions_or_stages (tests.test_competition_simulation.CompetitionFlowTests.test_no_new_frame_cannot_advance_clock_actions_or_stages) ... ok
+test_preflight_rejects_real_tracking_collision_even_if_geometry_is_safe (tests.test_competition_simulation.CompetitionFlowTests.test_preflight_rejects_real_tracking_collision_even_if_geometry_is_safe) ... ok
+test_prepare_rejects_occupied_station_bad_margin_and_cancellation (tests.test_competition_simulation.CompetitionFlowTests.test_prepare_rejects_occupied_station_bad_margin_and_cancellation) ... ok
+test_same_round_can_only_start_once (tests.test_competition_simulation.CompetitionFlowTests.test_same_round_can_only_start_once) ... ok
+test_screenshot_one_obstacle_has_straight_lanes_and_no_raw_to_rough_strafe (tests.test_competition_simulation.CompetitionFlowTests.test_screenshot_one_obstacle_has_straight_lanes_and_no_raw_to_rough_strafe) ... ok
+test_stop_and_version_changes_cancel_during_motion_and_work_without_restart (tests.test_competition_simulation.CompetitionFlowTests.test_stop_and_version_changes_cancel_during_motion_and_work_without_restart) ... ok
+test_task_order_requires_all_rough_placements_before_retrieval_and_second_batch (tests.test_competition_simulation.CompetitionFlowTests.test_task_order_requires_all_rough_placements_before_retrieval_and_second_batch) ... ok
+test_timeout_and_overlong_station_action_stop (tests.test_competition_simulation.CompetitionFlowTests.test_timeout_and_overlong_station_action_stop) ... ok
+test_two_start_zones_complete_entire_round_with_actual_body_sweeps (tests.test_competition_simulation.CompetitionFlowTests.test_two_start_zones_complete_entire_round_with_actual_body_sweeps) ... 
+  test_two_start_zones_complete_entire_round_with_actual_body_sweeps (tests.test_competition_simulation.CompetitionFlowTests.test_two_start_zones_complete_entire_round_with_actual_body_sweeps) (zone=1) ... FAIL
+test_wrong_first_layer_cannot_count_a_stack (tests.test_competition_simulation.CompetitionFlowTests.test_wrong_first_layer_cannot_count_a_stack) ... ok
+test_actual_pose_on_obstacle_stops_without_committing_more_motion (tests.test_competition_simulation.CompetitionObstacleTests.test_actual_pose_on_obstacle_stops_without_committing_more_motion) ... ok
+test_central_blocker_forces_detour_instead_of_only_drawing_an_obstacle (tests.test_competition_simulation.CompetitionObstacleTests.test_central_blocker_forces_detour_instead_of_only_drawing_an_obstacle) ... ok
+test_four_obstacles_both_zones_complete_with_every_actual_rectangle_sweep_safe (tests.test_competition_simulation.CompetitionObstacleTests.test_four_obstacles_both_zones_complete_with_every_actual_rectangle_sweep_safe) ... 
+  test_four_obstacles_both_zones_complete_with_every_actual_rectangle_sweep_safe (tests.test_competition_simulation.CompetitionObstacleTests.test_four_obstacles_both_zones_complete_with_every_actual_rectangle_sweep_safe) (zone=1) ... FAIL
+test_invalid_obstacles_are_rejected_without_ignoring_them (tests.test_competition_simulation.CompetitionObstacleTests.test_invalid_obstacles_are_rejected_without_ignoring_them) ... ok
+test_obstacle_snapshot_export_is_independent_and_map_has_no_duplicate_cylinders (tests.test_competition_simulation.CompetitionObstacleTests.test_obstacle_snapshot_export_is_independent_and_map_has_no_duplicate_cylinders) ... ok
+test_occupied_start_or_station_and_disconnected_lanes_refuse_entire_round (tests.test_competition_simulation.CompetitionObstacleTests.test_occupied_start_or_station_and_disconnected_lanes_refuse_entire_round) ... ok
+test_entire_match_executes_after_removing_all_dense_route_points (tests.test_segment_route.SegmentCompetitionTests.test_entire_match_executes_after_removing_all_dense_route_points) ... FAIL
+test_arc_moves_and_changes_heading_without_waiting_at_endpoints (tests.test_segment_route.SegmentRouteTests.test_arc_moves_and_changes_heading_without_waiting_at_endpoints) ... ok
+test_collinear_endpoints_merge_and_json_contains_no_sample_table (tests.test_segment_route.SegmentRouteTests.test_collinear_endpoints_merge_and_json_contains_no_sample_table) ... ok
+test_invalid_geometry_and_turn_fallback_are_not_implicitly_connected (tests.test_segment_route.SegmentRouteTests.test_invalid_geometry_and_turn_fallback_are_not_implicitly_connected) ... ok
+test_program_still_requires_full_rectangular_collision_recheck (tests.test_segment_route.SegmentRouteTests.test_program_still_requires_full_rectangular_collision_recheck) ... ok
+test_segment_tracker_needs_only_geometry_and_matches_old_commands (tests.test_segment_route.SegmentRouteTests.test_segment_tracker_needs_only_geometry_and_matches_old_commands) ... ok
+test_stop_and_map_version_change_cancel_without_residual_motion (tests.test_segment_route.SegmentRouteTests.test_stop_and_map_version_change_cancel_without_residual_motion) ... ok
+test_stop_during_segment_recheck_does_not_block_or_accept_old_epoch (tests.test_segment_route.SegmentRouteTests.test_stop_during_segment_recheck_does_not_block_or_accept_old_epoch) ... ok
+
+======================================================================
+FAIL: test_screenshot_two_cylinders_complete_both_zones_with_all_actual_sweeps_safe (tests.test_competition_simulation.AvoidanceOptimizationTests.test_screenshot_two_cylinders_complete_both_zones_with_all_actual_sweeps_safe)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\tests\test_competition_simulation.py", line 334, in test_screenshot_two_cylinders_complete_both_zones_with_all_actual_sweeps_safe
+    self.assertEqual(runner.status, 'COMPLETE', runner.reason)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 'FAULT' != 'COMPLETE'
+- FAULT
++ COMPLETE
+ : 比赛动作连续扫掠不安全：车体/安全裕量越出合法行驶区域
+
+======================================================================
+FAIL: test_small_screenshot_coordinate_error_also_finds_safe_full_round (tests.test_competition_simulation.AvoidanceOptimizationTests.test_small_screenshot_coordinate_error_also_finds_safe_full_round)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\tests\test_competition_simulation.py", line 346, in test_small_screenshot_coordinate_error_also_finds_safe_full_round
+    self.assertEqual(runner.status, 'COMPLETE', runner.reason)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 'FAULT' != 'COMPLETE'
+- FAULT
++ COMPLETE
+ : 比赛动作连续扫掠不安全：车体/安全裕量越出合法行驶区域
+
+======================================================================
+FAIL: test_blocked_diagonal_docking_uses_safe_l_maneuvers (tests.test_competition_simulation.CompetitionFlowTests.test_blocked_diagonal_docking_uses_safe_l_maneuvers)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\tests\test_competition_simulation.py", line 146, in test_blocked_diagonal_docking_uses_safe_l_maneuvers
+    self.assertEqual(runner.status, 'COMPLETE', runner.reason)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 'FAULT' != 'COMPLETE'
+- FAULT
++ COMPLETE
+ : 比赛动作连续扫掠不安全：车体/安全裕量越出合法行驶区域
+
+======================================================================
+FAIL: test_two_start_zones_complete_entire_round_with_actual_body_sweeps (tests.test_competition_simulation.CompetitionFlowTests.test_two_start_zones_complete_entire_round_with_actual_body_sweeps) (zone=1)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\tests\test_competition_simulation.py", line 79, in test_two_start_zones_complete_entire_round_with_actual_body_sweeps
+    self.assertEqual(runner.status, 'COMPLETE', runner.reason)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 'FAULT' != 'COMPLETE'
+- FAULT
++ COMPLETE
+ : 比赛动作连续扫掠不安全：车体/安全裕量越出合法行驶区域
+
+======================================================================
+FAIL: test_four_obstacles_both_zones_complete_with_every_actual_rectangle_sweep_safe (tests.test_competition_simulation.CompetitionObstacleTests.test_four_obstacles_both_zones_complete_with_every_actual_rectangle_sweep_safe) (zone=1)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\tests\test_competition_simulation.py", line 265, in test_four_obstacles_both_zones_complete_with_every_actual_rectangle_sweep_safe
+    self.assertEqual(runner.status, 'COMPLETE', runner.reason)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 'FAULT' != 'COMPLETE'
+- FAULT
++ COMPLETE
+ : 比赛动作连续扫掠不安全：车体/安全裕量越出合法行驶区域
+
+======================================================================
+FAIL: test_entire_match_executes_after_removing_all_dense_route_points (tests.test_segment_route.SegmentCompetitionTests.test_entire_match_executes_after_removing_all_dense_route_points)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "E:\STM32\STM32F407VET6_ILHC\HostTools\ILHC_Debugger\ILHC_Qt_v2\tests\test_segment_route.py", line 153, in test_entire_match_executes_after_removing_all_dense_route_points
+    self.assertEqual(runner.status, 'COMPLETE', runner.reason)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 'FAULT' != 'COMPLETE'
+- FAULT
++ COMPLETE
+ : 比赛动作连续扫掠不安全：车体/安全裕量越出合法行驶区域
+
+----------------------------------------------------------------------
+Ran 36 tests in 91.901s
+
+FAILED (failures=6)

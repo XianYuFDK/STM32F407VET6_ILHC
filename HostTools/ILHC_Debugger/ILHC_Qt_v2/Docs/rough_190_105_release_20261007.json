@@ -1,0 +1,798 @@
+{
+  "status": "PASSED",
+  "physical_motion_verified": false,
+  "nano_verified": false,
+  "platform": "Windows-11-10.0.26200-SP0",
+  "algorithm": "d9f2ddc8842ddc582a26c631f69214284e7d125e848d592fe7284669b0418d37",
+  "runs": [
+    {
+      "map": "competition_map.json",
+      "control": "DEFAULT",
+      "zone": 1,
+      "turn_mode": "MOVING",
+      "initial_plan_s": 27.50081609998597,
+      "initial_planning_stats": {
+        "search_calls": 6,
+        "static_hits": 0,
+        "revalidated_hits": 0,
+        "local_hits": 2
+      },
+      "disk_plan_s": 0.07802850002190098,
+      "memory_plan_s": 0.026394199987407774,
+      "cached_search_calls": 0,
+      "batch_s": 0.36300509999273345,
+      "point_count": 20,
+      "modeled_round_s": 61.86000000000407,
+      "work_stops": [
+        {
+          "station": "raw",
+          "error_mm": 0.492429125990863,
+          "yaw_error_deg": 0.005677796447116634
+        },
+        {
+          "station": "rough",
+          "error_mm": 0.4719745644658993,
+          "yaw_error_deg": 0.28070904078788317
+        },
+        {
+          "station": "storage",
+          "error_mm": 0.4760979172206252,
+          "yaw_error_deg": 0.004429289023164529
+        },
+        {
+          "station": "raw",
+          "error_mm": 0.4867275071411956,
+          "yaw_error_deg": 1.1368683772161603e-12
+        },
+        {
+          "station": "rough",
+          "error_mm": 0.4604455320075045,
+          "yaw_error_deg": 0.2863868372351135
+        },
+        {
+          "station": "storage",
+          "error_mm": 0.49460291211689056,
+          "yaw_error_deg": 0.0044292890233919024
+        }
+      ],
+      "rough_to_storage_skeleton": [
+        [
+          1200.0,
+          350.0
+        ],
+        [
+          350.0,
+          350.0
+        ],
+        [
+          350.0,
+          1150.0
+        ]
+      ]
+    },
+    {
+      "map": "competition_map.json",
+      "control": "REAL",
+      "zone": 1,
+      "turn_mode": "MOVING",
+      "initial_plan_s": 27.733906499983277,
+      "initial_planning_stats": {
+        "search_calls": 6,
+        "static_hits": 0,
+        "revalidated_hits": 0,
+        "local_hits": 2
+      },
+      "disk_plan_s": 0.09516959998290986,
+      "memory_plan_s": 0.03532389999600127,
+      "cached_search_calls": 0,
+      "batch_s": 0.48413619998609647,
+      "point_count": 20,
+      "modeled_round_s": 85.22000000000018,
+      "work_stops": [
+        {
+          "station": "raw",
+          "error_mm": 0.48448319772778703,
+          "yaw_error_deg": 0.005677796447571382
+        },
+        {
+          "station": "rough",
+          "error_mm": 0.4878430740697031,
+          "yaw_error_deg": 0.008174811298886198
+        },
+        {
+          "station": "storage",
+          "error_mm": 0.48798571287384135,
+          "yaw_error_deg": 0.0012485074257710949
+        },
+        {
+          "station": "raw",
+          "error_mm": 0.4861050903666318,
+          "yaw_error_deg": 2.2737367544323206e-13
+        },
+        {
+          "station": "rough",
+          "error_mm": 0.4509060874471712,
+          "yaw_error_deg": 0.002497014851201129
+        },
+        {
+          "station": "storage",
+          "error_mm": 0.4777143924616483,
+          "yaw_error_deg": 0.0069263038733424764
+        }
+      ],
+      "rough_to_storage_skeleton": [
+        [
+          1200.0,
+          350.0
+        ],
+        [
+          350.0,
+          350.0
+        ],
+        [
+          350.0,
+          1150.0
+        ]
+      ]
+    },
+    {
+      "map": "competition_map.json",
+      "control": "DEFAULT",
+      "zone": 1,
+      "turn_mode": "WHEEL",
+      "initial_plan_s": 27.408027000026777,
+      "initial_planning_stats": {
+        "search_calls": 6,
+        "static_hits": 0,
+        "revalidated_hits": 0,
+        "local_hits": 2
+      },
+      "disk_plan_s": 0.08274929999606684,
+      "memory_plan_s": 0.029589899990241975,
+      "cached_search_calls": 0,
+      "batch_s": 0.35968990001128986,
+      "point_count": 23,
+      "modeled_round_s": 66.58000000000389,
+      "work_stops": [
+        {
+          "station": "raw",
+          "error_mm": 0.492429125990863,
+          "yaw_error_deg": 0.005677796447116634
+        },
+        {
+          "station": "rough",
+          "error_mm": 0.4719745644658993,
+          "yaw_error_deg": 0.28070904078788317
+        },
+        {
+          "station": "storage",
+          "error_mm": 0.4891918086383051,
+          "yaw_error_deg": 0.0012485074250889738
+        },
+        {
+          "station": "raw",
+          "error_mm": 0.4744303954202971,
+          "yaw_error_deg": 0.0056777964483671894
+        },
+        {
+          "station": "rough",
+          "error_mm": 0.4925581613166857,
+          "yaw_error_deg": 0.29774243013105206
+        },
+        {
+          "station": "storage",
+          "error_mm": 0.4757107126886028,
+          "yaw_error_deg": 0.0012485074255437212
+        }
+      ],
+      "rough_to_storage_skeleton": [
+        [
+          1200.0,
+          350.0
+        ],
+        [
+          1200,
+          400
+        ],
+        [
+          350.0,
+          400
+        ],
+        [
+          350.0,
+          1150.0
+        ]
+      ]
+    },
+    {
+      "map": "competition_map.json",
+      "control": "REAL",
+      "zone": 1,
+      "turn_mode": "WHEEL",
+      "initial_plan_s": 27.54175569996005,
+      "initial_planning_stats": {
+        "search_calls": 6,
+        "static_hits": 0,
+        "revalidated_hits": 0,
+        "local_hits": 2
+      },
+      "disk_plan_s": 0.09770569996908307,
+      "memory_plan_s": 0.038427399995271116,
+      "cached_search_calls": 0,
+      "batch_s": 0.5139682000153698,
+      "point_count": 25,
+      "modeled_round_s": 89.11999999999941,
+      "work_stops": [
+        {
+          "station": "raw",
+          "error_mm": 0.48448319772778703,
+          "yaw_error_deg": 0.005677796447571382
+        },
+        {
+          "station": "rough",
+          "error_mm": 0.4463948144219807,
+          "yaw_error_deg": 0.003180781595915505
+        },
+        {
+          "station": "storage",
+          "error_mm": 0.48822009960156737,
+          "yaw_error_deg": 0.0012485074262258422
+        },
+        {
+          "station": "raw",
+          "error_mm": 0.4831391298352073,
+          "yaw_error_deg": 0.005677796448026129
+        },
+        {
+          "station": "rough",
+          "error_mm": 0.47551185487460873,
+          "yaw_error_deg": 0.0024970148524516844
+        },
+        {
+          "station": "storage",
+          "error_mm": 0.4979615921254821,
+          "yaw_error_deg": 0.004429289021118166
+        }
+      ],
+      "rough_to_storage_skeleton": [
+        [
+          1200.0,
+          350.0
+        ],
+        [
+          350.0,
+          350.0
+        ],
+        [
+          350.0,
+          1150.0
+        ]
+      ]
+    },
+    {
+      "map": "competition_map.json",
+      "control": "DEFAULT",
+      "zone": 1,
+      "turn_mode": "STOP_TURN",
+      "initial_plan_s": 29.029627299983986,
+      "initial_planning_stats": {
+        "search_calls": 6,
+        "static_hits": 0,
+        "revalidated_hits": 0,
+        "local_hits": 2
+      },
+      "disk_plan_s": 0.09561620000749826,
+      "memory_plan_s": 0.03565919998800382,
+      "cached_search_calls": 0,
+      "batch_s": 0.4282567999907769,
+      "point_count": 30,
+      "modeled_round_s": 89.83999999999926,
+      "work_stops": [
+        {
+          "station": "raw",
+          "error_mm": 0.4399234770811271,
+          "yaw_error_deg": 0.0
+        },
+        {
+          "station": "rough",
+          "error_mm": 0.002930440863263114,
+          "yaw_error_deg": 0.2863868372357956
+        },
+        {
+          "station": "storage",
+          "error_mm": 0.48557368342491003,
+          "yaw_error_deg": 0.00442928902202766
+        },
+        {
+          "station": "raw",
+          "error_mm": 0.4657139966926112,
+          "yaw_error_deg": 0.0
+        },
+        {
+          "station": "rough",
+          "error_mm": 0.020240732718449134,
+          "yaw_error_deg": 0.28638683723636404
+        },
+        {
+          "station": "storage",
+          "error_mm": 0.4758910717993132,
+          "yaw_error_deg": 0.004429289021345539
+        }
+      ],
+      "rough_to_storage_skeleton": [
+        [
+          1200.0,
+          350.0
+        ],
+        [
+          350.0,
+          350.0
+        ],
+        [
+          350.0,
+          1150.0
+        ]
+      ]
+    },
+    {
+      "map": "competition_map.json",
+      "control": "REAL",
+      "zone": 1,
+      "turn_mode": "STOP_TURN",
+      "initial_plan_s": 30.137949999945704,
+      "initial_planning_stats": {
+        "search_calls": 6,
+        "static_hits": 0,
+        "revalidated_hits": 0,
+        "local_hits": 2
+      },
+      "disk_plan_s": 0.16741100000217557,
+      "memory_plan_s": 0.04670290002832189,
+      "cached_search_calls": 0,
+      "batch_s": 0.6167671000002883,
+      "point_count": 30,
+      "modeled_round_s": 121.51999999999296,
+      "work_stops": [
+        {
+          "station": "raw",
+          "error_mm": 0.49262585749136123,
+          "yaw_error_deg": 2.2737367544323206e-13
+        },
+        {
+          "station": "rough",
+          "error_mm": 0.030791946526772973,
+          "yaw_error_deg": 0.29774243013025625
+        },
+        {
+          "station": "storage",
+          "error_mm": 0.49358735845515667,
+          "yaw_error_deg": 0.0012485074246342265
+        },
+        {
+          "station": "raw",
+          "error_mm": 0.49904880177287264,
+          "yaw_error_deg": 9.094947017729282e-13
+        },
+        {
+          "station": "rough",
+          "error_mm": 0.015946971065278766,
+          "yaw_error_deg": 0.29774243013025625
+        },
+        {
+          "station": "storage",
+          "error_mm": 0.4993025968563992,
+          "yaw_error_deg": 0.0012485074245205396
+        }
+      ],
+      "rough_to_storage_skeleton": [
+        [
+          1200.0,
+          350.0
+        ],
+        [
+          350.0,
+          350.0
+        ],
+        [
+          350.0,
+          1150.0
+        ]
+      ]
+    },
+    {
+      "map": "navigation_map.json",
+      "control": "DEFAULT",
+      "zone": 1,
+      "turn_mode": "MOVING",
+      "initial_plan_s": 27.42294060002314,
+      "initial_planning_stats": {
+        "search_calls": 6,
+        "static_hits": 0,
+        "revalidated_hits": 0,
+        "local_hits": 2
+      },
+      "disk_plan_s": 0.07499479997204617,
+      "memory_plan_s": 0.026594499999191612,
+      "cached_search_calls": 0,
+      "batch_s": 0.3236793000251055,
+      "point_count": 20,
+      "modeled_round_s": 61.820000000004065,
+      "work_stops": [
+        {
+          "station": "raw",
+          "error_mm": 0.4822105396788907,
+          "yaw_error_deg": 0.005677796448480876
+        },
+        {
+          "station": "rough",
+          "error_mm": 0.47990106853937153,
+          "yaw_error_deg": 0.28638683723534086
+        },
+        {
+          "station": "storage",
+          "error_mm": 0.4827492939611889,
+          "yaw_error_deg": 0.0012485074246342265
+        },
+        {
+          "station": "raw",
+          "error_mm": 0.4721745663542575,
+          "yaw_error_deg": 1.1368683772161603e-12
+        },
+        {
+          "station": "rough",
+          "error_mm": 0.4896768558542826,
+          "yaw_error_deg": 0.29774243013014257
+        },
+        {
+          "station": "storage",
+          "error_mm": 0.49911281918123146,
+          "yaw_error_deg": 0.0012485074239521055
+        }
+      ],
+      "rough_to_storage_skeleton": [
+        [
+          1200.0,
+          350.0
+        ],
+        [
+          350.0,
+          350.0
+        ],
+        [
+          350.0,
+          1150.0
+        ]
+      ]
+    },
+    {
+      "map": "navigation_map.json",
+      "control": "REAL",
+      "zone": 1,
+      "turn_mode": "MOVING",
+      "initial_plan_s": 27.68548230000306,
+      "initial_planning_stats": {
+        "search_calls": 6,
+        "static_hits": 0,
+        "revalidated_hits": 0,
+        "local_hits": 2
+      },
+      "disk_plan_s": 0.096411700011231,
+      "memory_plan_s": 0.033138099999632686,
+      "cached_search_calls": 0,
+      "batch_s": 0.44195259996922687,
+      "point_count": 20,
+      "modeled_round_s": 85.22000000000018,
+      "work_stops": [
+        {
+          "station": "raw",
+          "error_mm": 0.48448319772778703,
+          "yaw_error_deg": 0.005677796447571382
+        },
+        {
+          "station": "rough",
+          "error_mm": 0.4878430740697031,
+          "yaw_error_deg": 0.008174811298886198
+        },
+        {
+          "station": "storage",
+          "error_mm": 0.48798571287384135,
+          "yaw_error_deg": 0.0012485074257710949
+        },
+        {
+          "station": "raw",
+          "error_mm": 0.4861050903666318,
+          "yaw_error_deg": 2.2737367544323206e-13
+        },
+        {
+          "station": "rough",
+          "error_mm": 0.4509060874471712,
+          "yaw_error_deg": 0.002497014851201129
+        },
+        {
+          "station": "storage",
+          "error_mm": 0.4777143924616483,
+          "yaw_error_deg": 0.0069263038733424764
+        }
+      ],
+      "rough_to_storage_skeleton": [
+        [
+          1200.0,
+          350.0
+        ],
+        [
+          350.0,
+          350.0
+        ],
+        [
+          350.0,
+          1150.0
+        ]
+      ]
+    },
+    {
+      "map": "navigation_map.json",
+      "control": "DEFAULT",
+      "zone": 1,
+      "turn_mode": "WHEEL",
+      "initial_plan_s": 0.08399069996085018,
+      "initial_planning_stats": {
+        "search_calls": 0,
+        "static_hits": 6,
+        "revalidated_hits": 0,
+        "local_hits": 2
+      },
+      "disk_plan_s": 0.04936860001180321,
+      "memory_plan_s": 0.03014639997854829,
+      "cached_search_calls": 0,
+      "batch_s": 0.3236758999992162,
+      "point_count": 23,
+      "modeled_round_s": 65.12000000000418,
+      "work_stops": [
+        {
+          "station": "raw",
+          "error_mm": 0.492429125990863,
+          "yaw_error_deg": 0.005677796447116634
+        },
+        {
+          "station": "rough",
+          "error_mm": 0.4719745644658993,
+          "yaw_error_deg": 0.28070904078788317
+        },
+        {
+          "station": "storage",
+          "error_mm": 0.4873054229049078,
+          "yaw_error_deg": 0.00692630387322879
+        },
+        {
+          "station": "raw",
+          "error_mm": 0.483435036010944,
+          "yaw_error_deg": 2.2737367544323206e-13
+        },
+        {
+          "station": "rough",
+          "error_mm": 0.4749392428053506,
+          "yaw_error_deg": 0.2863868372357956
+        },
+        {
+          "station": "storage",
+          "error_mm": 0.48218775280508724,
+          "yaw_error_deg": 0.0012485074250889738
+        }
+      ],
+      "rough_to_storage_skeleton": [
+        [
+          1200.0,
+          350.0
+        ],
+        [
+          1200,
+          300
+        ],
+        [
+          350.0,
+          300
+        ],
+        [
+          350.0,
+          1150.0
+        ]
+      ]
+    },
+    {
+      "map": "navigation_map.json",
+      "control": "REAL",
+      "zone": 1,
+      "turn_mode": "WHEEL",
+      "initial_plan_s": 27.526424000039697,
+      "initial_planning_stats": {
+        "search_calls": 6,
+        "static_hits": 0,
+        "revalidated_hits": 0,
+        "local_hits": 2
+      },
+      "disk_plan_s": 0.10284289997071028,
+      "memory_plan_s": 0.03624929999932647,
+      "cached_search_calls": 0,
+      "batch_s": 0.5026583999861032,
+      "point_count": 25,
+      "modeled_round_s": 89.11999999999941,
+      "work_stops": [
+        {
+          "station": "raw",
+          "error_mm": 0.48448319772778703,
+          "yaw_error_deg": 0.005677796447571382
+        },
+        {
+          "station": "rough",
+          "error_mm": 0.4463948144219807,
+          "yaw_error_deg": 0.003180781595915505
+        },
+        {
+          "station": "storage",
+          "error_mm": 0.48822009960156737,
+          "yaw_error_deg": 0.0012485074262258422
+        },
+        {
+          "station": "raw",
+          "error_mm": 0.4831391298352073,
+          "yaw_error_deg": 0.005677796448026129
+        },
+        {
+          "station": "rough",
+          "error_mm": 0.47551185487460873,
+          "yaw_error_deg": 0.0024970148524516844
+        },
+        {
+          "station": "storage",
+          "error_mm": 0.4979615921254821,
+          "yaw_error_deg": 0.004429289021118166
+        }
+      ],
+      "rough_to_storage_skeleton": [
+        [
+          1200.0,
+          350.0
+        ],
+        [
+          350.0,
+          350.0
+        ],
+        [
+          350.0,
+          1150.0
+        ]
+      ]
+    },
+    {
+      "map": "navigation_map.json",
+      "control": "DEFAULT",
+      "zone": 1,
+      "turn_mode": "STOP_TURN",
+      "initial_plan_s": 28.81284189998405,
+      "initial_planning_stats": {
+        "search_calls": 6,
+        "static_hits": 0,
+        "revalidated_hits": 0,
+        "local_hits": 2
+      },
+      "disk_plan_s": 0.09373339999001473,
+      "memory_plan_s": 0.03466509998543188,
+      "cached_search_calls": 0,
+      "batch_s": 0.42252510000253096,
+      "point_count": 30,
+      "modeled_round_s": 89.83999999999926,
+      "work_stops": [
+        {
+          "station": "raw",
+          "error_mm": 0.4399234770811271,
+          "yaw_error_deg": 0.0
+        },
+        {
+          "station": "rough",
+          "error_mm": 0.002930440863263114,
+          "yaw_error_deg": 0.2863868372357956
+        },
+        {
+          "station": "storage",
+          "error_mm": 0.48557368342491003,
+          "yaw_error_deg": 0.00442928902202766
+        },
+        {
+          "station": "raw",
+          "error_mm": 0.4657139966926112,
+          "yaw_error_deg": 0.0
+        },
+        {
+          "station": "rough",
+          "error_mm": 0.020240732718449134,
+          "yaw_error_deg": 0.28638683723636404
+        },
+        {
+          "station": "storage",
+          "error_mm": 0.4758910717993132,
+          "yaw_error_deg": 0.004429289021345539
+        }
+      ],
+      "rough_to_storage_skeleton": [
+        [
+          1200.0,
+          350.0
+        ],
+        [
+          350.0,
+          350.0
+        ],
+        [
+          350.0,
+          1150.0
+        ]
+      ]
+    },
+    {
+      "map": "navigation_map.json",
+      "control": "REAL",
+      "zone": 1,
+      "turn_mode": "STOP_TURN",
+      "initial_plan_s": 30.142299200000707,
+      "initial_planning_stats": {
+        "search_calls": 6,
+        "static_hits": 0,
+        "revalidated_hits": 0,
+        "local_hits": 2
+      },
+      "disk_plan_s": 0.15981459995964542,
+      "memory_plan_s": 0.046515499998349696,
+      "cached_search_calls": 0,
+      "batch_s": 0.6107771000242792,
+      "point_count": 30,
+      "modeled_round_s": 121.51999999999296,
+      "work_stops": [
+        {
+          "station": "raw",
+          "error_mm": 0.49262585749136123,
+          "yaw_error_deg": 2.2737367544323206e-13
+        },
+        {
+          "station": "rough",
+          "error_mm": 0.030791946526772973,
+          "yaw_error_deg": 0.29774243013025625
+        },
+        {
+          "station": "storage",
+          "error_mm": 0.49358735845515667,
+          "yaw_error_deg": 0.0012485074246342265
+        },
+        {
+          "station": "raw",
+          "error_mm": 0.49904880177287264,
+          "yaw_error_deg": 9.094947017729282e-13
+        },
+        {
+          "station": "rough",
+          "error_mm": 0.015946971065278766,
+          "yaw_error_deg": 0.29774243013025625
+        },
+        {
+          "station": "storage",
+          "error_mm": 0.4993025968563992,
+          "yaw_error_deg": 0.0012485074245205396
+        }
+      ],
+      "rough_to_storage_skeleton": [
+        [
+          1200.0,
+          350.0
+        ],
+        [
+          350.0,
+          350.0
+        ],
+        [
+          350.0,
+          1150.0
+        ]
+      ]
+    }
+  ],
+  "route_count": 72
+}

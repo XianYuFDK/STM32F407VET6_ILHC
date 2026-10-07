@@ -319,7 +319,7 @@ class PositionPanel(QWidget):
         now = time.monotonic()
         if w.worker is None and w.sim is None:
             raise ValueError("未连接；请先连接 STM32 或开启模拟")
-        if (v is None or now-w.latest_received_monotonic > core.TELEMETRY_WARN_S
+        if (v is None or now-getattr(v,'full_state_monotonic',w.latest_received_monotonic) > core.TELEMETRY_WARN_S
                 or not all(math.isfinite(v[i]) for i in (12, 13, 14, 16))):
             raise ValueError("遥测不可用或已超时")
         if v[12] != w.dm_rows["DMID"].spin.value():
@@ -466,10 +466,11 @@ class PositionPanel(QWidget):
             ref = active["move"].position(elapsed)
             if active["move"].smooth:
                 core.put_dm_reference(self.owner.line_q, "DMPOS=%.6f" % motor_rad(ref, active["ratio"]))
-            done = active["arrival"].update(self.owner.latest_received_monotonic,
+            feedback_stamp=getattr(self.owner.latest,'full_state_monotonic',self.owner.latest_received_monotonic)
+            done = active["arrival"].update(feedback_stamp,
                                            active["move"].target-angle,
                                            math.degrees(v[14])/active["ratio"],
-                                           self.owner.latest_received_monotonic > active["start"]
+                                           feedback_stamp > active["start"]
                                            and elapsed >= active["move"].duration)
             if done:
                 self.active = None

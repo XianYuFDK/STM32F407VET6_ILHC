@@ -1,0 +1,59 @@
+{
+  "physical_motion_verified": false,
+  "comparison": [
+    {
+      "label": "previous_middle",
+      "skeleton_points": [
+        [
+          1200,
+          400
+        ],
+        [
+          1200,
+          1200
+        ],
+        [
+          400,
+          1200
+        ]
+      ],
+      "predicted_tracking_s": 5.88,
+      "yaw_total_deg": 269.71236465533815,
+      "motion_metrics": {
+        "forward_mm": 1457.1663603995607,
+        "reverse_mm": 23.05585321441445,
+        "lateral_mm": 361.0327192974573,
+        "longest_strafe_mm": 16.1211835035449,
+        "equivalent_cost_mm": 1726.5170043909886
+      },
+      "pivot_count": 0
+    },
+    {
+      "label": "tail_wheel",
+      "skeleton_points": [
+        [
+          1200,
+          400
+        ],
+        [
+          400,
+          400
+        ],
+        [
+          400,
+          1200
+        ]
+      ],
+      "predicted_tracking_s": 6.72,
+      "yaw_total_deg": 90.49271978352436,
+      "motion_metrics": {
+        "equivalent_cost_mm": 1875.4225973163848,
+        "forward_mm": 426.5993274427053,
+        "lateral_mm": 166.7781747261394,
+        "longest_strafe_mm": 0.0,
+        "reverse_mm": 1119.2181075594658
+      },
+      "pivot_count": 1
+    }
+  ]
+}

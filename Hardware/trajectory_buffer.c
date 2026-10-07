@@ -7,15 +7,25 @@
 #include <stdio.h>
 
 typedef char TrajPointSizeCheck[(sizeof(TrajPoint_t) == 16U) ? 1 : -1];
-typedef struct { TrajPoint_t base; int16_t travel100; uint16_t pass10,lead10; } CoordPoint_t;
+typedef struct { TrajPoint_t base; int16_t travel100; uint16_t pass10,lead10; int32_t center_x10,center_y10; } CoordPoint_t;
 static union { TrajPoint_t trajectory[TRAJ_CAPACITY]; CoordPoint_t coordinate[COORD_CAPACITY]; } storage;
 #define points storage.trajectory
 #define cpoints storage.coordinate
 typedef char CoordStorageSizeCheck[(sizeof(storage)==TRAJ_CAPACITY*16U)?1:-1];
-static uint8_t coordinate_mode, caps_coordinate;
+static uint8_t coordinate_mode, caps_coordinate,coordinate_format;
+static uint16_t coordinate_pivot_target;
+static float coordinate_pivot_rate;
+static uint8_t coordinate_pivot_recover,coordinate_exit_heading;
+static uint16_t coordinate_heading_target;
+static float coordinate_signed_yaw_rate;
+static float coordinate_command_velocity[2];
 static float chassis_live[7]={2.3f,2.3f,9.0f,1600.0f,750.0f,5.0f,5.0f};
 static float coordinate_parameters[7], coordinate_best_error;
 static volatile uint8_t state, cancel_req, run_req, resume_req;
+static volatile uint8_t pause_req, continue_req;
+static uint8_t paused_state;
+static uint32_t paused_tick;
+static float paused_pose[3];
 static volatile uint16_t received, count, cursor;
 static uint16_t verified, stop_index;
 static uint32_t id, expected_crc, crc, upload_tick, run_tick, step_tick;
@@ -30,6 +40,10 @@ static float coordinate_settle_bounds[6],coordinate_settle_yaw;
 static uint8_t stall_pending,coordinate_stall_warned;
 static uint32_t stall_generation,stall_id;
 static int32_t stall_data[8];
+/* 5Hz真实控制快照，与24通道兼容；邮箱可覆盖，不阻塞50Hz控制。 */
+static uint8_t control_pending;
+static uint32_t control_generation,control_id;
+static int32_t control_data[9];
 TrajControlParams_t traj_control_params = {500.0f,6.0f,6.0f,6.0f,120.0f,60.0f,180.0f,60.0f,100.0f,600.0f,1000.0f,150.0f};
 
 uint8_t Traj_SetControlParam(float *target,float value,float lower,float upper)
@@ -44,7 +58,16 @@ static float wrap(float a) { a = fmodf(a+180.0f,360.0f); if(a<0) a+=360.0f; retu
 static float minimum(float a,float b) { return a<b?a:b; }
 static float clamp(float x,float a,float b) { return x<a?a:x>b?b:x; }
 static void reply(void) { ++reply_generation; reply_pending=1U; }
-static void fail(uint8_t code) { error_code=code; state=TRAJ_FAULT; run_req=resume_req=0U; reply(); }
+static void fail(uint8_t code) { error_code=code; state=TRAJ_FAULT; run_req=resume_req=pause_req=continue_req=0U; reply(); }
+void Traj_Hold(uint32_t now)
+{
+  if(state!=TRAJ_RUNNING && state!=TRAJ_WAITING) return;
+  step_tick=now; settled_ms=0U; coordinate_settle_active=0U;
+  path_speed=rotate_rate=coordinate_pivot_rate=0.0f;
+  coordinate_command_velocity[0]=coordinate_command_velocity[1]=0.0f;
+  /* 禁止低频控制回读继续报告暂停之前的非零指令。 */
+  control_pending=0U;
+}
 static const TrajPoint_t *point(uint16_t i) { return coordinate_mode?&cpoints[i].base:&points[i]; }
 static float px(uint16_t i) { return point(i)->x10*0.1f; }
 static float py(uint16_t i) { return point(i)->y10*0.1f; }
@@ -111,6 +134,13 @@ static uint32_t crc_coordinate(uint32_t value,const CoordPoint_t *p)
     value^=(uint8_t)(words[i/2]>>(8*(i%2)));
     for(j=0;j<8;++j) value=(value>>1)^((value&1U)?0xEDB88320UL:0U);
   }
+  if(coordinate_format>=2U) {
+    uint32_t values[2];values[0]=(uint32_t)p->center_x10;values[1]=(uint32_t)p->center_y10;
+    for(i=0;i<8;++i) {
+      value^=(uint8_t)(values[i/4]>>(8*(i%4)));
+      for(j=0;j<8;++j) value=(value>>1)^((value&1U)?0xEDB88320UL:0U);
+    }
+  }
   return value;
 }
 
@@ -134,21 +164,27 @@ void Traj_UpdateChassisParameters(const float parameters[7])
 
 void Traj_Init(void)
 {
+  pause_req=continue_req=0U;
   const TrajControlParams_t defaults={500.0f,6.0f,6.0f,6.0f,120.0f,60.0f,180.0f,60.0f,100.0f,600.0f,1000.0f,150.0f};
   traj_control_params=defaults;
   state=TRAJ_IDLE; cancel_req=run_req=resume_req=0U;
   coordinate_mode=caps_coordinate=0U;
+  coordinate_format=1U;coordinate_pivot_target=65535U;coordinate_pivot_rate=0.0f;
+  coordinate_pivot_recover=coordinate_exit_heading=0U;coordinate_heading_target=65535U;
+  coordinate_signed_yaw_rate=0.0f;
+  coordinate_command_velocity[0]=coordinate_command_velocity[1]=0.0f;
   id=0U; progress=0; count=received=cursor=0U; reply_pending=caps_pending=0U;
   reply_generation=caps_generation=0U; error_code=0U; rotate_rate=path_speed=0.0f;
   coordinate_settle_active=0U;
   stall_pending=coordinate_stall_warned=0U;stall_generation=0U;
+  control_pending=0U;control_generation=0U;
 }
-uint8_t Traj_Busy(void) { return state>=TRAJ_RECEIVING && state<=TRAJ_WAITING; }
-uint8_t Traj_OutputAllowed(void) { return !cancel_req && state==TRAJ_RUNNING; }
+uint8_t Traj_Busy(void) { return (state>=TRAJ_RECEIVING && state<=TRAJ_WAITING) || state==TRAJ_PAUSED; }
+uint8_t Traj_OutputAllowed(void) { return !cancel_req && !pause_req && state==TRAJ_RUNNING; }
 void Traj_Cancel(uint8_t reason)
 {
   /* ISR和任务会重复确认取消；保留首个原因，不覆盖接收故障等诊断。 */
-  if(Traj_Busy()) { if(!cancel_req) error_code=reason; cancel_req=1U; run_req=resume_req=0U; }
+  if(Traj_Busy()) { if(!cancel_req) error_code=reason; cancel_req=1U; run_req=resume_req=pause_req=continue_req=0U; }
 }
 
 uint8_t Traj_CompleteStation(uint32_t batch_id,uint16_t point_index)
@@ -163,14 +199,18 @@ uint8_t Traj_CompleteStation(uint32_t batch_id,uint16_t point_index)
 
 uint8_t Traj_ParseLine(const char *line,uint32_t now,uint8_t upload_allowed)
 {
-  int64_t v[12]; TrajPoint_t p;
+  int64_t v[13]; TrajPoint_t p;
   if(strcmp(line,"TCAPS")==0 || strcmp(line,"CCAPS")==0) {
     caps_coordinate=(line[0]=='C');++caps_generation;caps_pending=1U;return 1U;
   }
   if(strncmp(line,"CBEGIN=",7)==0) {
-    uint8_t i;
+    uint8_t i,format=1U;
     if(cancel_req || Traj_Busy() || !upload_allowed) { reply();return 1U; }
-    if(!fields(line+7,v,12,3) || v[0]<=0 || v[1]<2 || v[1]>COORD_CAPACITY ||
+    if(!fields(line+7,v,12,3)) {
+      if(!fields(line+7,v,13,3) || (v[12]!=2 && v[12]!=3)) { fail(1);return 1U; }
+      format=(uint8_t)v[12];
+    }
+    if(v[0]<=0 || v[1]<2 || v[1]>COORD_CAPACITY ||
        v[2]<0 || v[4]<5 || v[4]>100) { fail(1);return 1U; }
     id=(uint32_t)v[0];received=cursor=0U;progress=0;
     stall_pending=coordinate_stall_warned=0U;
@@ -180,20 +220,24 @@ uint8_t Traj_ParseLine(const char *line,uint32_t now,uint8_t upload_allowed)
       coordinate_parameters[i]=value;
     }
     coordinate_mode=1U;count=(uint16_t)v[1];expected_crc=(uint32_t)v[3];margin=(float)v[4];
+    coordinate_format=format;coordinate_pivot_target=65535U;coordinate_pivot_rate=0.0f;
     crc=0xFFFFFFFFUL;received=cursor=verified=0U;progress=0;error_code=0U;
     upload_tick=now;state=TRAJ_RECEIVING;reply();return 1U;
   }
   if(strncmp(line,"CPOINT=",7)==0) {
     CoordPoint_t q;
     if(cancel_req || !coordinate_mode || state!=TRAJ_RECEIVING) { reply();return 1U; }
-    if(!fields(line+7,v,10,-1) || v[0]!=id || v[1]<0 || v[1]>=count ||
+    if(!fields(line+7,v,coordinate_format>=2U?12U:10U,-1) || v[0]!=id || v[1]<0 || v[1]>=count ||
        v[2]<-100000 || v[2]>100000 || v[3]<-100000 || v[3]>100000 ||
        v[4]<-18000 || v[4]>=18000 || v[5]<0 || v[5]>10000000 ||
-       v[6]<0 || v[6]>3 || v[7]<-18000 || v[7]>=18000 ||
+       v[6]<0 || (v[6]&~(coordinate_format==3U?115LL:coordinate_format==2U?83LL:67LL)) ||
+       ((v[6]&TRAJ_WHEEL_PIVOT) && !(v[6]&TRAJ_PIVOT)) || v[7]<-18000 || v[7]>=18000 ||
        v[8]<0 || v[8]>1000 || v[9]<1 || v[9]>20000) { fail(2);return 1U; }
+    if(coordinate_format>=2U && (v[10]<-100000 || v[10]>100000 || v[11]<-100000 || v[11]>100000)) { fail(2);return 1U; }
     memset(&q,0,sizeof(q));q.base.x10=(int32_t)v[2];q.base.y10=(int32_t)v[3];
     q.base.yaw100=(int16_t)v[4];q.base.s10=(uint32_t)v[5];q.base.flags=(uint16_t)v[6];
     q.travel100=(int16_t)v[7];q.pass10=(uint16_t)v[8];q.lead10=(uint16_t)v[9];
+    if(coordinate_format>=2U) { q.center_x10=(int32_t)v[10];q.center_y10=(int32_t)v[11]; }
     if(v[1]<received) { if(memcmp(&q,&cpoints[v[1]],sizeof(q))) fail(3);else reply();return 1U; }
     if(v[1]!=received) { fail(3);return 1U; }
     cpoints[received++]=q;crc=crc_coordinate(crc,&q);upload_tick=now;
@@ -238,6 +282,16 @@ uint8_t Traj_ParseLine(const char *line,uint32_t now,uint8_t upload_allowed)
     } else if(line[1]=='R') { if(state==TRAJ_READY && !cancel_req && upload_allowed) run_req=1U; }
     reply(); return 1U;
   }
+  if(strncmp(line,"TPAUSE=",7)==0 || strncmp(line,"TCONTINUE=",10)==0) {
+    const char *eq=strchr(line,'=');
+    uint32_t mask=__get_PRIMASK();__disable_irq();
+    if(fields(eq+1,v,1,-1) && v[0]==id && !cancel_req) {
+      if(line[1]=='P' && (state==TRAJ_RUNNING || state==TRAJ_WAITING)) pause_req=1U;
+      else if(line[1]=='C' && state==TRAJ_PAUSED && upload_allowed) continue_req=1U;
+    }
+    if(!mask)__enable_irq();
+    reply();return 1U;
+  }
   if(strncmp(line,"TRESUME=",8)==0) {
     if(fields(line+8,v,2,-1) && v[0]>0 && v[1]>=0 && v[1]<count)
       (void)Traj_CompleteStation((uint32_t)v[0],(uint16_t)v[1]);
@@ -275,6 +329,21 @@ static uint8_t validate_point(uint16_t i)
     if(i==0) return p->s10==0 && p->flags==TRAJ_STOP;
     if(ps(i)<ps(i-1)) return 0;
     ds=ps(i)-ps(i-1);dxy=distance(px(i)-px(i-1),py(i)-py(i-1));
+    if(p->flags&TRAJ_PIVOT) {
+      float cx=cpoints[i].center_x10*0.1f,cy=cpoints[i].center_y10*0.1f;
+      float x=px(i-1)-cx,y=py(i-1)-cy,radius=distance(x,y);
+      float angle=wrap(yaw(i)-yaw(i-1))*0.0174532925f,c=cosf(angle),s=sinf(angle);
+      if(p->flags&TRAJ_WHEEL_PIVOT) {
+        float heading=yaw(i-1)*0.0174532925f,dx=cx-px(i-1),dy=cy-py(i-1);
+        float lateral=cosf(heading)*dx-sinf(heading)*dy;
+        float forward=sinf(heading)*dx+cosf(heading)*dy;
+        if(fabsf(fabsf(lateral)-MECANUM_TRACK_MM*0.5f)>0.5f ||
+           fabsf(fabsf(forward)-MECANUM_WHEELBASE_MM*0.5f)>0.5f) return 0;
+      }
+      if(coordinate_format<2U || radius<40.0f || radius>2000.0f || fabsf(angle)<0.00017f || fabsf(angle)>2.094396f) return 0;
+      if(distance(cx+c*x+s*y-px(i),cy-s*x+c*y-py(i))>0.5f) return 0;
+      return fabsf(ds-radius*fabsf(angle))<=0.5f;
+    }
     if(fabsf(ds-dxy)>0.3f) return 0;
     if(ds==0) return dxy<0.2f && (p->flags&TRAJ_STOP) && (point(i-1)->flags&TRAJ_STOP);
     return !(p->flags&TRAJ_STOP) || cpoints[i].pass10==0;
@@ -289,6 +358,8 @@ static uint8_t validate_point(uint16_t i)
   if(ds<=0 || ds>20.2f || dxy>ds+0.2f || ds-dxy>0.3f || dyaw>5.1f) return 0;
   return 1U;
 }
+
+#define WHEEL_PIVOT_JOIN_MM_S 80.0f
 
 static float coordinate_limit(float value,float maximum,float compensation)
 {
@@ -331,30 +402,135 @@ static void coordinate_settle(const TrajPose_t *pose,uint8_t eligible,uint8_t fr
   settled_ms+=(uint32_t)(measured_dt*1000.0f+0.5f);
 }
 
+/* 指定圆心：实际航向推进圆弧相位，位置P修正与角速度对应的圆心平移叠加。
+ * OPS的X左/Y前轴系下，航向增加对应世界位置向量顺时针旋转。 */
+static uint8_t coordinate_pivot(const TrajPose_t *pose,uint16_t target,uint32_t dt,float command[3])
+{
+  float cx=cpoints[target].center_x10*0.1f,cy=cpoints[target].center_y10*0.1f;
+  float x=px(cursor)-cx,y=py(cursor)-cy,radius=distance(x,y);
+  float total=wrap(yaw(target)-yaw(cursor))*0.0174532925f;
+  float direction=total>0?1.0f:-1.0f,phase,position_phase,a,c,s,rx,ry,nx,ny;
+  float actual[3],goal[3],gain[3],error[3],requested,increment,omega,fx,fy,magnitude,scale,cross;
+  phase=clamp(direction*wrap(pose->yaw-yaw(cursor))*0.0174532925f,0,fabsf(total));
+  a=direction*phase;c=cosf(a);s=sinf(a);rx=cx+c*x+s*y;ry=cy-s*x+c*y;
+  position_phase=direction*wrap((atan2f(y,x)-atan2f(pose->y-cy,pose->x-cx))/0.0174532925f)*0.0174532925f;
+  position_phase=clamp(position_phase,0,fabsf(total));a=direction*position_phase;c=cosf(a);s=sinf(a);
+  nx=cx+c*x+s*y;ny=cy-s*x+c*y;
+  cross=fmaxf(distance(pose->x-rx,pose->y-ry),distance(pose->x-nx,pose->y-ny));
+  if(cross>75.0f) { fail(13);return 0U; }
+  progress=minimum(ps(count-1),fmaxf(progress,ps(cursor)+radius*position_phase));
+  actual[0]=pose->x;actual[1]=pose->y;actual[2]=pose->yaw;
+  goal[0]=rx;goal[1]=ry;goal[2]=yaw(target);
+  gain[0]=coordinate_parameters[0];gain[1]=coordinate_parameters[1];gain[2]=coordinate_parameters[2];
+  if(!chassis_move_reference(actual,goal,gain,NULL,1U,error,command)) { fail(8);return 0U; }
+  command[0]=coordinate_limit(command[0],coordinate_parameters[3],coordinate_parameters[5]);
+  command[1]=coordinate_limit(command[1],coordinate_parameters[3],coordinate_parameters[5]);
+  requested=coordinate_limit(command[2],coordinate_parameters[4],coordinate_parameters[6]);
+  if(coordinate_pivot_target!=target) coordinate_pivot_recover=0U;
+  /* 正常通过门仍同帧接直线。实车错过门后锁存恢复，不能以非零衔接速度反向追终点。 */
+  if((point(target)->flags&TRAJ_WHEEL_PIVOT) &&
+     (direction*error[2]<=0.0f || (fabsf(error[2])<=1.0f &&
+      distance(pose->x-px(target),pose->y-py(target))>minimum(cpoints[target].pass10*0.1f,2.0f))))
+    coordinate_pivot_recover=1U;
+  if((point(target)->flags&TRAJ_WHEEL_PIVOT) && coordinate_parameters[2]>0.0f) {
+    float join=(point(target)->flags&TRAJ_STOP)?0.0f:
+        minimum(WHEEL_PIVOT_JOIN_MM_S,minimum(coordinate_parameters[3],coordinate_parameters[4]*radius/MECANUM_ROTATION_LEVER_MM))/radius*MECANUM_ROTATION_LEVER_MM;
+    /* 预留响应及OPS滞后期间的转角，提前制动而非越过出口后反向追角。
+     * 与PC同式，仍保留非零衔接、原180deg/s²斜坡、2mm/1deg出口门。 */
+    float accel=0.7f*180.0f*0.0174532925f*minimum(1.0f,coordinate_parameters[2]/9.0f);
+    float lag=accel*0.32f,join_rate=join/MECANUM_ROTATION_LEVER_MM;
+    float braking=(sqrtf(lag*lag+join_rate*join_rate+2.0f*accel*fabsf(error[2])*0.0174532925f)-lag)*MECANUM_ROTATION_LEVER_MM;
+    requested=copysignf(minimum(coordinate_parameters[4],braking),error[2]);
+    if(coordinate_pivot_recover)
+      requested=coordinate_limit(coordinate_parameters[2]*(error[2]-0.12f*coordinate_signed_yaw_rate),
+                                 coordinate_parameters[4],coordinate_parameters[6]);
+  }
+  if(coordinate_pivot_target!=target) {
+    coordinate_pivot_target=target;coordinate_pivot_rate=0.0f;
+    if((point(target)->flags&TRAJ_WHEEL_PIVOT) && coordinate_parameters[2]>0.0f) {
+      float inherited=((ry-cy)*coordinate_command_velocity[0]-(rx-cx)*coordinate_command_velocity[1])/
+          (radius*radius)*MECANUM_ROTATION_LEVER_MM;
+      coordinate_pivot_rate=direction*clamp(inherited*direction,0.0f,coordinate_parameters[4]);
+    }
+  }
+  increment=180.0f*0.0174532925f*MECANUM_ROTATION_LEVER_MM*dt*0.001f;
+  command[2]=clamp(requested,coordinate_pivot_rate-increment,coordinate_pivot_rate+increment);
+  omega=command[2]/MECANUM_ROTATION_LEVER_MM;fx=omega*(ry-cy);fy=-omega*(rx-cx);
+  c=cosf(pose->yaw*0.0174532925f);s=sinf(pose->yaw*0.0174532925f);
+  command[0]+=c*fx-s*fy;command[1]+=s*fx+c*fy;
+  magnitude=fmaxf(fabsf(command[0]),fabsf(command[1]));
+  scale=magnitude>0?minimum(1.0f,coordinate_parameters[3]/magnitude):1.0f;
+  command[0]*=scale;command[1]*=scale;command[2]*=scale;
+  coordinate_pivot_rate=command[2];
+  return 1U;
+}
+
+/* Straight legs adjoining a wheel pivot: acceleration-limited finite-distance
+ * braking, without the asymptotic P approach tail. Cross-track correction is P. */
+static void coordinate_wheel_straight(const TrajPose_t *pose,uint16_t target,uint32_t dt,float command[3])
+{
+  float dx=px(target)-px(cursor),dy=py(target)-py(cursor),span=distance(dx,dy);
+  float tx,ty,c,s,lateral,forward,gain,accel,remaining,desired,previous,along,magnitude,scale,join=0.0f;
+  if(span<0.0001f) return;
+  tx=dx/span;ty=dy/span;c=cosf(pose->yaw*0.0174532925f);s=sinf(pose->yaw*0.0174532925f);
+  lateral=c*tx-s*ty;forward=s*tx+c*ty;
+  gain=coordinate_parameters[0]*lateral*lateral+coordinate_parameters[1]*forward*forward;
+  accel=600.0f*minimum(1.0f,gain/2.3f);
+  remaining=(px(target)-pose->x)*tx+(py(target)-pose->y)*ty;
+  if(!(point(target)->flags&TRAJ_STOP) && target+1U<count &&
+     (point(target+1U)->flags&TRAJ_WHEEL_PIVOT) && coordinate_parameters[2]>0.0f && accel>0.0f) {
+    float radius=distance(px(target)-cpoints[target+1U].center_x10*0.1f,
+                          py(target)-cpoints[target+1U].center_y10*0.1f);
+    join=minimum(WHEEL_PIVOT_JOIN_MM_S,minimum(coordinate_parameters[3],coordinate_parameters[4]*radius/MECANUM_ROTATION_LEVER_MM));
+  }
+  desired=copysignf(minimum(coordinate_parameters[3],sqrtf(join*join+2.0f*0.7f*accel*fabsf(remaining))),remaining);
+  /* 停靠最后20mm及漏过入弯门后的反向修正用P收敛，消除sqrt制动的毫米级来回冲。 */
+  if(((point(target)->flags&TRAJ_STOP) && fabsf(remaining)<20.0f) || remaining<=0.0f)
+    desired=coordinate_limit(gain*remaining,coordinate_parameters[3],coordinate_parameters[5]);
+  previous=coordinate_command_velocity[0]*tx+coordinate_command_velocity[1]*ty;
+  desired=accel>0.0f?clamp(desired,previous-accel*dt*0.001f,previous+accel*dt*0.001f):0.0f;
+  along=command[0]*lateral+command[1]*forward;
+  command[0]+=(desired-along)*lateral;command[1]+=(desired-along)*forward;
+  magnitude=fmaxf(fabsf(command[0]),fabsf(command[1]));
+  scale=magnitude>0?minimum(1.0f,coordinate_parameters[3]/magnitude):1.0f;
+  command[0]*=scale;command[1]*=scale;
+}
+
 static uint8_t coordinate_step(uint32_t now,uint32_t dt,const TrajPose_t *pose,
                                uint8_t fresh,float measured_dt,float velocity[3])
 {
   uint16_t target=initial_stop_gate?0U:(uint16_t)(cursor+1U);
   float gap=distance(px(target)-pose->x,py(target)-pose->y),desired,angle;
   float actual[3],goal[3],gain[3],error[3],command[3],c,s,t,cross,metric,scale;
-  uint8_t stop=(uint8_t)((point(target)->flags&TRAJ_STOP)!=0U);
-  if(!initial_stop_gate && !stop && gap<=cpoints[target].pass10*0.1f &&
-     fabsf(wrap(yaw(target)-pose->yaw))<30.0f) {
+  uint8_t stop=(uint8_t)((point(target)->flags&TRAJ_STOP)!=0U),pivot;
+  float gate=cpoints[target].pass10*0.1f,yaw_gate=30.0f;
+  if(point(target)->flags&TRAJ_PIVOT) { gate=minimum(gate,2.0f);yaw_gate=1.0f; }
+  if(target+1U<count && (point(target+1U)->flags&TRAJ_PIVOT)) yaw_gate=1.0f;
+  if(point(target)->flags&TRAJ_APPROACH_HEADING) yaw_gate=1.0f;
+  if(!initial_stop_gate && !stop && gap<=gate &&
+     fabsf(wrap(yaw(target)-pose->yaw))<yaw_gate) {
     cursor=target++;gap=distance(px(target)-pose->x,py(target)-pose->y);
     stop=(uint8_t)((point(target)->flags&TRAJ_STOP)!=0U);
     coordinate_best_error=1e20f;progress_tick=now;reply();
   }
+  pivot=(uint8_t)(!initial_stop_gate && (point(target)->flags&TRAJ_PIVOT));
   if(initial_stop_gate) {
     if(gap>5.0f || fabsf(wrap(yaw(0)-pose->yaw))>3.0f) { fail(9);return 2U; }
-  } else {
+  } else if(!pivot) {
     cross=segment_distance(cursor,target,pose,&t);
     progress=minimum(ps(count-1),fmaxf(progress,ps(cursor)+t*(ps(target)-ps(cursor))));
     if(cursor>0 && !(point(cursor)->flags&TRAJ_STOP))
       cross=minimum(cross,segment_distance((uint16_t)(cursor-1U),cursor,pose,&t));
     if(cross>75.0f) { fail(13);return 2U; }
   }
-  desired=gap>cpoints[target].lead10*0.1f?cpoints[target].travel100*0.01f:yaw(target);
+  if(coordinate_heading_target!=target) { coordinate_heading_target=target;coordinate_exit_heading=0U; }
+  if(gap<=cpoints[target].lead10*0.1f) coordinate_exit_heading=1U;
+  desired=pivot?yaw(target):coordinate_exit_heading?yaw(target):cpoints[target].travel100*0.01f;
   angle=wrap(desired-pose->yaw);
+  if(pivot) {
+    if(!coordinate_pivot(pose,target,dt,command)) return 2U;
+  } else {
+  coordinate_pivot_target=65535U;coordinate_pivot_rate=0.0f;
   actual[0]=pose->x;actual[1]=pose->y;actual[2]=pose->yaw;
   goal[0]=px(target);goal[1]=py(target);goal[2]=pose->yaw+angle;
   gain[0]=coordinate_parameters[0];gain[1]=coordinate_parameters[1];gain[2]=coordinate_parameters[2];
@@ -362,19 +538,36 @@ static uint8_t coordinate_step(uint32_t now,uint32_t dt,const TrajPose_t *pose,
   command[0]=coordinate_limit(command[0],coordinate_parameters[3],coordinate_parameters[5]);
   command[1]=coordinate_limit(command[1],coordinate_parameters[3],coordinate_parameters[5]);
   command[2]=coordinate_limit(command[2],coordinate_parameters[4],coordinate_parameters[6]);
+  if(!initial_stop_gate && ((point(cursor)->flags&TRAJ_WHEEL_PIVOT) ||
+     (target+1U<count && (point(target+1U)->flags&TRAJ_WHEEL_PIVOT))))
+    coordinate_wheel_straight(pose,target,dt,command);
   if(fabsf(angle)>30.0f) { command[0]*=0.05f;command[1]*=0.05f; }
+  }
   /* 同一严格停车带内四轴输出零，不能把0.2deg噪声放大成10deg/s补角。 */
-  if(stop && gap<=0.5f && fabsf(angle)<=0.3f) command[0]=command[1]=command[2]=0;
+  if(stop && gap<=0.5f && fabsf(angle)<=0.3f) { command[0]=command[1]=command[2]=0;coordinate_pivot_rate=0.0f; }
   scale=fabsf(command[0])+fabsf(command[1])+fabsf(command[2]);
   scale=scale>0?minimum(1.0f,3000.0f/(0.238f*scale)):1.0f;
   c=cosf(pose->yaw*0.0174532925f);s=sinf(pose->yaw*0.0174532925f);
   velocity[0]=(c*command[0]+s*command[1])*scale;
   velocity[1]=(-s*command[0]+c*command[1])*scale;
-  velocity[2]=command[2]*scale/270.0f/0.0174532925f;
+  velocity[2]=command[2]*scale/MECANUM_ROTATION_LEVER_MM/0.0174532925f;
+  coordinate_command_velocity[0]=velocity[0];coordinate_command_velocity[1]=velocity[1];
   coordinate_settle(pose,(uint8_t)(stop && gap<1.0f && fabsf(wrap(yaw(target)-pose->yaw))<1.0f &&
      distance(velocity[0],velocity[1])<=1.0f && fabsf(velocity[2])<=1.0f),fresh,measured_dt);
+  if(dt>0 && now%200U<dt) {
+    control_id=id;control_data[0]=(int32_t)target;
+    control_data[1]=(int32_t)((stop?1U:0U)|(coordinate_exit_heading?2U:0U)|
+                            (pivot?4U:0U)|(pivot && coordinate_pivot_recover?8U:0U)|
+                            (coordinate_settle_active?16U:0U));
+    control_data[2]=(int32_t)lroundf(desired*100.0f);control_data[3]=(int32_t)lroundf(gap*10.0f);
+    control_data[4]=(int32_t)lroundf(velocity[0]*10.0f);control_data[5]=(int32_t)lroundf(velocity[1]*10.0f);
+    control_data[6]=(int32_t)lroundf(velocity[2]*100.0f);
+    control_data[7]=(int32_t)lroundf(coordinate_signed_yaw_rate*100.0f);
+    control_data[8]=(int32_t)settled_ms;++control_generation;control_pending=1U;
+  }
   if(settled_ms>=200U) {
     settled_ms=0;coordinate_settle_active=0U;progress_tick=now;coordinate_best_error=1e20f;
+    coordinate_command_velocity[0]=coordinate_command_velocity[1]=0.0f;
     if(initial_stop_gate) initial_stop_gate=0;
     else {
       cursor=target;progress=ps(cursor);
@@ -426,11 +619,35 @@ uint8_t Traj_Step(uint32_t now,const TrajPose_t *pose,uint8_t allowed,float velo
   if(state==TRAJ_RECEIVING) return 0U;
   if(!pose || !isfinite(pose->x) || !isfinite(pose->y) || !isfinite(pose->yaw) ||
      (uint32_t)(now-pose->pose_tick)>200U) { fail(8);return 2U; }
+  /* User pause freezes the trajectory clock, never OPS/host validity checks. */
+  if(pause_req && (state==TRAJ_RUNNING || state==TRAJ_WAITING)) {
+    pause_req=0U;continue_req=0U;paused_state=state;paused_tick=now;
+    paused_pose[0]=pose->x;paused_pose[1]=pose->y;paused_pose[2]=pose->yaw;
+    Traj_Hold(now);state=TRAJ_PAUSED;reply();return 2U;
+  }
+  if(state==TRAJ_PAUSED) {
+    if(distance(pose->x-paused_pose[0],pose->y-paused_pose[1])>50.0f ||
+       fabsf(wrap(pose->yaw-paused_pose[2]))>15.0f) { fail(11);return 2U; }
+    if(continue_req) {
+      continue_req=0U;run_tick+=(uint32_t)(now-paused_tick);
+      state=paused_state;step_tick=progress_tick=now;
+      pose_tick=pose->pose_tick;pose_sequence=pose->sequence;
+      previous_x=pose->x;previous_y=pose->y;previous_yaw=pose->yaw;
+      speed_measured=yaw_rate_measured=coordinate_signed_yaw_rate=0.0f;
+      coordinate_best_error=1e20f;coordinate_stall_warned=0U;
+      reply();
+    }
+    return 2U;
+  }
   if(state==TRAJ_READY) {
     if(!run_req) return 0U;
     run_req=0;
     if(distance(pose->x-px(0),pose->y-py(0))>5 || fabsf(wrap(pose->yaw-yaw(0)))>3) { fail(9);return 2U; }
     state=TRAJ_RUNNING; cursor=0; progress=0; next_stop();
+    coordinate_pivot_target=65535U;coordinate_pivot_rate=0.0f;
+    coordinate_pivot_recover=coordinate_exit_heading=0U;coordinate_heading_target=65535U;
+    coordinate_signed_yaw_rate=0.0f;
+    coordinate_command_velocity[0]=coordinate_command_velocity[1]=0.0f;
     run_tick=step_tick=progress_tick=now; pose_tick=pose->pose_tick; pose_sequence=pose->sequence;
     previous_x=pose->x;previous_y=pose->y;previous_yaw=pose->yaw;
     best_progress=0;speed_measured=yaw_rate_measured=rotate_rate=path_speed=0;settled_ms=0;
@@ -451,7 +668,8 @@ uint8_t Traj_Step(uint32_t now,const TrajPose_t *pose,uint8_t allowed,float velo
     measured_dt=(uint32_t)(pose->pose_tick-pose_tick)*0.001f;
     if(measured_dt<=0 || measured_dt>0.2f) { fail(8);return 2U; }
     speed_measured=travel/measured_dt;
-    yaw_rate_measured=fabsf(wrap(pose->yaw-previous_yaw))/measured_dt;
+    coordinate_signed_yaw_rate=wrap(pose->yaw-previous_yaw)/measured_dt;
+    yaw_rate_measured=fabsf(coordinate_signed_yaw_rate);
     pose_tick=pose->pose_tick;pose_sequence=pose->sequence;
     previous_x=pose->x;previous_y=pose->y;previous_yaw=pose->yaw;
   }
@@ -594,22 +812,29 @@ uint16_t Traj_PeekReply(char *out,uint16_t capacity,TrajReply_t *token)
 {
   int n;uint32_t mask=__get_PRIMASK(),local_id,local_progress;
   uint32_t local_stall_id;int32_t local_stall[8];
+  uint32_t local_control_id;int32_t local_control[9];
   uint16_t local_received,local_cursor;uint8_t local_state,local_error,local_caps_coordinate;
   __disable_irq();
   if(caps_pending) { token->kind=1;token->generation=caps_generation; }
   else if(stall_pending) { token->kind=3;token->generation=stall_generation; }
   else if(reply_pending) { token->kind=2;token->generation=reply_generation; }
+  else if(control_pending) { token->kind=4;token->generation=control_generation; }
   else { if(!mask)__enable_irq();return 0; }
   local_id=id;local_progress=(uint32_t)(progress*10+0.5f);local_received=received;
   local_cursor=cursor;local_state=state;local_error=error_code;
   local_caps_coordinate=caps_coordinate;
   local_stall_id=stall_id;memcpy(local_stall,stall_data,sizeof(local_stall));
+  local_control_id=control_id;memcpy(local_control,control_data,sizeof(local_control));
   if(!mask)__enable_irq();
-  if(token->kind==1) n=snprintf(out,capacity,"%s 1 %u %u\r\n",local_caps_coordinate?"CCAPS":"TCAPS",
+  if(token->kind==1) n=snprintf(out,capacity,"%s %u %u %u\r\n",local_caps_coordinate?"CCAPS":"TCAPS",(unsigned)(local_caps_coordinate?9U:1U),
     (unsigned)(local_caps_coordinate?COORD_CAPACITY:TRAJ_CAPACITY),(unsigned)TRAJ_WINDOW);
   else if(token->kind==3) n=snprintf(out,capacity,"CSTALL %lu %ld %ld %ld %ld %ld %ld %ld %ld\r\n",
     (unsigned long)local_stall_id,(long)local_stall[0],(long)local_stall[1],(long)local_stall[2],
     (long)local_stall[3],(long)local_stall[4],(long)local_stall[5],(long)local_stall[6],(long)local_stall[7]);
+  else if(token->kind==4) n=snprintf(out,capacity,"CCTRL %lu %ld %ld %ld %ld %ld %ld %ld %ld %ld\r\n",
+    (unsigned long)local_control_id,(long)local_control[0],(long)local_control[1],(long)local_control[2],
+    (long)local_control[3],(long)local_control[4],(long)local_control[5],(long)local_control[6],
+    (long)local_control[7],(long)local_control[8]);
   else n=snprintf(out,capacity,"TSTAT %lu %u %u %u %lu %u\r\n",(unsigned long)local_id,
     (unsigned)local_state,(unsigned)local_received,(unsigned)local_cursor,(unsigned long)local_progress,(unsigned)local_error);
   return n>0 && n<capacity?(uint16_t)n:0;
@@ -620,5 +845,6 @@ void Traj_ReplySent(const TrajReply_t *token)
   if(token->kind==1 && token->generation==caps_generation) caps_pending=0;
   if(token->kind==2 && token->generation==reply_generation) reply_pending=0;
   if(token->kind==3 && token->generation==stall_generation) stall_pending=0;
+  if(token->kind==4 && token->generation==control_generation) control_pending=0;
   if(!mask)__enable_irq();
 }

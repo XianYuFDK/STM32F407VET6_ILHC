@@ -1,0 +1,44 @@
+{
+  "pid": 19828,
+  "started": "2026-10-06T18:19:39.421286+08:00",
+  "complete": true,
+  "jobs": {
+    "cache": {
+      "pid": 33984,
+      "status": "finished",
+      "log": "E:\\STM32\\STM32F407VET6_ILHC\\HostTools\\ILHC_Debugger\\ILHC_Qt_v2\\Docs\\real_control_fix_cache_20261006.log",
+      "returncode": 1,
+      "elapsed_s": 178.372
+    },
+    "headless": {
+      "pid": 54616,
+      "status": "finished",
+      "log": "E:\\STM32\\STM32F407VET6_ILHC\\HostTools\\ILHC_Debugger\\ILHC_Qt_v2\\Docs\\real_control_fix_headless_20261006.log",
+      "returncode": 0,
+      "elapsed_s": 180.332
+    },
+    "qt": {
+      "pid": 20788,
+      "status": "finished",
+      "log": "E:\\STM32\\STM32F407VET6_ILHC\\HostTools\\ILHC_Debugger\\ILHC_Qt_v2\\Docs\\real_control_fix_qt_20261006.log",
+      "returncode": 0,
+      "elapsed_s": 182.451
+    },
+    "coordinate_c": {
+      "pid": 66096,
+      "status": "finished",
+      "log": "E:\\STM32\\STM32F407VET6_ILHC\\HostTools\\ILHC_Debugger\\ILHC_Qt_v2\\Docs\\real_control_fix_coordinate_c_20261006.log",
+      "returncode": 1,
+      "elapsed_s": 34.668
+    },
+    "legacy_c": {
+      "pid": 18672,
+      "status": "finished",
+      "log": "E:\\STM32\\STM32F407VET6_ILHC\\HostTools\\ILHC_Debugger\\ILHC_Qt_v2\\Docs\\real_control_fix_legacy_c_20261006.log",
+      "returncode": 0,
+      "elapsed_s": 65.335
+    }
+  },
+  "finished": "2026-10-06T18:30:20.588592+08:00",
+  "returncode": 1
+}

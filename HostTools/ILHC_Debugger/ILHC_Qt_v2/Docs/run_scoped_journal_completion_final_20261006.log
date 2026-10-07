@@ -1,0 +1,22 @@
+test_actual_controller_snapshot_is_separate_from_reconstructed_heading_and_expires (tests.test_run_journal.JournalTests.test_actual_controller_snapshot_is_separate_from_reconstructed_heading_and_expires) ... ok
+test_analysis_matches_progress_and_fields_without_crossing_paths (tests.test_run_journal.JournalTests.test_analysis_matches_progress_and_fields_without_crossing_paths) ... ok
+test_capture_before_gui_queue_overflow_crc_rejection_and_raw_bytes (tests.test_run_journal.JournalTests.test_capture_before_gui_queue_overflow_crc_rejection_and_raw_bytes) ... ok
+test_disk_failure_does_not_raise_on_observer_or_write_motion (tests.test_run_journal.JournalTests.test_disk_failure_does_not_raise_on_observer_or_write_motion) ... ok
+test_full_queue_still_saves_end_without_waiting_for_writer (tests.test_run_journal.JournalTests.test_full_queue_still_saves_end_without_waiting_for_writer) ... ok
+test_idle_creates_no_files_and_finished_run_cannot_grow (tests.test_run_journal.JournalTests.test_idle_creates_no_files_and_finished_run_cannot_grow) ... ok
+test_serial_short_write_is_failure_not_success (tests.test_run_journal.JournalTests.test_serial_short_write_is_failure_not_success) ... ok
+test_sessions_and_runs_separate_and_nan_is_explicit_null (tests.test_run_journal.JournalTests.test_sessions_and_runs_separate_and_nan_is_explicit_null) ... ok
+test_simulation_uses_model_time_not_fast_offline_host_time (tests.test_run_journal.JournalTests.test_simulation_uses_model_time_not_fast_offline_host_time) ... ok
+test_waiting_station_does_not_use_next_leg_as_active_target (tests.test_run_journal.JournalTests.test_waiting_station_does_not_use_next_leg_as_active_target) ... ok
+test_wrap_clock_rollover_restart_and_irregular_device_timing (tests.test_run_journal.JournalTests.test_wrap_clock_rollover_restart_and_irregular_device_timing) ... ok
+test_batch_initial_stop_does_not_end_run_and_pause_keeps_recording (tests.test_run_journal_qt.JournalQtTests.test_batch_initial_stop_does_not_end_run_and_pause_keeps_recording) ... ok
+test_manual_command_starts_run_and_zero_ends_it (tests.test_run_journal_qt.JournalQtTests.test_manual_command_starts_run_and_zero_ends_it) ... ok
+test_user_stop_ends_real_and_sim_logs_without_disconnect_and_restart_is_new (tests.test_run_journal_qt.JournalQtTests.test_user_stop_ends_real_and_sim_logs_without_disconnect_and_restart_is_new) ... ok
+test_zero_manual_while_idle_does_not_create_a_run (tests.test_run_journal_qt.JournalQtTests.test_zero_manual_while_idle_does_not_create_a_run) ... ok
+test_continuous_arc_tracks_to_final_stop_and_draws_four_layers (test_map_click_qt.MapClickQtTests.test_continuous_arc_tracks_to_final_stop_and_draws_four_layers) ... ok
+test_one_key_complete_match_both_start_zones_and_real_json_export (test_map_click_qt.MapClickQtTests.test_one_key_complete_match_both_start_zones_and_real_json_export) ... ok
+
+----------------------------------------------------------------------
+Ran 17 tests in 7.919s
+
+OK

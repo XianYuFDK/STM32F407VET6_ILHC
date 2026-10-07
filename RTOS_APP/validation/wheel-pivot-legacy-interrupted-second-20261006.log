@@ -1,0 +1,7 @@
+Trajectory parameter SET/GET, range and busy gates passed
+PASS: 16-field mapping, restore, IRQ boundaries, save ACK, fault isolation; no motion dependencies
+Param readback reply format, queue and gate tests passed
+PASS: task ownership, creation failure, ISR startup, queue faults, STOP deadline, overrun/wrap, RX budget, Flash unlock, 1Hz stats
+test_clicked_path_upload_once_initial_rotation_and_local_execution (test_trajectory_buffer.TrajectoryFirmwareTests.test_clicked_path_upload_once_initial_rotation_and_local_execution) ... ok
+test_crc_count_sequence_and_shape_fail_closed (test_trajectory_buffer.TrajectoryFirmwareTests.test_crc_count_sequence_and_shape_fail_closed) ... ok
+test_duplicates_cannot_change_content_or_replay_start (test_trajectory_buffer.TrajectoryFirmwareTests.test_duplicates_cannot_change_content_or_replay_start) ... ok

@@ -152,9 +152,20 @@ static uint32_t s_processing_tick;
 static uint32_t tick=1234U;
 static uint32_t HAL_GetTick(void) { return tick; }
 '''
+ops_header=(ROOT/'Hardware/ops.h').read_text(encoding='utf-8')
+diagnostic_types=ops_header[ops_header.index('#define OPS_FAULT_SESSION_ID'):ops_header.index('/* ---------------------------- 对外接口')]
+diagnostic_state=OPS[OPS.index('#define OPS_FAULT_SLOTS'):OPS.index('/* IRQ内仅冻结整数快照')]
+prelude+='\n'+diagnostic_types+'\n'+diagnostic_state+'\n'
+prelude+='\n'+re.search(r'/\* 短时传输错误.*?static uint32_t s_transport_uart_error;',OPS,re.S).group(0)+'\n'
 
 functions = [
     "OPS_ReceiveTick",
+    "OPS_RecordFault",
+    "OPS_PeekFault",
+    "OPS_FaultSent",
+    "OPS_GetDiagnostics",
+    "OPS_RecoveryPending",
+    "OPS_ConsumeSessionChanged",
     "OPS_CalcCRC8",
     "OPS_VerifyCRC8",
     "OPS_CalcCRC16",
@@ -273,6 +284,28 @@ int main(void)
     assert(s_ops.session_changed && s_ops.pose_valid);
   }
   puts("OPS protocol: V2 flags/CRC16, split stream, noise resync, CRC retry, V1 and session passed");
+  /* 真实发布函数冻结每项原因，保留前后字段；消费错误ID不得丢记录。 */
+  s_fault_count=s_fault_read=s_fault_write=0;s_diagnostic_drops=0;
+  memset(&s_ops,0,sizeof(s_ops));s_continuity_lost=s_session_pending=0;tick=1500;
+  feed(valid_v2,sizeof(valid_v2));
+  { OPS_Frame_t f=s_ops.frame;OPS_Fault_t d;OPS_Diagnostics_t snap;
+    uint32_t old_session=f.session_id,old_time=f.timestamp_ms;
+    f.session_id++;f.seq++;f.timestamp_ms++;OPS_PublishFrame(&f,1);
+    assert(OPS_PeekFault(&d)&&d.reason==OPS_FAULT_SESSION_ID);
+    assert(d.previous_session==old_session&&d.session==f.session_id&&d.previous_timestamp==old_time);
+    OPS_FaultSent(d.id+1);assert(OPS_PeekFault(&d));OPS_FaultSent(d.id);assert(!OPS_PeekFault(&d));
+    f.seq++;f.timestamp_ms--;tick++;OPS_PublishFrame(&f,1);
+    assert(OPS_PeekFault(&d)&&d.reason==OPS_FAULT_TIMESTAMP_BACK);OPS_FaultSent(d.id);
+    f.seq++;f.timestamp_ms+=250;tick+=250;OPS_PublishFrame(&f,1);
+    assert(OPS_PeekFault(&d)&&d.reason==OPS_FAULT_FRAME_GAP&&d.gap_ms==250);OPS_FaultSent(d.id);
+    f.seq++;f.timestamp_ms++;tick++;f.flags|=OPS_FLAG_IMU_REBASED;OPS_PublishFrame(&f,1);
+    assert(OPS_PeekFault(&d)&&d.reason==OPS_FAULT_IMU_REBASED&&(d.flags&4)&&!s_ops.pose_valid);OPS_FaultSent(d.id);
+    feed(valid_v1,sizeof(valid_v1));assert(OPS_PeekFault(&d)&&d.reason==OPS_FAULT_PROTOCOL_V1);OPS_FaultSent(d.id);
+    for(unsigned i=0;i<6;i++)OPS_RecordFault(OPS_FAULT_UART,NULL,0,0,8);
+    OPS_GetDiagnostics(&snap);assert(snap.diagnostic_drops==2);
+    for(unsigned i=0;i<4;i++){assert(OPS_PeekFault(&d)&&d.uart_error==8);OPS_FaultSent(d.id);}
+    assert(!OPS_PeekFault(&d));
+  }
   return 0;
 }
 ''' % (
@@ -288,8 +321,14 @@ rx_prelude=r'''
 #define USART2 ((void *)2)
 #define HAL_OK 0
 #define HAL_ERROR 1
-typedef struct {void *Instance;} UART_HandleTypeDef;
-static UART_HandleTypeDef huart2={USART2};
+#define UART_IT_ERR 1
+#define UART_IT_PE 2
+#define UART_IT_IDLE 4
+#define UART_IT_RXNE 8
+#define __HAL_UART_DISABLE_IT(h,i) ((void)(h),(void)(i))
+#define __HAL_UART_CLEAR_PEFLAG(h) ((void)(h))
+typedef struct {void *Instance;uint32_t ErrorCode;} UART_HandleTypeDef;
+static UART_HandleTypeDef huart2={USART2,0U};
 static uint8_t s_rx_buf[OPS_RX_BUFFER_SIZE],s_rx_copy[OPS_RX_BUFFER_SIZE],s_rx_recover;
 static uint32_t irq_mask,comm_notifications,control_notifications,restarts;
 static int restart_result,inject_rx_error;
@@ -329,6 +368,14 @@ queued_check=r'''
   restart_result=HAL_ERROR;s_ops.pose_valid=1;HAL_UARTEx_RxEventCallback(&huart2,sizeof(valid_v1));
   assert(s_rx_recover&&!s_ops.pose_valid&&!APP_RX_Pending());
   s_ops.pose_valid=1;HAL_UART_ErrorCallback(&huart2);assert(!s_ops.pose_valid&&s_rx_recover);
+  { OPS_Diagnostics_t snap;OPS_Fault_t d;uint32_t reasons=0;
+    while(OPS_PeekFault(&d)){reasons|=d.reason;OPS_FaultSent(d.id);}
+    OPS_GetDiagnostics(&snap);
+    assert(snap.uart_errors>=2&&snap.stale_packets==1&&snap.restart_failures==1&&snap.rx_overflows==1);
+    assert(reasons&OPS_FAULT_RX_OVERFLOW);
+    s_rx_recover=0;huart2.ErrorCode=8;HAL_UART_ErrorCallback(&huart2);
+    assert(OPS_PeekFault(&d)&&d.reason==OPS_FAULT_UART&&d.uart_error==8);OPS_FaultSent(d.id);
+  }
   puts("OPS任务接收：ISR不解析、分包、接收时间、过期、溢出、DMA重启失败与失效唤醒通过");
 '''
 check=check.replace('  return 0;',queued_check+'  return 0;')

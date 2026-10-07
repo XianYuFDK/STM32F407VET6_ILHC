@@ -1,0 +1,6 @@
+test_qt_float_readback_reuses_cli_integer_margin_cache (tests.test_right_crane_qt.RightCraneQtTests.test_qt_float_readback_reuses_cli_integer_margin_cache) ... ok
+
+----------------------------------------------------------------------
+Ran 1 test in 0.278s
+
+OK
